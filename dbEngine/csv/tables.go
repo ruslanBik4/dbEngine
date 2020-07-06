@@ -65,7 +65,7 @@ func (t *Table) FindColumn(name string) dbEngine.Column {
 }
 
 func (t *Table) FindIndex(name string) *dbEngine.Index {
-	panic("implement me")
+	return nil
 }
 
 func (t *Table) GetColumns(ctx context.Context) error {
