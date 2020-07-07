@@ -6,7 +6,6 @@ package _go
 
 import (
 	"fmt"
-	"go/types"
 	"os"
 	"path"
 	"strings"
@@ -59,7 +58,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		if strings.HasPrefix(col.Type(), "_") {
 			typeCol = "[]" + typeCol
 		}
-		if bTypeCol == types.UnsafePointer {
+		if bTypeCol < 0 {
 			typeCol = "sql.RawBytes"
 		}
 
