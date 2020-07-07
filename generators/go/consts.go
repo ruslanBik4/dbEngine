@@ -19,7 +19,7 @@ import (
 `
 	typeTitle = `type %s struct {
 	dbEngine.Table
-	sql.Rows
+	rows sql.Rows
 	*%[1]sFields
 }
 
@@ -28,8 +28,8 @@ type %[1]sFields struct {
 	colFormat = `
 	%s %s`
 	caseFormat = `
-		case "%s":
-			v[i] = &f.%s
+	case "%s":
+		return &t.%sFields.%s
 `
 	footer = `
 }
@@ -49,26 +49,28 @@ func (t *%[1]s) GetNewFields() *%[1]sFields{
    return &%[1]sFields{}
 }
 
+func (t *%[1]s) GetColValue(name string) interface{}{
+	switch name {	%[3]s
+   	default:
+		return nil
+	}
+}
+
 func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
-		columns = t.Table.Columns()
+		columns = t.Columns()
 	}
 
-	f := %[1]sFields{}
+	t.%[1]sFields = &%[1]sFields{}
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
-		switch name := col.Name(); name { %[3]s
-		default:
-			panic("not implement scan for field " + name)
-		}
+		v[i] = t.GetColValue( col.Name() )
 	}
-
-	t.%[1]sFields = &f
 
 	return v
 }
 	
-func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func() error, Options ...BuildSqlOptions) error {
+func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func() error, Options ...dbEngine.BuildSqlOptions) error {
 	return t.SelectAndScanEach(ctx, each, t, Options ... )
 }
 `
