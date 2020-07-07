@@ -8,7 +8,6 @@ require (
 	github.com/jackc/pgx/v4 v4.7.1
 	github.com/pkg/errors v0.9.1
 	github.com/ruslanBik4/httpgo v1.0.327
-	github.com/segmentio/go-camelcase v0.0.0-20160726192923-7085f1e3c734
 	github.com/stretchr/testify v1.6.1
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344
 )
