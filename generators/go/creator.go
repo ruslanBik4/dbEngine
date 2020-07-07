@@ -64,7 +64,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}
 
 		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol)
-		caseFields += fmt.Sprintf(caseFormat, col.Name(), name, strings.Title(col.Name()))
+		caseFields += fmt.Sprintf(caseFormat, col.Name(), strings.Title(col.Name()))
 	}
 
 	_, err = fmt.Fprintf(f, footer, name, table.Name(), caseFields)

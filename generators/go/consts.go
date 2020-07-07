@@ -19,7 +19,7 @@ import (
 	typeTitle = `type %s struct {
 	dbEngine.Table
 	sql.Rows
-	%[1]sFields
+	*%[1]sFields
 }
 
 type %[1]sFields struct {
@@ -28,16 +28,17 @@ type %[1]sFields struct {
 	%s %s`
 	caseFormat = `
 		case "%s":
-			v[i] = &%s.%s
+			v[i] = &f.%s
 `
 	footer = `
 }
 
-func New%s( db *dbEngine.DB) *%[1]s {
+func New%s( db *dbEngine.DB) (*%[1]s, error) {
 	table, ok := db.Tables["%s"]
     if !ok {
-      return nil
+      return dbEngine.ErrNotFoundTable{Table: %[1]s}
     }
+
     return &%[1]s{
 		Table: table,
     }
@@ -48,7 +49,7 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 		columns = t.Columns()
 	}
 
-	t.%[1]sFields = &%[1]sFields{}
+	f := %[1]sFields{}
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
 		switch name := col.Name(); name { %[3]s
@@ -56,6 +57,8 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 			panic("not implement scan for field " + name)
 		}
 	}
+
+	t.%[1]sFields = &f
 
 	return v
 }
