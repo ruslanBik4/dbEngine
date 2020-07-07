@@ -33,7 +33,8 @@ func NewCreator(dst string) (*Creator, error) {
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	name := strings.Title(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
-	if err != nil && err != os.ErrExist {
+	if err != nil && !os.IsExist(err) {
+		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
 	}
 

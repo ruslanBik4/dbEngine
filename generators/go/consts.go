@@ -18,6 +18,7 @@ import (
 `
 	typeTitle = `type %s struct {
 	dbEngine.Table
+	sql.Rows
 	%[1]sFields
 }
 
@@ -47,7 +48,7 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 		columns = t.Columns()
 	}
 
-	y.%[1]sFields = &%[1]sFields{}
+	t.%[1]sFields = &%[1]sFields{}
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
 		switch name := col.Name(); name { %[3]s
@@ -57,5 +58,10 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	}
 
 	return v
-}`
+}
+	
+func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func() error, Options ...BuildSqlOptions) error {
+	return t.SelectAndScanEach(ctx, each, t, Options ... )
+}
+`
 )
