@@ -24,7 +24,7 @@ type Creator struct {
 func NewCreator(dst string) (*Creator, error) {
 	err := os.Mkdir(dst, os.ModePerm)
 
-	if err != nil && err != os.ErrExist {
+	if err != nil && !os.IsExist(err) {
 		return nil, errors.Wrap(err, "mkDirAll")
 	}
 

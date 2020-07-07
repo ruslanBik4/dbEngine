@@ -13,6 +13,7 @@ import (
 	"database/sql"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
+	"golang.org/x/net/context"
 )
 
 `
@@ -36,12 +37,12 @@ type %[1]sFields struct {
 func New%s( db *dbEngine.DB) (*%[1]s, error) {
 	table, ok := db.Tables["%s"]
     if !ok {
-      return dbEngine.ErrNotFoundTable{Table: %[1]s}
+      return nil, dbEngine.ErrNotFoundTable{Table: "%[2]s"}
     }
 
     return &%[1]s{
 		Table: table,
-    }
+    }, nil
 }
 
 func (t *%[1]s) GetNewFields() *%[1]sFields{
@@ -50,7 +51,7 @@ func (t *%[1]s) GetNewFields() *%[1]sFields{
 
 func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
-		columns = t.Columns()
+		columns = t.Table.Columns()
 	}
 
 	f := %[1]sFields{}
