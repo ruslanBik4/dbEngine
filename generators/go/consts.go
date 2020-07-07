@@ -44,6 +44,10 @@ func New%s( db *dbEngine.DB) (*%[1]s, error) {
     }
 }
 
+func (t *%[1]s) GetNewFields() *%[1]sFields{
+   return &%[1]sFields{}
+}
+
 func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
 		columns = t.Columns()
