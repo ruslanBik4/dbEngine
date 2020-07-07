@@ -34,6 +34,9 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "initConn")
 			}
+			if doRead, ok = ctx.Value("makeStruct").(bool); ok && doRead {
+
+			}
 		}
 		if mPath, ok := ctx.Value("migration").(string); ok {
 			err = filepath.Walk(filepath.Join(mPath, "table"), db.ReadTableSQL)
@@ -126,6 +129,7 @@ type Column interface {
 	Comment() string
 	Name() string
 	AutoIncrement() bool
+	IsNullable() bool
 	Default() string
 	Primary() bool
 	Type() string

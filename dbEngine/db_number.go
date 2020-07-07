@@ -10,11 +10,15 @@ import (
 
 type NumberColumn struct {
 	comment, name   string
-	req, IsNullable bool
+	req, isNullable bool
 }
 
 func (c *NumberColumn) AutoIncrement() bool {
 	return false
+}
+
+func (c *NumberColumn) IsNullable() bool {
+	return c.isNullable
 }
 
 func (c *NumberColumn) Default() string {
@@ -62,5 +66,5 @@ func (c *NumberColumn) BasicTypeInfo() types.BasicInfo {
 }
 
 func (c *NumberColumn) SetNullable(f bool) {
-	c.IsNullable = f
+	c.isNullable = f
 }

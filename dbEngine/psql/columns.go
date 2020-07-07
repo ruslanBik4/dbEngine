@@ -19,13 +19,17 @@ type Column struct {
 	name                   string
 	DataType               string
 	ColumnDefault          string
-	IsNullable             bool
+	isNullable             bool
 	CharacterSetName       string
 	comment                string
 	UdtName                string
 	characterMaximumLength int
 	PrimaryKey             bool
 	IsHidden               bool
+}
+
+func (c *Column) IsNullable() bool {
+	return c.isNullable
 }
 
 func (c *Column) AutoIncrement() bool {
@@ -45,7 +49,7 @@ func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 		case "column_default":
 			v[i] = &c.ColumnDefault
 		case "is_nullable":
-			v[i] = &c.IsNullable
+			v[i] = &c.isNullable
 		case "character_set_name":
 			v[i] = &c.CharacterSetName
 		case "character_maximum_length":
@@ -72,7 +76,7 @@ func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault
 		name:                   name,
 		DataType:               dataType,
 		ColumnDefault:          columnDefault,
-		IsNullable:             isNullable,
+		isNullable:             isNullable,
 		CharacterSetName:       characterSetName,
 		comment:                comment,
 		UdtName:                udtName,
@@ -147,9 +151,9 @@ var dataTypeAlias = map[string][]string{
 func (c *Column) CheckAttr(fieldDefine string) (res string) {
 	fieldDefine = strings.ToLower(fieldDefine)
 	isMayNull := strings.Contains(fieldDefine, isNotNullable)
-	if c.IsNullable && isMayNull {
+	if c.isNullable && isMayNull {
 		res += " is nullable "
-	} else if !c.IsNullable && !isMayNull {
+	} else if !c.isNullable && !isMayNull {
 		res += " is not nullable "
 	}
 
@@ -196,9 +200,9 @@ func (c *Column) Type() string {
 }
 
 func (c *Column) Required() bool {
-	return !c.IsNullable && ((c.ColumnDefault == "") || (c.ColumnDefault == "NULL"))
+	return !c.isNullable && ((c.ColumnDefault == "") || (c.ColumnDefault == "NULL"))
 }
 
 func (c *Column) SetNullable(f bool) {
-	c.IsNullable = f
+	c.isNullable = f
 }

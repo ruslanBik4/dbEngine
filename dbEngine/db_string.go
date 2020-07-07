@@ -6,11 +6,15 @@ import (
 
 type StringColumn struct {
 	comment, name   string
-	req, IsNullable bool
+	req, isNullable bool
 }
 
 func (s *StringColumn) AutoIncrement() bool {
 	return false
+}
+
+func (c *StringColumn) IsNullable() bool {
+	return c.isNullable
 }
 
 func (s *StringColumn) Default() string {
@@ -58,7 +62,7 @@ func (s *StringColumn) CharacterMaximumLength() int {
 }
 
 func (c *StringColumn) SetNullable(f bool) {
-	c.IsNullable = f
+	c.isNullable = f
 }
 
 func SimpleColumns(names ...string) []Column {

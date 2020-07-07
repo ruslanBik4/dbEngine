@@ -287,7 +287,7 @@ func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDesc
 		values[1].(string),
 		//ColumnDefault:
 		values[2].(string),
-		//IsNullable:
+		//isNullable:
 		values[3].(bool),
 		//CharacterSetName:
 		values[4].(string),

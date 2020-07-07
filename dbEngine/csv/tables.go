@@ -8,6 +8,7 @@ import (
 	"encoding/csv"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -23,13 +24,19 @@ type Table struct {
 	csv      *csv.Reader
 }
 
-func (t *Table) InitConn(ctx context.Context, filePath string) error {
+func NewTable(filePath string) (*Table, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		return errors.Wrap(err, "os.Open "+filePath)
+		return nil, errors.Wrap(err, "os.Open "+filePath)
 	}
-	t.csv = csv.NewReader(f)
-	t.fileName = path.Base(filePath)
+
+	return &Table{
+		csv:      csv.NewReader(f),
+		fileName: strings.Split(path.Base(filePath), ".")[0],
+	}, nil
+}
+
+func (t *Table) InitConn(ctx context.Context, filePath string) error {
 
 	return t.GetColumns(ctx)
 }
@@ -76,7 +83,7 @@ func (t *Table) GetColumns(ctx context.Context) error {
 
 	t.columns = make([]dbEngine.Column, len(rec))
 	for i, name := range rec {
-		t.columns[i] = dbEngine.NewStringColumn(name, "", false)
+		t.columns[i] = dbEngine.NewStringColumn(strings.TrimSpace(name), "", false)
 	}
 
 	return nil
