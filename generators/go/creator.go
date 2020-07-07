@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/ruslanBik4/httpgo/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -31,7 +32,7 @@ func NewCreator(dst string) (*Creator, error) {
 
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	name := strings.Title(table.Name())
-	f, err := os.Create(path.Join(c.dst, name) + ".go")
+	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
 	if err != nil && err != os.ErrExist {
 		return errors.Wrap(err, "creator")
 	}
@@ -48,9 +49,12 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 	caseFields := ""
 	for _, col := range table.Columns() {
-		typeCol := strings.TrimSpace(col.Type())
+		typeCol := strings.TrimSpace(typesExt.Basic(col.BasicType()).String())
 		if col.IsNullable() {
-			typeCol = "sql.Null" + typeCol
+			typeCol = "sql.Null" + strings.Title(typeCol)
+		}
+		if strings.HasPrefix(col.Type(), "_") {
+			typeCol = "[]" + typeCol
 		}
 
 		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol)

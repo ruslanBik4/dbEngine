@@ -18,12 +18,16 @@ import (
 `
 	typeTitle = `type %s struct {
 	dbEngine.Table
+	%[1]sFields
+}
+
+type %[1]sFields struct {
 `
 	colFormat = `
 	%s %s`
 	caseFormat = `
 		case "%s":
-			%s.%s
+			v[i] = &%s.%s
 `
 	footer = `
 }
@@ -43,6 +47,7 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 		columns = t.Columns()
 	}
 
+	y.%[1]sFields = &%[1]sFields{}
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
 		switch name := col.Name(); name { %[3]s
