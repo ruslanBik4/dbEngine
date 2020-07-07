@@ -6,6 +6,7 @@ package _go
 
 import (
 	"fmt"
+	"go/types"
 	"os"
 	"path"
 	"strings"
@@ -50,12 +51,16 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 	caseFields := ""
 	for _, col := range table.Columns() {
-		typeCol := strings.TrimSpace(typesExt.Basic(col.BasicType()).String())
+		bTypeCol := col.BasicType()
+		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 		if col.IsNullable() {
 			typeCol = "sql.Null" + strings.Title(typeCol)
 		}
 		if strings.HasPrefix(col.Type(), "_") {
 			typeCol = "[]" + typeCol
+		}
+		if bTypeCol == types.UnsafePointer {
+			typeCol = "sql.RawBytes"
 		}
 
 		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol)
