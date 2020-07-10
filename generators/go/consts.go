@@ -18,9 +18,9 @@ import (
 
 `
 	typeTitle = `type %s struct {
+	*%[1]sFields
 	dbEngine.Table
 	rows sql.Rows
-	*%[1]sFields
 }
 
 type %[1]sFields struct {
@@ -29,7 +29,7 @@ type %[1]sFields struct {
 	%s %s`
 	caseFormat = `
 	case "%s":
-		return &t.%sFields.%s
+		return &t.%s
 `
 	footer = `
 }
