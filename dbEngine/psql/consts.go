@@ -14,7 +14,7 @@ const (
 	sqlFuncList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
 					FROM INFORMATION_SCHEMA.routines
 					WHERE specific_schema = 'public'`
-	sqlGetTablesColumns = `SELECT c.column_name, data_type, COALESCE(column_default, 'NULL'),
+	sqlGetTablesColumns = `SELECT c.column_name, data_type, COALESCE(column_default, ''),
 								is_nullable='YES', COALESCE(character_set_name, ''),
 								COALESCE(character_maximum_length, -1), udt_name,
 								k.constraint_name, k.position_in_unique_constraint is null,
@@ -26,12 +26,12 @@ const (
 							WHERE c.table_schema='public' AND c.table_name=$1`
 	sqlGetFuncParams = `SELECT parameter_name, data_type, udt_name,
 		COALESCE(CHARACTER_SET_NAME, ''),
-		COALESCE(CHARACTER_MAXIMUM_LENGTH, -1), COALESCE(parameter_default, 'NULL'),
+		COALESCE(CHARACTER_MAXIMUM_LENGTH, -1), COALESCE(parameter_default, ''),
 		ordinal_position, parameter_mode
 		FROM INFORMATION_SCHEMA.parameters
 		WHERE specific_schema='public' AND specific_name=$1`
 	sqlGetColumnAttr = `SELECT data_type, 
-							COALESCE(column_default, 'NULL') as column_default,
+							COALESCE(column_default, '') as column_default,
 							is_nullable='YES' as is_nullable, 
 							COALESCE(character_set_name, '') as character_set_name,
 							COALESCE(character_maximum_length, -1) as character_maximum_length, 
