@@ -7,16 +7,17 @@ package dbEngine
 import (
 	"fmt"
 	"strings"
+
+	"github.com/ruslanBik4/httpgo/logs"
 )
 
 type SQLBuilder struct {
-	Args          []interface{}
-	columns       []string
-	filter        []string
-	posFilter     int
-	Table         Table
-	SelectColumns []Column
-	onConflict    string
+	Args       []interface{}
+	columns    []string
+	filter     []string
+	posFilter  int
+	Table      Table
+	onConflict string
 }
 
 func (b SQLBuilder) InsertSql() (string, error) {
@@ -77,13 +78,39 @@ func (b SQLBuilder) SelectSql() (string, error) {
 	return "SELECT " + b.Select() + " FROM " + b.Table.Name() + b.Where(), nil
 }
 
+func (b *SQLBuilder) SelectColumns() []Column {
+	if b.Table == nil {
+		return nil
+	}
+
+	if len(b.columns) == 0 {
+		selectColumns := make([]Column, len(b.Table.Columns()))
+		for i, col := range b.Table.Columns() {
+			selectColumns[i] = col
+		}
+
+		return selectColumns
+
+	}
+	selectColumns := make([]Column, len(b.columns))
+	for i, name := range b.columns {
+		if col := b.Table.FindColumn(name); col == nil {
+			logs.ErrorLog(NewErrNotFoundColumn(b.Table.Name(), name))
+			return nil
+		} else {
+			selectColumns[i] = col
+		}
+	}
+
+	return selectColumns
+}
+
 func (b *SQLBuilder) Select() string {
 	if len(b.columns) == 0 {
-		if b.Table != nil {
-			b.SelectColumns = make([]Column, len(b.Table.Columns()))
+		if b.Table != nil && len(b.Table.Columns()) > 0 {
+			b.columns = make([]string, len(b.Table.Columns()))
 			for i, col := range b.Table.Columns() {
-				b.columns = append(b.columns, col.Name())
-				b.SelectColumns[i] = col
+				b.columns[i] = col.Name()
 			}
 		} else {
 			// todo - chk for insert request
@@ -169,17 +196,6 @@ type BuildSqlOptions func(b *SQLBuilder) error
 
 func ColumnsForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
-
-		if b.Table != nil {
-			b.SelectColumns = make([]Column, len(columns))
-			for i, name := range columns {
-				if col := b.Table.FindColumn(name); col == nil {
-					return NewErrNotFoundColumn(b.Table.Name(), name)
-				} else {
-					b.SelectColumns[i] = col
-				}
-			}
-		}
 
 		b.columns = columns
 

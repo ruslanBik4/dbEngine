@@ -183,7 +183,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 	return t.conn.SelectAndRunEach(
 		ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
-			return each(values, b.SelectColumns)
+			return each(values, b.SelectColumns())
 		},
 		sql,
 		b.Args...)

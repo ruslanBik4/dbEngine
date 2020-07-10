@@ -9,6 +9,7 @@ import (
 )
 
 type tableString struct {
+	columns []Column
 }
 
 func (t tableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
@@ -16,7 +17,7 @@ func (t tableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (in
 }
 
 func (t tableString) Columns() []Column {
-	panic("implement me")
+	return t.columns
 }
 
 func (t tableString) FindColumn(name string) Column {

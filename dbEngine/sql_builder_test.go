@@ -54,12 +54,11 @@ func TestColumnsForSelect(t *testing.T) {
 
 func TestSQLBuilder_InsertSql(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
-		columns       []string
-		filter        []string
-		posFilter     int
-		Table         Table
-		SelectColumns []Column
+		Args      []interface{}
+		columns   []string
+		filter    []string
+		posFilter int
+		Table     Table
 	}
 	tests := []struct {
 		name    string
@@ -76,7 +75,6 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 				nil,
 				0,
 				tableString{},
-				nil,
 			},
 			"INSERT INTO StringTable(last_login) VALUES ($1)",
 			false,
@@ -89,7 +87,6 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 				nil,
 				0,
 				tableString{},
-				nil,
 			},
 			"INSERT INTO StringTable(last_login,name) VALUES ($1,$2)",
 			false,
@@ -102,7 +99,6 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 				nil,
 				0,
 				tableString{},
-				nil,
 			},
 			"INSERT INTO StringTable(last_login,name) VALUES ($1,$2)",
 			false,
@@ -115,7 +111,6 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 				[]string{"id", "id_roles"},
 				0,
 				tableString{},
-				nil,
 			},
 			"",
 			true,
@@ -124,12 +119,11 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			got, err := b.InsertSql()
 			if (err != nil) != tt.wantErr {
@@ -210,12 +204,11 @@ func TestSQLBuilder_Select(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			if got := b.Select(); got != tt.want {
 				t.Errorf("Select() = %v, want %v", got, tt.want)
@@ -322,12 +315,11 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			got, err := b.SelectSql()
 			assert.Equal(t, tt.wantErr, (err != nil), "SelectSql() error = %v, wantErr %v")
@@ -356,12 +348,11 @@ func TestSQLBuilder_Set(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			if got := b.Set(); got != tt.want {
 				t.Errorf("Set() = %v, want %v", got, tt.want)
@@ -442,12 +433,11 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			got, err := b.UpdateSql()
 			if (err != nil) != tt.wantErr {
@@ -480,12 +470,11 @@ func TestSQLBuilder_Where(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			if got := b.Where(); got != tt.want {
 				t.Errorf("Where() = %v, want %v", got, tt.want)
@@ -513,12 +502,11 @@ func TestSQLBuilder_values(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &SQLBuilder{
-				Args:          tt.fields.Args,
-				columns:       tt.fields.columns,
-				filter:        tt.fields.filter,
-				posFilter:     tt.fields.posFilter,
-				Table:         tt.fields.Table,
-				SelectColumns: tt.fields.SelectColumns,
+				Args:      tt.fields.Args,
+				columns:   tt.fields.columns,
+				filter:    tt.fields.filter,
+				posFilter: tt.fields.posFilter,
+				Table:     tt.fields.Table,
 			}
 			if got := b.values(); got != tt.want {
 				t.Errorf("values() = %v, want %v", got, tt.want)
