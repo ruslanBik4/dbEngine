@@ -79,7 +79,16 @@ func (b SQLBuilder) SelectSql() (string, error) {
 
 func (b *SQLBuilder) Select() string {
 	if len(b.columns) == 0 {
-		return "*"
+		if b.Table != nil {
+			b.SelectColumns = make([]Column, len(b.Table.Columns()))
+			for i, col := range b.Table.Columns() {
+				b.columns = append(b.columns, col.Name())
+				b.SelectColumns[i] = col
+			}
+		} else {
+			// todo - chk for insert request
+			return "*"
+		}
 	}
 
 	return strings.Join(b.columns, ",")

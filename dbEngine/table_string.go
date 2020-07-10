@@ -11,6 +11,10 @@ import (
 type tableString struct {
 }
 
+func (t tableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
+	panic("implement me")
+}
+
 func (t tableString) Columns() []Column {
 	panic("implement me")
 }
