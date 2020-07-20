@@ -21,15 +21,19 @@ type Table struct {
 	conn       *Conn
 	name, Type string
 	ID         int
-	Comment    string
+	comment    string
 	columns    []*Column
 	PK         string
 	lock       sync.RWMutex
 }
 
+func (t *Table) Comment() string {
+	return t.comment
+}
+
 func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
-		return []interface{}{&t.name, &t.Type, &t.Comment}
+		return []interface{}{&t.name, &t.Type, &t.comment}
 	}
 
 	v := make([]interface{}, len(columns))
@@ -40,7 +44,7 @@ func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 		case "table_type":
 			v[i] = &t.Type
 		case "comment":
-			v[i] = &t.Comment
+			v[i] = &t.comment
 		case "oid":
 			v[i] = &t.ID
 		default:

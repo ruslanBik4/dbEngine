@@ -101,6 +101,7 @@ type FncEachRow func(values []interface{}, columns []Column) error
 
 type Table interface {
 	Columns() []Column
+	Comment() string
 	FindColumn(name string) Column
 	FindIndex(name string) *Index
 	GetColumns(ctx context.Context) error

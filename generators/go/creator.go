@@ -63,7 +63,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			typeCol = "sql.RawBytes"
 		}
 
-		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol)
+		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol, strings.ToLower(col.Name()))
 		caseFields += fmt.Sprintf(caseFormat, col.Name(), strings.Title(col.Name()))
 	}
 

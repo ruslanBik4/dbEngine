@@ -10,6 +10,11 @@ import (
 
 type tableString struct {
 	columns []Column
+	comment string
+}
+
+func (t tableString) Comment() string {
+	return t.comment
 }
 
 func (t tableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {

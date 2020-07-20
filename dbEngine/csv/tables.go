@@ -24,6 +24,10 @@ type Table struct {
 	csv      *csv.Reader
 }
 
+func (t *Table) Comment() string {
+	panic("implement me")
+}
+
 func NewTable(filePath string) (*Table, error) {
 	f, err := os.Open(filePath)
 	if err != nil {

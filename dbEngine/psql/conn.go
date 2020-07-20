@@ -84,7 +84,7 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 				conn:    c,
 				name:    row.Name(),
 				Type:    row.Type,
-				Comment: row.Comment,
+				comment: row.comment,
 			}
 
 			err := t.GetColumns(ctx)

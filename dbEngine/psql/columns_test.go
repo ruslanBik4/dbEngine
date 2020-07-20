@@ -237,7 +237,7 @@ func TestColumn_Comment(t *testing.T) {
 				IsHidden:               tt.fields.IsHidden,
 			}
 			if got := c.Comment(); got != tt.want {
-				t.Errorf("Comment() = %v, want %v", got, tt.want)
+				t.Errorf("comment() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1081,7 +1081,7 @@ func TestTable_Columns(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1116,7 +1116,7 @@ func TestTable_GetColumns(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1155,7 +1155,7 @@ func TestTable_GetFields(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1193,7 +1193,7 @@ func TestTable_Insert(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1226,7 +1226,7 @@ func TestTable_Name(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1265,7 +1265,7 @@ func TestTable_Select(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1303,7 +1303,7 @@ func TestTable_SelectAndRunEach(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1344,7 +1344,7 @@ func TestTable_SelectAndScanEach(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
@@ -1384,7 +1384,7 @@ func TestTable_readColumnRow(t1 *testing.T) {
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
 				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
+				comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
