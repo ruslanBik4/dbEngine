@@ -90,7 +90,7 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 			dbEngine.ArgsForSelect(v...) )
 	}
 
-	return t.Insert(ctx, Options...)
+	return t.Table.Insert(ctx, Options...)
 }
 
 func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
@@ -117,7 +117,7 @@ func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		)
 	}
 
-	return t.Insert(ctx, Options...)
+	return t.Table.Update(ctx, Options...)
 }
 `
 )
