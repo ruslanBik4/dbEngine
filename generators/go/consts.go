@@ -80,7 +80,7 @@ func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func(record *%[1]sF
 func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
 		v := make([]interface{}, len(t.Columns()))
-		columns := make([]interface{}, len(t.Columns()))
+		columns := make([]string{}, len(t.Columns()))
 		for i, col := range t.Columns() {
 			columns[i] = col.Name()
 			v[i] = t.GetColValue( col.Name() )
@@ -97,8 +97,8 @@ func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	if len(Options) == 0 {
 		v := make([]interface{}, len(t.Columns()))
 		priV := make([]interface{}, 0)
-		columns := make([]interface{}, 0, len(t.Columns()))
-		priColumns := make([]interface{}, 0, len(t.Columns()))
+		columns := make([]string{}, 0, len(t.Columns()))
+		priColumns := make([]string, 0, len(t.Columns()))
 		for _, col := range t.Columns() {
 			if col.Primary() {
 				priColumns = append( priColumns, col.Name() )
@@ -106,7 +106,7 @@ func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 				continue
 			}
 			columns = append( columns, col.Name() )
-			v[len(column)-1] = t.GetColValue( col.Name() )
+			v[len(columns)-1] = t.GetColValue( col.Name() )
 		}
 
 		Options = append(
