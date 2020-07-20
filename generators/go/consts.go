@@ -77,41 +77,43 @@ func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func(record *%[1]sF
 			}, t, Options ... )
 }
 
-func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, len(columns))
-		columns := make([]interface{}, len(columns))
+		v := make([]interface{}, len(t.Columns()))
+		columns := make([]interface{}, len(t.Columns()))
 		for i, col := range t.Columns() {
 			columns[i] = col.Name()
 			v[i] = t.GetColValue( col.Name() )
 		}
-		Options = append(Options, dbEngine.ColumnsForSelect(columns), dbEngine.ArgsForSelect(v) )
+		Options = append(Options, 
+			dbEngine.ColumnsForSelect(columns...), 
+			dbEngine.ArgsForSelect(v...) )
 	}
 
 	return t.Insert(ctx, Options...)
 }
 
-func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, len(columns))
+		v := make([]interface{}, len(t.Columns()))
 		priV := make([]interface{}, 0)
-		columns := make([]interface{}, 0, len(columns))
-		priColumns := make([]interface{}, 0, len(columns))
-		for i, col := range t.Columns() {
+		columns := make([]interface{}, 0, len(t.Columns()))
+		priColumns := make([]interface{}, 0, len(t.Columns()))
+		for _, col := range t.Columns() {
 			if col.Primary() {
 				priColumns = append( priColumns, col.Name() )
-				priV[len(priColumns-1)] = t.GetColValue( col.Name() )
+				priV[len(priColumns)-1] = t.GetColValue( col.Name() )
 				continue
 			}
 			columns = append( columns, col.Name() )
-			v[len(column-1)] = t.GetColValue( col.Name() )
+			v[len(column)-1] = t.GetColValue( col.Name() )
 		}
 
 		Options = append(
 			Options, 
-			dbEngine.ColumnsForSelect(columns), 
-			dbEngine.WhereForSelect(priColumns), 
-			dbEngine.ArgsForSelect(append(v, priV...) ),
+			dbEngine.ColumnsForSelect(columns...), 
+			dbEngine.WhereForSelect(priColumns...), 
+			dbEngine.ArgsForSelect(append(v, priV...)... ),
 		)
 	}
 
