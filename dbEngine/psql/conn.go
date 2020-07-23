@@ -122,13 +122,13 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 			}
 
 			row := &Routine{
-				conn:     c,
-				name:     values[1].(string),
-				sName:    values[0].(string),
-				DataType: values[3].(string),
-				UdtName:  values[4].(string),
-				Type:     rowType,
+				conn:  c,
+				name:  values[1].(string),
+				sName: values[0].(string),
+				Type:  rowType,
 			}
+			row.DataType, ok = values[3].(string)
+			row.UdtName, ok = values[4].(string)
 			name := values[1].(string)
 
 			fnc, ok := RoutinesCache[name].(*Routine)
