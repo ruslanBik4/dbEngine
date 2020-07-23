@@ -5,11 +5,14 @@
 package psql
 
 import (
+	"go/types"
 	"sync"
 	"strconv"
 
 	"github.com/jackc/pgproto3/v2"
 	"golang.org/x/net/context"
+		
+	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
 type PgxRoutineParams struct {
@@ -111,7 +114,7 @@ func (r *Routine) Call(context.Context) error{
 	panic("implement me")
 }
 
-func (r *Routine) Params()  []Column {
+func (r *Routine) Params()  []dbEngine.Column {
 	res := make([]dbEngine.Column, len(r.params))
 	for i, col := range r.params {
 		res[i] = col
