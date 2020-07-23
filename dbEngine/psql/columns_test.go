@@ -926,23 +926,23 @@ func TestRoutine_Call(t *testing.T) {
 		lock    sync.RWMutex
 	}
 	tests := []struct {
-		name   string
-		fields fields
+		name    string
+		columns fields
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := Routine{
-				conn:    tt.fields.conn,
-				name:    tt.fields.Name,
-				ID:      tt.fields.ID,
-				Comment: tt.fields.Comment,
-				Fields:  tt.fields.Fields,
-				params:  tt.fields.params,
-				Overlay: tt.fields.Overlay,
-				Type:    tt.fields.Type,
-				lock:    tt.fields.lock,
+				conn:    tt.columns.conn,
+				name:    tt.columns.Name,
+				ID:      tt.columns.ID,
+				Comment: tt.columns.Comment,
+				columns: tt.columns.Fields,
+				params:  tt.columns.params,
+				Overlay: tt.columns.Overlay,
+				Type:    tt.columns.Type,
+				lock:    tt.columns.lock,
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 
@@ -976,7 +976,7 @@ func TestRoutine_GetParams(t *testing.T) {
 				name:    tt.fields.Name,
 				ID:      tt.fields.ID,
 				Comment: tt.fields.Comment,
-				Fields:  tt.fields.Fields,
+				columns: tt.fields.Fields,
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
@@ -1014,7 +1014,7 @@ func TestRoutine_Params(t *testing.T) {
 				name:    tt.fields.Name,
 				ID:      tt.fields.ID,
 				Comment: tt.fields.Comment,
-				Fields:  tt.fields.Fields,
+				columns: tt.fields.Fields,
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
@@ -1050,7 +1050,7 @@ func TestRoutine_Select(t *testing.T) {
 				name:    tt.fields.Name,
 				ID:      tt.fields.ID,
 				Comment: tt.fields.Comment,
-				Fields:  tt.fields.Fields,
+				columns: tt.fields.Fields,
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,

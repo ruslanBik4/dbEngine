@@ -16,7 +16,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
-// FieldsTable for fields parameters in form
+// FieldsTable for columns parameters in form
 type Table struct {
 	conn       *Conn
 	name, Type string

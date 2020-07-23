@@ -161,7 +161,13 @@ func (b *SQLBuilder) Where() string {
 				where += fmt.Sprintf(comma+" %s %s $%d", name, pre, b.posFilter)
 			}
 		default:
-			where += fmt.Sprintf(comma+" %s=$%d", name, b.posFilter)
+			cond := " %s=$%d"
+			switch b.Args[b.posFilter-1].(type) {
+			case []int32, []int64, []string:
+				// todo: chk column type
+				cond = " %s=ANY($%d)"
+			}
+			where += fmt.Sprintf(comma+cond, name, b.posFilter)
 		}
 		comma = " AND "
 	}
@@ -246,7 +252,7 @@ func InsertOnConflict(onConflict string) BuildSqlOptions {
 	}
 }
 
-func InsertOnConflictDoNothing(onConflict string) BuildSqlOptions {
+func InsertOnConflictDoNothing() BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.onConflict = " DO NOTHING "

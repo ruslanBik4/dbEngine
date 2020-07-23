@@ -25,8 +25,8 @@ const (
 									on (k.table_name=c.table_name AND k.column_name = c.column_name)
 							WHERE c.table_schema='public' AND c.table_name=$1`
 	sqlGetFuncParams = `SELECT parameter_name, data_type, udt_name,
-		COALESCE(CHARACTER_SET_NAME, ''),
-		COALESCE(CHARACTER_MAXIMUM_LENGTH, -1), COALESCE(parameter_default, ''),
+		COALESCE(CharacterSetName, ''),
+		COALESCE(characterMaximumLength, -1), COALESCE(parameter_default, ''),
 		ordinal_position, parameter_mode
 		FROM INFORMATION_SCHEMA.parameters
 		WHERE specific_schema='public' AND specific_name=$1`
