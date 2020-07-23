@@ -48,7 +48,7 @@ func NewErrWrongArgsLen(table string, column []string, args []interface{}) *ErrW
 
 func (err ErrWrongArgsLen) Error() string {
 
-	return fmt.Sprintf("Wrong argument len `%d` (expect %d) for table `%s` ", len(err.Args), len(err.Filter), err.Table)
+	return fmt.Sprintf("Wrong argument len %d (expect %d) for table `%s` ", len(err.Args), len(err.Filter), err.Table)
 
 }
 

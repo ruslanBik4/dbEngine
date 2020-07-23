@@ -71,7 +71,8 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 }
 
 func (b SQLBuilder) SelectSql() (string, error) {
-	if len(b.filter) != len(b.Args) {
+	// todo check routine
+	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
 	}
 
