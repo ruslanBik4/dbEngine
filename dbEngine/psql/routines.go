@@ -92,15 +92,18 @@ func (p *PgxRoutineParams) SetNullable(bool) {
 }
 
 type Routine struct {
-	conn    *Conn
-	name    string
-	ID      int
-	Comment string
-	columns []*PgxRoutineParams
-	params  []*PgxRoutineParams
-	Overlay *Routine
-	Type    string
-	lock    sync.RWMutex
+	conn     *Conn
+	name     string
+	ID       int
+	Comment  string
+	columns  []*PgxRoutineParams
+	params   []*PgxRoutineParams
+	Overlay  *Routine
+	Type     string
+	lock     sync.RWMutex
+	sName    string
+	DataType string
+	UdtName  string
 }
 
 func (r *Routine) Name() string {
@@ -161,7 +164,7 @@ func (r *Routine) GetParams(ctx context.Context) error {
 		}
 
 		return nil
-	}, sqlGetFuncParams+" ORDER BY ordinal_position", r.name)
+	}, sqlGetFuncParams+" ORDER BY ordinal_position", r.sName)
 }
 
 func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
