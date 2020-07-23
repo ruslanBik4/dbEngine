@@ -36,8 +36,10 @@ type Table interface {
 type Routine interface {
 	Name() string
 	Select(ctx context.Context, args ...interface{}) error
-	Call(ctx context.Context)
-	Params()
+	Call(ctx context.Context) error
+	Params() []Column
+	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
+	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
 type Column interface {

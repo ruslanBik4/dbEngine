@@ -102,7 +102,11 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 }
 
 func (c *Column) BasicType() types.BasicKind {
-	switch c.UdtName {
+	return toType(c.UdtName)
+}
+
+func toType(dtName string) types.BasicKind {
+	switch dtName {
 	case "bool":
 		return types.Bool
 	case "int4", "_int4":

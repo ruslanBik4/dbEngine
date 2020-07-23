@@ -10,7 +10,7 @@ import (
 
 type tableString struct {
 	columns []Column
-	comment string
+	Name, comment string
 }
 
 func (t tableString) Comment() string {
@@ -46,7 +46,7 @@ func (t tableString) Update(ctx context.Context, Options ...BuildSqlOptions) (in
 }
 
 func (t tableString) Name() string {
-	return "StringTable"
+	return t.Name
 }
 
 func (t tableString) RereadColumn(name string) Column {
