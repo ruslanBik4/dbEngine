@@ -64,7 +64,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[st
 		return nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
 	types := make(map[string]string)
-	err = c.SelectAndRunEach(ctx,
+	err = c.selectAndRunEach(ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
 			types[values[0].(string)] = values[0].(string)
 
@@ -112,7 +112,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 
 	RoutinesCache = make(map[string]dbEngine.Routine, 0)
 
-	err = c.SelectAndRunEach(ctx,
+	err = c.selectAndRunEach(ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
 
 			// use only func knows types
@@ -190,7 +190,20 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	return nil
 }
 
-func (c *Conn) SelectAndRunEach(ctx context.Context, each func(values []interface{}, columns []pgproto3.FieldDescription) error,
+func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
+
+	return c.selectAndRunEach(ctx,
+		func(values []interface{}, fields []pgproto3.FieldDescription) error {
+			columns := make([]dbEngine.Column, len(fields))
+			for i, val := range fields {
+				columns[i] = &Column{name: string(val.Name)}
+			}
+			return each(values, columns)
+		},
+		sql, args...)
+}
+
+func (c *Conn) selectAndRunEach(ctx context.Context, each func(values []interface{}, columns []pgproto3.FieldDescription) error,
 	sql string, args ...interface{}) error {
 
 	rows, err := c.Query(ctx, sql, args...)

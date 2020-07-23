@@ -667,7 +667,7 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			if err := c.SelectAndRunEach(context.TODO(), tt.args.each, tt.args.sql, tt.args.args...); (err != nil) != tt.wantErr {
+			if err := c.selectAndRunEach(context.TODO(), tt.args.each, tt.args.sql, tt.args.args...); (err != nil) != tt.wantErr {
 				t.Errorf("SelectAndRunEach() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

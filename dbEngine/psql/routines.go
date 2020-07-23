@@ -137,7 +137,7 @@ func (r *Routine) Params() []dbEngine.Column {
 // получение значений полей для таблицы
 func (r *Routine) GetParams(ctx context.Context) error {
 
-	return r.conn.SelectAndRunEach(ctx, func(values []interface{}, columns []pgproto3.FieldDescription) error {
+	return r.conn.selectAndRunEach(ctx, func(values []interface{}, columns []pgproto3.FieldDescription) error {
 
 		if values[0] == nil {
 			return nil
@@ -225,7 +225,7 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 		return err
 	}
 
-	return r.conn.SelectAndRunEach(
+	return r.conn.selectAndRunEach(
 		ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
 			return each(values, b.SelectColumns())

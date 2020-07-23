@@ -184,7 +184,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 		return err
 	}
 
-	return t.conn.SelectAndRunEach(
+	return t.conn.selectAndRunEach(
 		ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
 			return each(values, b.SelectColumns())
@@ -216,7 +216,7 @@ func (t *Table) findColumn(name string) *Column {
 // получение значений полей для таблицы
 func (t *Table) GetColumns(ctx context.Context) error {
 
-	err := t.conn.SelectAndRunEach(ctx, t.readColumnRow, sqlGetTablesColumns+" ORDER BY C.ordinal_position", t.name)
+	err := t.conn.selectAndRunEach(ctx, t.readColumnRow, sqlGetTablesColumns+" ORDER BY C.ordinal_position", t.name)
 	if err != nil {
 		return err
 	}
