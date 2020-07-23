@@ -7,8 +7,6 @@ package dbEngine
 import (
 	"fmt"
 	"strings"
-
-	"github.com/ruslanBik4/httpgo/logs"
 )
 
 // ErrNotFoundTable if not found table by name {Table}
@@ -80,6 +78,26 @@ func isErrorForReplace(err error) bool {
 
 	}
 
-	logs.DebugLog(" %+v", err)
 	return false
+}
+
+// ErrWrongType if not found in field {Name} field by name {Column}
+type ErrWrongType struct {
+	Name     string
+	TypeName string
+	Attr     string
+}
+
+func NewErrWrongType(typeName, name, attr string) *ErrWrongType {
+	return &ErrWrongType{
+		Name:     name,
+		TypeName: typeName,
+		Attr:     attr,
+	}
+}
+
+func (err ErrWrongType) Error() string {
+
+	return fmt.Sprintf("Wrong type `%s` name attr `%s` `%s` ", err.TypeName, err.Name, err.Attr)
+
 }

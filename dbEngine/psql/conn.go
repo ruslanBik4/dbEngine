@@ -54,17 +54,23 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	return nil
 }
 
-func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, error) {
+func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]string, error) {
 	tables, err := c.GetTablesProp(ctx)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetTablesProp")
+		return nil, nil, nil, errors.Wrap(err, "GetTablesProp")
 	}
-	routines, err := c.GetRoutinesProp(ctx)
+	routines, err := c.GetRoutines(ctx)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "GetRoutinesProp")
+		return nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
+	types := make(map[string]string)
+	err = c.SelectAndRunEach(ctx,
+		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+			types[values[0].(string)] = values[0].(string)
 
-	return tables, routines, nil
+			return nil
+		}, "SELECT * FROM pg_type")
+	return tables, routines, types, err
 }
 
 // GetTablesProp получение данных таблиц по условию
@@ -101,8 +107,8 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 	return
 }
 
-// GetTablesProp get params ect of DB routins
-func (c *Conn) GetRoutinesProp(ctx context.Context) (RoutinesCache map[string]dbEngine.Routine, err error) {
+// GetRoutines get params ect of DB routines
+func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngine.Routine, err error) {
 
 	RoutinesCache = make(map[string]dbEngine.Routine, 0)
 

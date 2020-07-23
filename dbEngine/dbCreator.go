@@ -1,4 +1,4 @@
-// Copyright 2017 Author: Ruslan Bikchentaev. All rights reserved.
+// Copyright 2020 Author: Ruslan Bikchentaev. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
@@ -24,7 +23,7 @@ type ParserTableDDL struct {
 	isCreateDone bool
 }
 
-func NewtableParser(table Table, db *DB) ParserTableDDL {
+func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 	t := ParserTableDDL{Table: table, DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,
@@ -44,7 +43,7 @@ func (p ParserTableDDL) Parse(ddl string) error {
 		}
 
 		if p.err != nil {
-			p.logError(p.err, ddl, p.Name())
+			logError(p.err, ddl, p.Name())
 
 		}
 
@@ -53,16 +52,6 @@ func (p ParserTableDDL) Parse(ddl string) error {
 	}
 
 	return nil
-}
-
-func (p ParserTableDDL) logError(err error, ddlSQL string, fileName string) {
-	pgErr, ok := err.(*pgconn.PgError)
-	if ok && pgErr.Position > 0 {
-		line := strings.Count(ddlSQL[:pgErr.Position-1], "\n") + 1
-		fmt.Printf("\033[%d;1m%s\033[0m %v:%d: %s %#v\n", 35, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
-	} else {
-		logs.ErrorLog(err, prefix, fileName)
-	}
 }
 
 func (p ParserTableDDL) execSql(sql string) bool {
@@ -87,7 +76,7 @@ func (p ParserTableDDL) addComment(ddl string) bool {
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
-		p.logError(err, ddl, p.Name())
+		logError(err, ddl, p.Name())
 	}
 
 	return true
@@ -109,7 +98,7 @@ func (p ParserTableDDL) skipPartition(ddl string) bool {
 		} else if isErrorAlreadyExists(err) {
 			err = nil
 		} else if err != nil {
-			p.logError(err, ddl, p.Name())
+			logError(err, ddl, p.Name())
 		}
 	}
 
@@ -253,7 +242,7 @@ func (p ParserTableDDL) updateIndex(ddl string) bool {
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
-		p.logError(err, ddl, p.Name())
+		logError(err, ddl, p.Name())
 	}
 
 	return true

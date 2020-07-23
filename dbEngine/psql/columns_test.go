@@ -440,13 +440,13 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			gotRoutinesCache, err := c.GetRoutinesProp(context.TODO())
+			gotRoutinesCache, err := c.GetRoutines(context.TODO())
 			if (err != nil) != tt.wantErr {
-				t.Errorf("GetRoutinesProp() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("GetRoutines() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !assert.Equal(t, gotRoutinesCache, tt.wantRoutinesCache) {
-				t.Errorf("GetRoutinesProp() gotRoutinesCache = %v, want %v", gotRoutinesCache, tt.wantRoutinesCache)
+				t.Errorf("GetRoutines() gotRoutinesCache = %v, want %v", gotRoutinesCache, tt.wantRoutinesCache)
 			}
 		})
 	}
@@ -472,6 +472,7 @@ func TestConn_GetSchema(t *testing.T) {
 		args    args
 		want    map[string]Table
 		want1   map[string]*Routine
+		types   map[string]string
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -488,7 +489,7 @@ func TestConn_GetSchema(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			got, got1, err := c.GetSchema(tt.args.ctx)
+			got, got1, gotTypes, err := c.GetSchema(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -497,6 +498,9 @@ func TestConn_GetSchema(t *testing.T) {
 				t.Errorf("GetSchema() got = %v, want %v", got, tt.want)
 			}
 			if !assert.Equal(t, got1, tt.want1) {
+				t.Errorf("GetSchema() got1 = %v, want %v", got1, tt.want1)
+			}
+			if !assert.Equal(t, gotTypes, tt.types) {
 				t.Errorf("GetSchema() got1 = %v, want %v", got1, tt.want1)
 			}
 		})
