@@ -13,8 +13,8 @@ type Connection interface {
 	GetStat() string
 	ExecDDL(ctx context.Context, sql string, args ...interface{}) error
 	NewTable(name, typ string) Table
-	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, Options ...BuildSqlOptions) error
-	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, Options ...BuildSqlOptions) error
+	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, args ...interface{}) error
+	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, args ...interface{}) error
 }
 
 type FncEachRow func(values []interface{}, columns []Column) error

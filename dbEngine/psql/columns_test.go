@@ -908,6 +908,8 @@ func TestNewConn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := NewConn(tt.args.afterConnect, tt.args.beforeAcquire, tt.args.channels...); !assert.Equal(t, got, tt.want) {
 				t.Errorf("NewConn() = %v, want %v", got, tt.want)
+			} else {
+				assert.Implements(t, (*dbEngine.Connection)(nil), got)
 			}
 		})
 	}
