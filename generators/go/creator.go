@@ -48,7 +48,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	caseFields := ""
+	caseRefFields, caseColFields := "", ""
 	for _, col := range table.Columns() {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
@@ -64,10 +64,11 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}
 
 		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol, strings.ToLower(col.Name()))
-		caseFields += fmt.Sprintf(caseFormat, col.Name(), strings.Title(col.Name()))
+		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), strings.Title(col.Name()))
+		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), strings.Title(col.Name()))
 	}
 
-	_, err = fmt.Fprintf(f, footer, name, table.Name(), caseFields)
+	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name())
 
 	return err
 }

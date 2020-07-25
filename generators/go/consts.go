@@ -18,25 +18,43 @@ import (
 
 `
 	typeTitle = `type %s struct {
-	Record *%[1]sFields
 	dbEngine.Table
+	Record *%[1]sFields
 	rows sql.Rows
 }
 
 type %[1]sFields struct {
 `
-	colFormat  = "\n\t%-15s\t%s\t`json:\"%s\"`"
-	caseFormat = `
+	colFormat     = "\n\t%-15s\t%s\t`json:\"%s\"`"
+	caseRefFormat = `
 	case "%s":
-		return &t.Record.%s
+		return &r.%s
+`
+	caseColFormat = `
+	case "%s":
+		return r.%s
 `
 	footer = `
 }
 
-func New%s( db *dbEngine.DB) (*%[1]s, error) {
-	table, ok := db.Tables["%s"]
+func (r *%sFields) RefColValue(name string) interface{}{
+	switch name {	%s
+   	default:
+		return nil
+	}
+}
+
+func (r *%[1]sFields) ColValue(name string) interface{}{
+	switch name {	%[3]s
+   	default:
+		return nil
+	}
+}
+
+func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
+	table, ok := db.Tables["%[4]s"]
     if !ok {
-      return nil, dbEngine.ErrNotFoundTable{Table: "%[2]s"}
+      return nil, dbEngine.ErrNotFoundTable{Table: "%[4]s"}
     }
 
     return &%[1]s{
@@ -49,13 +67,6 @@ func (t *%[1]s) NewRecord() *%[1]sFields{
 	return t.Record
 }
 
-func (t *%[1]s) GetColValue(name string) interface{}{
-	switch name {	%[3]s
-   	default:
-		return nil
-	}
-}
-
 func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
 		columns = t.Columns()
@@ -64,7 +75,7 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	t.NewRecord()
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
-		v[i] = t.GetColValue( col.Name() )
+		v[i] = t.Record.RefColValue( col.Name() )
 	}
 
 	return v
@@ -83,7 +94,7 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		columns := make([]string, len(t.Columns()))
 		for i, col := range t.Columns() {
 			columns[i] = col.Name()
-			v[i] = t.GetColValue( col.Name() )
+			v[i] = t.Record.ColValue( col.Name() )
 		}
 		Options = append(Options, 
 			dbEngine.ColumnsForSelect(columns...), 
@@ -102,11 +113,12 @@ func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		for _, col := range t.Columns() {
 			if col.Primary() {
 				priColumns = append( priColumns, col.Name() )
-				priV[len(priColumns)-1] = t.GetColValue( col.Name() )
+				priV[len(priColumns)-1] = t.Record.ColValue( col.Name() )
 				continue
 			}
+
 			columns = append( columns, col.Name() )
-			v[len(columns)-1] = t.GetColValue( col.Name() )
+			v[len(columns)-1] = t.Record.ColValue( col.Name() )
 		}
 
 		Options = append(

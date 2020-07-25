@@ -19,6 +19,16 @@ func (err ErrNotFoundTable) Error() string {
 	return fmt.Sprintf("Not table `%s` in schema ", err.Table)
 }
 
+// ErrNotFoundTable if not found table by name {Table}
+type ErrNotFoundRoutine struct {
+	Name, SName string
+}
+
+func (err ErrNotFoundRoutine) Error() string {
+
+	return fmt.Sprintf("Not routine `%s`(%s) in schema ", err.Name, err.SName)
+}
+
 // ErrNotFoundColumn if not found in table {Table} field by name {Column}
 type ErrNotFoundColumn struct {
 	Table  string

@@ -169,6 +169,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 		if columns == nil {
 			columns = make([]dbEngine.Column, len(rows.FieldDescriptions()))
 			for i, val := range rows.FieldDescriptions() {
+				// todo chk DateOId
 				columns[i] = &Column{name: string(val.Name)}
 			}
 		}
@@ -191,6 +192,77 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	}
 
 	return nil
+}
+
+func (c *Conn) SelectOneAndScan(ctx context.Context, sql string, args ...interface{}) error {
+	return c.QueryRow(context.Background(), sql, args...).Scan(args...)
+}
+
+func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
+
+	rows := make(map[string]interface{})
+
+	err := c.selectAndRunEach(ctx,
+		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+			for i, val := range values {
+				rows[string(columns[i].Name)] = val
+			}
+
+			return nil
+		},
+		sql, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "selectAndRunEach")
+	}
+
+	return rows, nil
+}
+
+func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
+
+	maps := make([]map[string]interface{}, 0)
+
+	err := c.selectAndRunEach(ctx,
+		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+			row := make(map[string]interface{}, len(columns))
+
+			for i, val := range values {
+				row[string(columns[i].Name)] = val
+			}
+
+			maps = append(maps, row)
+
+			return nil
+		},
+		sql, args...)
+	if err != nil {
+		return nil, errors.Wrap(err, "selectAndRunEach")
+	}
+
+	return maps, nil
+}
+
+func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
+	columns := make([]dbEngine.Column, 0)
+	rows := make([][]interface{}, 0)
+
+	err := c.selectAndRunEach(ctx,
+		func(values []interface{}, fields []pgproto3.FieldDescription) error {
+			rows = append(rows, values)
+			if len(columns) == 0 {
+				for _, val := range fields {
+					columns = append(columns, &Column{name: string(val.Name)})
+				}
+			}
+
+			return nil
+		},
+		sql, args...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rows, columns, nil
 }
 
 func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
