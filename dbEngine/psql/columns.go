@@ -127,7 +127,7 @@ func toType(dtName string) types.BasicKind {
 	case "timerange", "tsrange":
 		// todo add check ranges
 		return types.String
-	case "varchar", "_varchar", "text":
+	case "varchar", "_varchar", "text", "character varying", "_character varying":
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
