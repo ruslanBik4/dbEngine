@@ -245,7 +245,7 @@ func (t *Table) FindIndex(name string) *dbEngine.Index {
 	return nil
 }
 
-func (t *Table) RereadColumn(name string) dbEngine.Column {
+func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 

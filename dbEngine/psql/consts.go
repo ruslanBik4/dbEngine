@@ -42,4 +42,5 @@ const (
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
 	sqlTypeExists = "SELECT exists(select null FROM pg_type WHERE typname::text=ANY($1))"
 	sqlGetTypes   = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
+	sqlTypesList  = "SELECT typname, typcategory FROM pg_type"
 )

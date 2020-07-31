@@ -145,7 +145,8 @@ func (p ParserTableDDL) updateTable(ddl string) bool {
 				if fs := p.FindColumn(fieldName); fs == nil {
 					sql := " ADD COLUMN " + name
 					err = p.addColumn(sql, fieldName)
-				} else {
+				} else if !fs.Primary() {
+					// don't chg primary column
 					err = p.checkColumn(title[2], fs)
 				}
 
@@ -289,7 +290,7 @@ func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
 		logs.ErrorLog(err, `. Field %s.%s`, p.Name(), fieldName)
 	} else {
 		logs.StatusLog("[DB CONFIG] ", p.Name(), sAlter)
-		p.RereadColumn(fieldName)
+		p.ReReadColumn(fieldName)
 	}
 
 	return err
@@ -304,7 +305,7 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 			p.Name, fieldName, title, fs, sql)
 	} else {
 		logs.StatusLog("[DB CONFIG] %s ", sql)
-		p.RereadColumn(fieldName)
+		p.ReReadColumn(fieldName)
 	}
 
 	return err

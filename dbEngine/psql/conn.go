@@ -54,7 +54,7 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	return nil
 }
 
-func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]string, error) {
+func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	tables, err := c.GetTablesProp(ctx)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "GetTablesProp")
@@ -63,13 +63,17 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[st
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
-	types := make(map[string]string)
+	types := make(map[string]dbEngine.Types)
+
 	err = c.selectAndRunEach(ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
-			types[values[0].(string)] = values[0].(string)
-
+			types[values[0].(string)] = dbEngine.Types{
+				0,
+				values[0].(string),
+				[]string{},
+			}
 			return nil
-		}, "SELECT * FROM pg_type")
+		}, sqlTypesList)
 	return tables, routines, types, err
 }
 
@@ -155,7 +159,7 @@ func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
 	sql string, args ...interface{}) error {
 
-	// sql = convertSQLFromFuncIsNeed(sql, args)
+	// sqlTypesList = convertSQLFromFuncIsNeed(sqlTypesList, args)
 	rows, err := c.Query(ctx, sql, args...)
 	if err != nil {
 		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, rows)...)
@@ -320,7 +324,7 @@ func (c *Conn) GetStat() string {
 func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
 	_, err := c.Exec(ctx, sql, args...)
 	// if err != nil {
-	// 	logs.DebugLog("%v '%s' %s", comTag, err, strings.Split(sql, "\n")[0])
+	// 	logs.DebugLog("%v '%s' %s", comTag, err, strings.Split(sqlTypesList, "\n")[0])
 	// }
 
 	return err

@@ -23,7 +23,7 @@ type DB struct {
 	Cfg      map[string]interface{}
 	Conn     Connection
 	Tables   map[string]Table
-	Types    map[string]string
+	Types    map[string]Types
 	Routines map[string]Routine
 	modFuncs []string
 	newFuncs []string

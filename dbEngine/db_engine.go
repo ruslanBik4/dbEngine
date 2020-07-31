@@ -9,7 +9,7 @@ import (
 type Connection interface {
 	InitConn(ctx context.Context, dbURL string) error
 	GetRoutines(ctx context.Context) (map[string]Routine, error)
-	GetSchema(ctx context.Context) (map[string]Table, map[string]Routine, map[string]string, error)
+	GetSchema(ctx context.Context) (map[string]Table, map[string]Routine, map[string]Types, error)
 	GetStat() string
 	ExecDDL(ctx context.Context, sql string, args ...interface{}) error
 	NewTable(name, typ string) Table
@@ -23,6 +23,12 @@ type Connection interface {
 
 type FncEachRow func(values []interface{}, columns []Column) error
 
+type Types struct {
+	Id   int
+	Name string
+	Attr []string
+}
+
 type Table interface {
 	Columns() []Column
 	Comment() string
@@ -33,7 +39,7 @@ type Table interface {
 	Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Name() string
-	RereadColumn(name string) Column
+	ReReadColumn(name string) Column
 	Select(ctx context.Context, Options ...BuildSqlOptions) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error

@@ -9,7 +9,7 @@ import (
 )
 
 type tableString struct {
-	columns []Column
+	columns       []Column
 	name, comment string
 }
 
@@ -49,7 +49,7 @@ func (t tableString) Name() string {
 	return t.name
 }
 
-func (t tableString) RereadColumn(name string) Column {
+func (t tableString) ReReadColumn(name string) Column {
 	panic("implement me")
 }
 

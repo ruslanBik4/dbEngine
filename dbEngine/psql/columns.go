@@ -204,7 +204,7 @@ func (c *Column) Type() string {
 }
 
 func (c *Column) Required() bool {
-	return !c.isNullable && ((c.ColumnDefault == "") || (c.ColumnDefault == "NULL"))
+	return !c.isNullable && (c.ColumnDefault == "NULL")
 }
 
 func (c *Column) SetNullable(f bool) {

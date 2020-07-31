@@ -407,8 +407,8 @@ func TestTable_RereadColumn(t1 *testing.T) {
 				fileName: tt.fields.fileName,
 				csv:      tt.fields.csv,
 			}
-			if got := t.RereadColumn(tt.args.name); !reflect.DeepEqual(got, tt.want) {
-				t1.Errorf("RereadColumn() = %v, want %v", got, tt.want)
+			if got := t.ReReadColumn(tt.args.name); !reflect.DeepEqual(got, tt.want) {
+				t1.Errorf("ReReadColumn() = %v, want %v", got, tt.want)
 			}
 		})
 	}

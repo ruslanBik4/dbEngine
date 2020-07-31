@@ -109,7 +109,7 @@ func (t *Table) Name() string {
 	return t.fileName
 }
 
-func (t *Table) RereadColumn(name string) dbEngine.Column {
+func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	panic("implement me")
 }
 
