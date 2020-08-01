@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"fmt"
 	"go/types"
 	"strconv"
 	"sync"
@@ -17,13 +18,9 @@ import (
 )
 
 type PgxRoutineParams struct {
+	Column
 	Fnc                    *Routine `json:"-"`
-	name                   string
-	DataType               string
 	DataName               string
-	CharacterSetName       string
-	comment                string
-	characterMaximumLength int32
 	ParameterDefault       string
 	Position               int32
 }
@@ -47,49 +44,15 @@ func (p *PgxRoutineParams) BasicTypeInfo() types.BasicInfo {
 	}
 }
 
-func (p *PgxRoutineParams) CheckAttr(fieldDefine string) string {
-	panic("implement me")
-}
-
-func (p *PgxRoutineParams) CharacterMaximumLength() int {
-	return int(p.characterMaximumLength)
-}
-
-func (p *PgxRoutineParams) Comment() string {
-	return p.comment
-}
-
-func (p *PgxRoutineParams) Name() string {
-	return p.name
-}
-
-func (p *PgxRoutineParams) AutoIncrement() bool {
-	panic("implement me")
-}
-
-func (p *PgxRoutineParams) IsNullable() bool {
-	panic("implement me")
-}
-
-func (p *PgxRoutineParams) Default() string {
-	return p.ParameterDefault
-}
-
-func (p *PgxRoutineParams) Primary() bool {
-	panic("implement me")
-}
 
 func (p *PgxRoutineParams) Type() string {
-	return p.DataType
+	if p.DataType == "ARRAY" {
+		return p.UdtName + "[]"
+	}
+	
+	return p.UdtName
 }
 
-func (p *PgxRoutineParams) Required() bool {
-	panic("implement me")
-}
-
-func (p *PgxRoutineParams) SetNullable(bool) {
-	panic("implement me")
-}
 
 type Routine struct {
 	conn     *Conn
@@ -168,22 +131,8 @@ func (r *Routine) GetParams(ctx context.Context) error {
 }
 
 func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
-
-	name := r.name + "("
-	for i := range r.params {
-		if i > 0 {
-			name += ","
-		}
-		name += "$" + strconv.Itoa(i+1)
-	}
-
-	table := &Table{name: name + ")"}
-	table.columns = make([]*Column, len(r.columns))
-	for i, col := range r.columns {
-		table.columns[i] = NewColumn(table, col.name, col.DataType, col.Default(), false,
-			col.CharacterSetName, col.comment, col.DataName, col.CharacterMaximumLength(), false, false)
-	}
-	b := &dbEngine.SQLBuilder{Table: table}
+	
+	b := &dbEngine.SQLBuilder{Table: r.newTsbleForSQL()}
 	for _, setOption := range Options {
 		err := setOption(b)
 		if err != nil {
@@ -200,21 +149,7 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 }
 
 func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
-	name := r.name + "("
-	for i := range r.params {
-		if i > 0 {
-			name += ","
-		}
-		name += "$" + strconv.Itoa(i+1)
-	}
-
-	table := &Table{name: name + ")"}
-	table.columns = make([]*Column, len(r.columns))
-	for i, col := range r.columns {
-		table.columns[i] = NewColumn(table, col.name, col.DataType, col.Default(), false,
-			col.CharacterSetName, col.comment, col.DataName, col.CharacterMaximumLength(), false, false)
-	}
-	b := &dbEngine.SQLBuilder{Table: table}
+	b := &dbEngine.SQLBuilder{Table: r.newTsbleForSQL()}
 
 	for _, setOption := range Options {
 		err := setOption(b)
@@ -235,4 +170,25 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 		},
 		sql,
 		b.Args...)
+}
+
+func (r *Routine) newTsbleForSQL() *Table {
+	name := r.name + "("
+	for i, p := range r.params {
+		if i > 0 {
+			name += ","
+		}
+		
+		name += fmt.Sprintf("$%d :: %s", i+1, p.Type() )
+	}
+
+	table := &Table{name: name + ")"}
+	table.columns = make([]*Column, len(r.columns))
+	for i, col := range r.columns {
+		table.columns[i] = NewColumn(table, col.name, col.DataType, col.Default(), false,
+			col.CharacterSetName, col.comment, col.DataName, col.CharacterMaximumLength(), false, false)
+	}
+	
+	return table
+
 }

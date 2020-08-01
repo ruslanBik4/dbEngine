@@ -351,6 +351,7 @@ func (c *Conn) listen(ch string) {
 		return
 	}
 	defer conn.Release()
+	
 
 	cTag, err := conn.Exec(c.ctxPool, "listen "+ch)
 	if err != nil {
