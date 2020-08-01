@@ -259,7 +259,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 		return row.Scan(v...)
 
 	default:
-		return row.Scan(&r)
+		return row.Scan(&rowValues)
 	}
 }
 
