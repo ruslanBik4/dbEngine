@@ -18,8 +18,8 @@ import (
 
 type PgxRoutineParams struct {
 	Column
-	Fnc                    *Routine `json:"-"`
-	Position               int32
+	Fnc      *Routine `json:"-"`
+	Position int32
 }
 
 func (p *PgxRoutineParams) BasicType() types.BasicKind {
@@ -41,15 +41,13 @@ func (p *PgxRoutineParams) BasicTypeInfo() types.BasicInfo {
 	}
 }
 
-
 func (p *PgxRoutineParams) Type() string {
 	if p.DataType == "ARRAY" {
 		return p.UdtName[1:] + "[]"
 	}
-	
+
 	return p.UdtName
 }
-
 
 type Routine struct {
 	conn     *Conn
@@ -107,16 +105,16 @@ func (r *Routine) GetParams(ctx context.Context) error {
 		}
 
 		row := &PgxRoutineParams{
-			Fnc:                    r,
-			Position:               values[6].(int32),
+			Fnc:      r,
+			Position: values[6].(int32),
 		}
-		
-		row.name	=                   values[0].(string)
-		row.DataType=               values[1].(string)
-		row.UdtName =               values[2].(string)
-		row.CharacterSetName =       values[3].(string)
-		row.characterMaximumLength = int( values[4].(int32) )
-		row.ColumnDefault =       values[5].(string)
+
+		row.name = values[0].(string)
+		row.DataType = values[1].(string)
+		row.UdtName = values[2].(string)
+		row.CharacterSetName = values[3].(string)
+		row.characterMaximumLength = int(values[4].(int32))
+		row.ColumnDefault = values[5].(string)
 
 		if values[7].(string) == "IN" {
 			r.params = append(r.params, row)
@@ -129,8 +127,8 @@ func (r *Routine) GetParams(ctx context.Context) error {
 }
 
 func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
-	
-	b := &dbEngine.SQLBuilder{Table: r.newTsbleForSQL()}
+
+	b := &dbEngine.SQLBuilder{Table: r.newTableForSQL()}
 	for _, setOption := range Options {
 		err := setOption(b)
 		if err != nil {
@@ -147,7 +145,7 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 }
 
 func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
-	b := &dbEngine.SQLBuilder{Table: r.newTsbleForSQL()}
+	b := &dbEngine.SQLBuilder{Table: r.newTableForSQL()}
 
 	for _, setOption := range Options {
 		err := setOption(b)
@@ -170,14 +168,14 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 		b.Args...)
 }
 
-func (r *Routine) newTsbleForSQL() *Table {
+func (r *Routine) newTableForSQL() *Table {
 	name := r.name + "("
 	for i, p := range r.params {
 		if i > 0 {
 			name += ","
 		}
-		
-		name += fmt.Sprintf("$%d :: %s", i+1, p.Type() )
+
+		name += fmt.Sprintf("$%d :: %s", i+1, p.Type())
 	}
 
 	table := &Table{name: name + ")"}
@@ -185,7 +183,7 @@ func (r *Routine) newTsbleForSQL() *Table {
 	for i, col := range r.columns {
 		table.columns[i] = &(col.Column)
 	}
-	
+
 	return table
 
 }
