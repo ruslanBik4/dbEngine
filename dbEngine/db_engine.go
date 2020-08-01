@@ -13,7 +13,7 @@ type Connection interface {
 	GetStat() string
 	ExecDDL(ctx context.Context, sql string, args ...interface{}) error
 	NewTable(name, typ string) Table
-	SelectOneAndScan(ctx context.Context, sql string, args ...interface{}) error
+	SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, args ...interface{}) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, args ...interface{}) error
 	SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error)

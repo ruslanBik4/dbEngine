@@ -5,6 +5,8 @@
 package psql
 
 import (
+	"time"
+
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgproto3/v2"
 	"github.com/jackc/pgx/v4"
@@ -198,8 +200,67 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	return nil
 }
 
-func (c *Conn) SelectOneAndScan(ctx context.Context, sql string, args ...interface{}) error {
-	return c.QueryRow(context.Background(), sql, args...).Scan(args...)
+func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
+	row := c.QueryRow(context.Background(), sql, args...)
+
+	switch r := rowValues.(type) {
+	case dbEngine.RowScanner:
+		return row.Scan(r.GetFields(nil)...)
+
+	case []interface{}:
+		return row.Scan(r...)
+
+	case []string:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	case []int32:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	case []int64:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	case []float32:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	case []float64:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	case []time.Time:
+		v := make([]interface{}, len(r))
+		for i := range r {
+			v[i] = &(r[i])
+		}
+
+		return row.Scan(v...)
+
+	default:
+		return row.Scan(&r)
+	}
 }
 
 func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
@@ -351,7 +412,6 @@ func (c *Conn) listen(ch string) {
 		return
 	}
 	defer conn.Release()
-	
 
 	cTag, err := conn.Exec(c.ctxPool, "listen "+ch)
 	if err != nil {

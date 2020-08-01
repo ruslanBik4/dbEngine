@@ -44,7 +44,7 @@ func (t *Table) NewTable(name, typ string) dbEngine.Table {
 	panic("implement me")
 }
 
-func (t *Table) SelectOneAndScan(ctx context.Context, sql string, args ...interface{}) error {
+func (t *Table) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
