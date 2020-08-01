@@ -7,7 +7,6 @@ package psql
 import (
 	"fmt"
 	"go/types"
-	"strconv"
 	"sync"
 
 	"github.com/jackc/pgproto3/v2"
@@ -20,8 +19,6 @@ import (
 type PgxRoutineParams struct {
 	Column
 	Fnc                    *Routine `json:"-"`
-	DataName               string
-	ParameterDefault       string
 	Position               int32
 }
 
@@ -47,7 +44,7 @@ func (p *PgxRoutineParams) BasicTypeInfo() types.BasicInfo {
 
 func (p *PgxRoutineParams) Type() string {
 	if p.DataType == "ARRAY" {
-		return p.UdtName + "[]"
+		return p.UdtName[1:] + "[]"
 	}
 	
 	return p.UdtName
@@ -111,14 +108,15 @@ func (r *Routine) GetParams(ctx context.Context) error {
 
 		row := &PgxRoutineParams{
 			Fnc:                    r,
-			name:                   values[0].(string),
-			DataType:               values[1].(string),
-			DataName:               values[2].(string),
-			CharacterSetName:       values[3].(string),
-			characterMaximumLength: values[4].(int32),
-			ParameterDefault:       values[5].(string),
 			Position:               values[6].(int32),
 		}
+		
+		row.name	=                   values[0].(string)
+		row.DataType=               values[1].(string)
+		row.UdtName =               values[2].(string)
+		row.CharacterSetName =       values[3].(string)
+		row.characterMaximumLength = values[4].(int32)
+		row.ColumnDefault =       values[5].(string)
 
 		if values[7].(string) == "IN" {
 			r.params = append(r.params, row)
