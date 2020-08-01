@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/jackc/pgproto3/v2"
@@ -290,7 +291,7 @@ func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDesc
 		//DataType:
 		values[1].(string),
 		//ColumnDefault:
-		values[2].(string),
+		shrinkDefault(values[2].(string)),
 		//isNullable:
 		values[3].(bool),
 		//CharacterSetName:
@@ -308,4 +309,10 @@ func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDesc
 	t.columns = append(t.columns, col)
 
 	return nil
+}
+
+func shrinkDefault(str string) string {
+	str = (strings.Split(str, "::"))[0]
+
+	return strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
 }
