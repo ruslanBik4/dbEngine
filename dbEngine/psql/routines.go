@@ -183,7 +183,7 @@ func (r *Routine) newTsbleForSQL() *Table {
 	table := &Table{name: name + ")"}
 	table.columns = make([]*Column, len(r.columns))
 	for i, col := range r.columns {
-		table.columns[i] = col.Column
+		table.columns[i] = &(col.Column)
 	}
 	
 	return table
