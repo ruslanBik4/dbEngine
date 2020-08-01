@@ -115,7 +115,7 @@ func (r *Routine) GetParams(ctx context.Context) error {
 		row.DataType=               values[1].(string)
 		row.UdtName =               values[2].(string)
 		row.CharacterSetName =       values[3].(string)
-		row.characterMaximumLength = values[4].(int32)
+		row.characterMaximumLength = int( values[4].(int32) )
 		row.ColumnDefault =       values[5].(string)
 
 		if values[7].(string) == "IN" {
@@ -183,8 +183,7 @@ func (r *Routine) newTsbleForSQL() *Table {
 	table := &Table{name: name + ")"}
 	table.columns = make([]*Column, len(r.columns))
 	for i, col := range r.columns {
-		table.columns[i] = NewColumn(table, col.name, col.DataType, col.Default(), false,
-			col.CharacterSetName, col.comment, col.DataName, col.CharacterMaximumLength(), false, false)
+		table.columns[i] = col.Column
 	}
 	
 	return table
