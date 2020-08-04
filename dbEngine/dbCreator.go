@@ -19,6 +19,7 @@ type ParserTableDDL struct {
 	Table
 	*DB
 	err          error
+	line         int
 	mapParse     []func(string) bool
 	isCreateDone bool
 }
@@ -36,11 +37,11 @@ func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 }
 
 func (p ParserTableDDL) Parse(ddl string) error {
-	l := 0
+	p.line = 0
 	for _, sql := range strings.Split(ddl, ";") {
-		l += strings.Count(sql, "\n") + 1
+		p.line += strings.Count(sql, "\n") + 1
 		if !p.execSql(strings.Trim(sql, "\n")) {
-			logError(NewErrUnknownSql(sql, l), ddl, p.Name())
+			logError(NewErrUnknownSql(sql, p.line), ddl, p.Name())
 		}
 
 		if p.err != nil {
@@ -73,7 +74,7 @@ func (p ParserTableDDL) addComment(ddl string) bool {
 
 	err := p.Conn.ExecDDL(context.TODO(), ddl)
 	if err == nil {
-		logs.StatusLog(prefix, ddl)
+		logInfo(prefix, p.Name(), ddl, p.line)
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
@@ -95,7 +96,7 @@ func (p ParserTableDDL) skipPartition(ddl string) bool {
 	if !ok {
 		err := p.Conn.ExecDDL(context.TODO(), ddl)
 		if err == nil {
-			logs.StatusLog(prefix, ddl)
+			logInfo(prefix, p.Name(), ddl, p.line)
 		} else if isErrorAlreadyExists(err) {
 			err = nil
 		} else if err != nil {
@@ -232,14 +233,14 @@ func (p ParserTableDDL) updateIndex(ddl string) bool {
 	}
 
 	if p.FindIndex(ind.Name) != nil {
-		logs.StatusLog("index '%s' exists! ", ind.Name)
+		logInfo(prefix, p.Name(), "index '"+ind.Name+"' exists! ", p.line)
 		//todo: check columns of index
 		return true
 	}
 
 	err = p.Conn.ExecDDL(context.TODO(), ddl)
 	if err == nil {
-		logs.StatusLog(prefix, ddl, ind)
+		logInfo(prefix, p.Name(), ddl, p.line)
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
@@ -274,11 +275,11 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 				if p.FindColumn(name) == nil {
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
-				logs.StatusLog("new index column: ", name)
+				logInfo(prefix, p.Name(), "new index column: "+name, p.line)
 			}
 
 		default:
-			logs.StatusLog("%s %s", name, columns[i])
+			logInfo(prefix, p.Name(), name+columns[i], p.line)
 		}
 
 	}
@@ -292,7 +293,7 @@ func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
 	if err != nil {
 		logs.ErrorLog(err, `. Field %s.%s`, p.Name(), fieldName)
 	} else {
-		logs.StatusLog("[DB CONFIG] ", p.Name(), sAlter)
+		logInfo(prefix, p.Name(), sAlter, p.line)
 		p.ReReadColumn(fieldName)
 	}
 
@@ -307,7 +308,7 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 			`. Field %s.%s, different with define: '%s' %s, sql: %s`,
 			p.Name, fieldName, title, fs, sql)
 	} else {
-		logs.StatusLog("[DB CONFIG] %s ", sql)
+		logInfo(prefix, p.Name(), sql, p.line)
 		p.ReReadColumn(fieldName)
 	}
 

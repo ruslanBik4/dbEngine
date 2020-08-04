@@ -271,3 +271,9 @@ func logError(err error, ddlSQL string, fileName string) {
 		logs.ErrorLog(err, prefix, fileName)
 	}
 }
+
+func logInfo(prefix, fileName, msg string, line int) {
+	// todo mv to logs
+	fmt.Printf("%s%d;1m%s\033[0m %v:%d: %s\n",
+		logs.LogPutColor, 35, prefix, fileName, line, msg)
+}
