@@ -36,9 +36,11 @@ func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 }
 
 func (p ParserTableDDL) Parse(ddl string) error {
+	l := 0
 	for _, sql := range strings.Split(ddl, ";") {
+		l += strings.Count(sql, "\n") + 1
 		if !p.execSql(strings.Trim(sql, "\n")) {
-			logError(ErrUnknownSql{sql}, ddl, p.Name())
+			logError(NewErrUnknownSql(sql, l), ddl, p.Name())
 		}
 
 		if p.err != nil {

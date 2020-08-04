@@ -262,7 +262,11 @@ func logError(err error, ddlSQL string, fileName string) {
 	pgErr, ok := err.(*pgconn.PgError)
 	if ok && pgErr.Position > 0 {
 		line := strings.Count(ddlSQL[:pgErr.Position-1], "\n") + 1
+		// todo mv to logs
 		fmt.Printf("\033[%d;1m%s\033[0m %v:%d: %s %#v\n", 35, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
+	} else if e, ok := err.(*ErrUnknownSql); ok {
+		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %v \n",
+			logs.LogPutColor, 35, "[[ERROR]]", fileName, e.Line, e)
 	} else {
 		logs.ErrorLog(err, prefix, fileName)
 	}
