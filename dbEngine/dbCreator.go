@@ -19,13 +19,14 @@ type ParserTableDDL struct {
 	Table
 	*DB
 	err          error
+	filename     string
 	line         int
 	mapParse     []func(string) bool
 	isCreateDone bool
 }
 
-func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
-	t := ParserTableDDL{Table: table, DB: db}
+func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
+	t := ParserTableDDL{Table: table, filename: table.Name() + ".dll", DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,
 		t.addComment,
@@ -33,19 +34,24 @@ func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 		t.skipPartition,
 	}
 
-	return t
+	return &t
 }
 
-func (p ParserTableDDL) Parse(ddl string) error {
+func (p *ParserTableDDL) Parse(ddl string) error {
 	p.line = 0
 	for _, sql := range strings.Split(ddl, ";") {
-		p.line += strings.Count(sql, "\n") + 1
-		if !p.execSql(strings.Trim(sql, "\n")) {
-			logError(NewErrUnknownSql(sql, p.line), ddl, p.Name())
+		p.line += strings.Count(sql, "\n")
+		str := strings.TrimSpace(strings.Replace(sql, "\n", "", -1))
+		if str == "" {
+			continue
+		}
+
+		if !p.execSql(str) {
+			logError(NewErrUnknownSql(sql, p.line), ddl, p.filename)
 		}
 
 		if p.err != nil {
-			logError(p.err, ddl, p.Name())
+			logError(p.err, ddl, p.filename)
 
 		}
 
@@ -74,11 +80,11 @@ func (p ParserTableDDL) addComment(ddl string) bool {
 
 	err := p.Conn.ExecDDL(context.TODO(), ddl)
 	if err == nil {
-		logInfo(prefix, p.Name(), ddl, p.line)
+		logInfo(prefix, p.filename, ddl, p.line)
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
-		logError(err, ddl, p.Name())
+		logError(err, ddl, p.filename)
 	}
 
 	return true
@@ -96,11 +102,11 @@ func (p ParserTableDDL) skipPartition(ddl string) bool {
 	if !ok {
 		err := p.Conn.ExecDDL(context.TODO(), ddl)
 		if err == nil {
-			logInfo(prefix, p.Name(), ddl, p.line)
+			logInfo(prefix, p.filename, ddl, p.line)
 		} else if isErrorAlreadyExists(err) {
 			err = nil
 		} else if err != nil {
-			logError(err, ddl, p.Name())
+			logError(err, ddl, p.filename)
 		}
 	}
 
@@ -233,14 +239,14 @@ func (p ParserTableDDL) updateIndex(ddl string) bool {
 	}
 
 	if p.FindIndex(ind.Name) != nil {
-		logInfo(prefix, p.Name(), "index '"+ind.Name+"' exists! ", p.line)
+		logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! ", p.line)
 		//todo: check columns of index
 		return true
 	}
 
 	err = p.Conn.ExecDDL(context.TODO(), ddl)
 	if err == nil {
-		logInfo(prefix, p.Name(), ddl, p.line)
+		logInfo(prefix, p.filename, ddl, p.line)
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
@@ -275,11 +281,11 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 				if p.FindColumn(name) == nil {
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
-				logInfo(prefix, p.Name(), "new index column: "+name, p.line)
+				logInfo(prefix, p.filename, "new index column: "+name, p.line)
 			}
 
 		default:
-			logInfo(prefix, p.Name(), name+columns[i], p.line)
+			logInfo(prefix, p.filename, name+columns[i], p.line)
 		}
 
 	}
@@ -293,7 +299,7 @@ func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
 	if err != nil {
 		logs.ErrorLog(err, `. Field %s.%s`, p.Name(), fieldName)
 	} else {
-		logInfo(prefix, p.Name(), sAlter, p.line)
+		logInfo(prefix, p.filename, sAlter, p.line)
 		p.ReReadColumn(fieldName)
 	}
 
@@ -308,7 +314,7 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 			`. Field %s.%s, different with define: '%s' %s, sql: %s`,
 			p.Name, fieldName, title, fs, sql)
 	} else {
-		logInfo(prefix, p.Name(), sql, p.line)
+		logInfo(prefix, p.filename, sql, p.line)
 		p.ReReadColumn(fieldName)
 	}
 

@@ -263,10 +263,12 @@ func logError(err error, ddlSQL string, fileName string) {
 	if ok && pgErr.Position > 0 {
 		line := strings.Count(ddlSQL[:pgErr.Position-1], "\n") + 1
 		// todo mv to logs
-		fmt.Printf("\033[%d;1m%s\033[0m %v:%d: %s %#v\n", 35, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
+		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %s %#v\n",
+			logs.LogPutColor,
+			32, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
 		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %v \n",
-			logs.LogPutColor, 35, "[[ERROR]]", fileName, e.Line, e)
+			logs.LogPutColor, 32, "[[ERROR]]", fileName, e.Line, e)
 	} else {
 		logs.ErrorLog(err, prefix, fileName)
 	}
@@ -274,6 +276,6 @@ func logError(err error, ddlSQL string, fileName string) {
 
 func logInfo(prefix, fileName, msg string, line int) {
 	// todo mv to logs
-	fmt.Printf("%s%d;1m%s\033[0m %v:%d: %s\n",
-		logs.LogPutColor, 35, prefix, fileName, line, msg)
+	fmt.Printf("%s%d;1m%s%s %s:%d: %s\n",
+		logs.LogPutColor, 30, prefix, logs.LogEndColor, fileName, line, msg)
 }
