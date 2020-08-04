@@ -109,6 +109,8 @@ func toType(dtName string) types.BasicKind {
 	switch dtName {
 	case "bool":
 		return types.Bool
+	case "int2", "_int2":
+		return types.Int16
 	case "int4", "_int4":
 		return types.Int32
 	case "int8", "_int8":
@@ -120,14 +122,14 @@ func toType(dtName string) types.BasicKind {
 	case "numeric", "decimal":
 		// todo add check field length
 		return types.Float64
-	case "date", "timestampt", "timestamptz", "time", "_date", "_timestampt", "_timestamptz", "_time":
-		return types.String
+	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time":
+		return typesExt.TStruct
 	case "json":
 		return typesExt.TMap
 	case "timerange", "tsrange":
 		// todo add check ranges
 		return types.String
-	case "varchar", "_varchar", "text", "character varying", "_character varying":
+	case "char", "_char", "varchar", "_varchar", "text", "_text", "character varying", "_character varying":
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer

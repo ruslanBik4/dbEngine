@@ -59,7 +59,15 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			typeCol = "sql.Null" + strings.Title(typeCol)
 		}
 
+		// todo add import for types
 		if bTypeCol < 0 {
+			switch col.Type() {
+			case "json":
+				typeCol = "interface{}"
+			case "date", "timestampt", "timestamptz", "time", "_date", "_timestampt", "_timestamptz", "_time":
+				typeCol = "time.Time"
+			}
+		} else if bTypeCol == 0 {
 			typeCol = "sql.RawBytes"
 		}
 

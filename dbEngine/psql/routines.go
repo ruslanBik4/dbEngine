@@ -6,7 +6,6 @@ package psql
 
 import (
 	"fmt"
-	"go/types"
 	"sync"
 
 	"github.com/jackc/pgproto3/v2"
@@ -20,25 +19,6 @@ type PgxRoutineParams struct {
 	Column
 	Fnc      *Routine `json:"-"`
 	Position int32
-}
-
-func (p *PgxRoutineParams) BasicType() types.BasicKind {
-	return toType(p.DataType)
-}
-
-func (p *PgxRoutineParams) BasicTypeInfo() types.BasicInfo {
-	switch p.BasicType() {
-	case types.Bool:
-		return types.IsBoolean
-	case types.Int32, types.Int64:
-		return types.IsInteger
-	case types.Float32, types.Float64:
-		return types.IsFloat
-	case types.String:
-		return types.IsString
-	default:
-		return types.IsUntyped
-	}
 }
 
 func (p *PgxRoutineParams) Type() string {

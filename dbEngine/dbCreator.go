@@ -32,6 +32,7 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 		t.addComment,
 		t.updateIndex,
 		t.skipPartition,
+		t.performsInsert,
 	}
 
 	return t
@@ -46,6 +47,7 @@ func (p *ParserTableDDL) Parse(ddl string) error {
 			continue
 		}
 
+		sql = strings.TrimPrefix(sql, "\n")
 		if !p.execSql(sql) {
 			logError(NewErrUnknownSql(sql, p.line), ddl, p.filename)
 		}
@@ -73,6 +75,23 @@ func (p *ParserTableDDL) execSql(sql string) bool {
 	return false
 }
 
+func (p *ParserTableDDL) performsInsert(ddl string) bool {
+	if !strings.Contains(strings.ToLower(ddl), "insert") {
+		return false
+	}
+
+	err := p.Conn.ExecDDL(context.TODO(), ddl+"  ON CONFLICT  DO NOTHING ")
+	if err == nil {
+		logInfo(prefix, p.filename, ddl, p.line)
+	} else if isErrorAlreadyExists(err) {
+		err = nil
+	} else if err != nil {
+		logError(err, ddl, p.filename)
+	}
+
+	return true
+
+}
 func (p *ParserTableDDL) addComment(ddl string) bool {
 	if !strings.Contains(strings.ToLower(ddl), "comment") {
 		return false
@@ -226,7 +245,7 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	return err
 }
 
-func (p ParserTableDDL) updateIndex(ddl string) bool {
+func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
 	if len(columns) == 0 {
 		return false
@@ -281,7 +300,6 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 				if p.FindColumn(name) == nil {
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
-				logInfo(prefix, p.filename, "new index column: "+name, p.line)
 			}
 
 		default:
@@ -295,9 +313,10 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 }
 
 func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
-	err := p.Conn.ExecDDL(context.TODO(), "ALTER TABLE "+p.Name()+sAlter)
+	sql := "ALTER TABLE " + p.Name() + sAlter
+	err := p.Conn.ExecDDL(context.TODO(), sql)
 	if err != nil {
-		logs.ErrorLog(err, `. Field %s.%s`, p.Name(), fieldName)
+		logError(err, sql, p.filename)
 	} else {
 		logInfo(prefix, p.filename, sAlter, p.line)
 		p.ReReadColumn(fieldName)
@@ -310,9 +329,8 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 	sql := "ALTER TABLE " + p.Name() + " alter column " + fieldName + sAlter
 	err := p.Conn.ExecDDL(context.TODO(), sql)
 	if err != nil {
-		logs.ErrorLog(err,
-			`. Field %s.%s, different with define: '%s' %s, sql: %s`,
-			p.Name, fieldName, title, fs, sql)
+		logError(err, sql, p.filename)
+		logs.DebugLog(`Field %s.%s, different with define: '%s' %v`, p.Name(), fieldName, title, fs)
 	} else {
 		logInfo(prefix, p.filename, sql, p.line)
 		p.ReReadColumn(fieldName)

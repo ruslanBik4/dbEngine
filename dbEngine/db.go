@@ -286,5 +286,5 @@ func logInfo(prefix, fileName, msg string, line int) {
 
 func timeLogFormat() string {
 	hh, mm, ss := time.Now().Clock()
-	return fmt.Sprintf("%.2d:%.2d:%.2d ", hh, mm, ss)
+	return fmt.Sprintf("%.2d:%.2d:%.2d", hh, mm, ss)
 }
