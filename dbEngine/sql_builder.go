@@ -44,6 +44,10 @@ func (b SQLBuilder) updateSql() string {
 	return "UPDATE " + b.Table.Name() + b.Set() + b.Where()
 }
 
+func (b SQLBuilder) upsertSql() string {
+	return " DO UPDATE" + b.SetUpsert()
+}
+
 func (b SQLBuilder) UpsertSql() (string, error) {
 	if len(b.columns) != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
@@ -67,7 +71,7 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	b.posFilter = 0
 	b.columns = setCols
 
-	return s + " " + b.updateSql(), nil
+	return s + b.upsertSql(), nil
 }
 
 func (b SQLBuilder) SelectSql() (string, error) {
@@ -143,6 +147,27 @@ func (b *SQLBuilder) Set() string {
 	return s
 }
 
+func (b *SQLBuilder) SetUpsert() string {
+	s, comma := " SET ", ""
+	if len(b.columns) == 0 {
+		for _, col := range b.Table.Columns() {
+			b.posFilter++
+			s += fmt.Sprintf(comma+" %s=EXCLUDED.%s", col.Name(), col.Name())
+			comma = ","
+		}
+
+		return s
+	}
+
+	for _, name := range b.columns {
+		b.posFilter++
+		s += fmt.Sprintf(comma+" %s=EXCLUDED.%s", name, name)
+		comma = ","
+	}
+
+	return s
+}
+
 func (b *SQLBuilder) Where() string {
 
 	where, comma := "", ""
@@ -185,7 +210,7 @@ func (b *SQLBuilder) OnConflict() string {
 		return ""
 	}
 
-	return " ON CONFLICT " + b.onConflict
+	return " ON CONFLICT (" + b.onConflict + ")"
 }
 
 func (b *SQLBuilder) values() string {
