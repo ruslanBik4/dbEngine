@@ -67,7 +67,7 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	b.posFilter = 0
 	b.columns = setCols
 
-	return s + b.updateSql(), nil
+	return s + " " + b.updateSql(), nil
 }
 
 func (b SQLBuilder) SelectSql() (string, error) {

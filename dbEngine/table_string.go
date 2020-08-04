@@ -26,7 +26,13 @@ func (t tableString) Columns() []Column {
 }
 
 func (t tableString) FindColumn(name string) Column {
-	panic("implement me")
+	for _, col := range t.columns {
+		if col.Name() == name {
+			return col
+		}
+	}
+
+	return nil
 }
 
 func (t tableString) FindIndex(name string) *Index {

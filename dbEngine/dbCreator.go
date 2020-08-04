@@ -36,7 +36,6 @@ func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 }
 
 func (p ParserTableDDL) Parse(ddl string) error {
-	ddl = strings.ToLower(ddl)
 	for _, sql := range strings.Split(ddl, ";") {
 		if !p.execSql(strings.Trim(sql, "\n")) {
 			logs.DebugLog("unknow sql", sql)
@@ -105,14 +104,13 @@ func (p ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s+\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*),?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
+var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s+\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
 func (p ParserTableDDL) updateTable(ddl string) bool {
 	var err error
-	//:= string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1)))
-	fields := regTable.FindStringSubmatch(ddl)
+	fields := regTable.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
 		return false
 	}
@@ -136,8 +134,8 @@ func (p ParserTableDDL) updateTable(ddl string) bool {
 
 				title := regField.FindStringSubmatch(name)
 				if len(title) < 3 ||
-					strings.HasPrefix(strings.ToUpper(title[1]), "primary") ||
-					strings.HasPrefix(strings.ToUpper(title[1]), "constraint") {
+					strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
+					strings.HasPrefix(strings.ToLower(title[1]), "constraint") {
 					continue
 				}
 
@@ -220,7 +218,7 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 }
 
 func (p ParserTableDDL) updateIndex(ddl string) bool {
-	columns := ddlIndex.FindStringSubmatch(ddl)
+	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
 	if len(columns) == 0 {
 		return false
 	}

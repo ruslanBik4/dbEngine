@@ -5,8 +5,8 @@ import (
 )
 
 type StringColumn struct {
-	comment, name   string
-	req, isNullable bool
+	comment, name            string
+	req, primary, isNullable bool
 }
 
 func (s *StringColumn) AutoIncrement() bool {
@@ -22,7 +22,7 @@ func (s *StringColumn) Default() string {
 }
 
 func NewStringColumn(name, comment string, req bool) *StringColumn {
-	return &StringColumn{comment, name, req, false}
+	return &StringColumn{comment, name, req, false, false}
 }
 
 func (s *StringColumn) BasicType() types.BasicKind {
@@ -42,7 +42,7 @@ func (s *StringColumn) Comment() string {
 }
 
 func (s *StringColumn) Primary() bool {
-	return true
+	return s.primary
 }
 
 func (s *StringColumn) Type() string {

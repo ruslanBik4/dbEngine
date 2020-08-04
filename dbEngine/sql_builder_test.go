@@ -534,3 +534,98 @@ func TestWhereForSelect(t *testing.T) {
 		})
 	}
 }
+
+func TestSQLBuilder_UpsertSql(t *testing.T) {
+	type fields struct {
+		Args       []interface{}
+		columns    []string
+		posFilter  int
+		Table      Table
+		onConflict string
+	}
+	testTable := tableString{
+		name: "StringTable",
+		columns: append(
+			SimpleColumns("last_login", "name", "id_roles"),
+			&StringColumn{
+				comment: "id",
+				name:    "id",
+				primary: true,
+			}),
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+		{
+			"simple insert",
+			fields{
+				[]interface{}{1, time.Now()},
+				[]string{"id", "last_login"},
+				0,
+				testTable,
+				"",
+			},
+			"INSERT INTO StringTable(id,last_login) VALUES ($1,$2) ON CONFLICT id UPDATE StringTable SET  last_login=$1 WHERE  id=$2",
+			false,
+		},
+		{
+			"two columns update",
+			fields{
+				[]interface{}{1, "ruslan", time.Now()},
+				[]string{"id", "last_login", "name"},
+				0,
+				testTable,
+				"",
+			},
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3",
+			false,
+		},
+		{
+			"two columns update according two filter columns",
+			fields{
+				[]interface{}{1, 2, "ruslan", time.Now()},
+				[]string{"id", "last_login", "name"},
+				0,
+				testTable,
+				"",
+			},
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3",
+			false,
+		},
+		{
+			"two columns update according four filter columns",
+			fields{
+				[]interface{}{1, "ruslan", time.Now()},
+				[]string{"id", "last_login", "name", "id_roles"},
+				0,
+				testTable,
+				"",
+			},
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3,$4) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2, id_roles=$3 WHERE  id=$4",
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := SQLBuilder{
+				Args:       tt.fields.Args,
+				columns:    tt.fields.columns,
+				posFilter:  tt.fields.posFilter,
+				Table:      tt.fields.Table,
+				onConflict: tt.fields.onConflict,
+			}
+			got, err := b.UpsertSql()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("UpsertSql() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("UpsertSql() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
