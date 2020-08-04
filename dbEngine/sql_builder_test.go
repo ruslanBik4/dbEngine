@@ -569,7 +569,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login) VALUES ($1,$2) ON CONFLICT id UPDATE StringTable SET  last_login=$1 WHERE  id=$2",
+			"INSERT INTO StringTable(id,last_login) VALUES ($1,$2) ON CONFLICT id UPDATE StringTable SET  last_login=$2 WHERE  id=$1",
 			false,
 		},
 		{
@@ -581,7 +581,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3",
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$2, name=$3 WHERE  id=$1",
 			false,
 		},
 		{
@@ -593,7 +593,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3",
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT id UPDATE StringTable SET  last_login=$2, name=$3 WHERE  id=$1",
 			false,
 		},
 		{
@@ -605,7 +605,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3,$4) ON CONFLICT id UPDATE StringTable SET  last_login=$1, name=$2, id_roles=$3 WHERE  id=$4",
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3,$4) ON CONFLICT id UPDATE StringTable SET  last_login=$3, name=$3, id_roles=$4 WHERE  id=$1",
 			false,
 		},
 	}

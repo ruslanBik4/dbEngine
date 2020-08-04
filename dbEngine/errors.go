@@ -111,3 +111,19 @@ func (err ErrWrongType) Error() string {
 	return fmt.Sprintf("Wrong type `%s` name attr `%s` `%s` ", err.TypeName, err.Name, err.Attr)
 
 }
+
+// ErrWrongType if not found in field {Name} field by name {Column}
+type ErrUnknownSql struct {
+	sql string
+}
+
+func NewErrUnknownSql(typeName, name, attr string) *ErrUnknownSql {
+	return &ErrUnknownSql{
+		sql: name,
+	}
+}
+
+func (err ErrUnknownSql) Error() string {
+
+	return fmt.Sprintf("unknow sql `%s` for DB migration ", err.sql)
+}

@@ -38,7 +38,7 @@ func NewParserTableDDL(table Table, db *DB) ParserTableDDL {
 func (p ParserTableDDL) Parse(ddl string) error {
 	for _, sql := range strings.Split(ddl, ";") {
 		if !p.execSql(strings.Trim(sql, "\n")) {
-			logs.DebugLog("unknow sql", sql)
+			logError(ErrUnknownSql{sql}, ddl, p.Name())
 		}
 
 		if p.err != nil {
@@ -65,7 +65,7 @@ func (p ParserTableDDL) execSql(sql string) bool {
 }
 
 func (p ParserTableDDL) addComment(ddl string) bool {
-	if !strings.HasPrefix(ddl, "comment") {
+	if !strings.HasPrefix(strings.ToLower(ddl), "comment") {
 		return false
 	}
 
@@ -225,7 +225,7 @@ func (p ParserTableDDL) updateIndex(ddl string) bool {
 
 	ind, err := p.createIndex(columns)
 	if err != nil {
-		logs.ErrorLog(err, ddl)
+		p.err = err
 		return true
 	}
 
@@ -241,7 +241,7 @@ func (p ParserTableDDL) updateIndex(ddl string) bool {
 	} else if isErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
-		logError(err, ddl, p.Name())
+		p.err = err
 	}
 
 	return true
@@ -261,7 +261,7 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 		case "":
 		case "table":
 			if columns[i] != p.Name() {
-				return nil, errors.New("bad p name! " + columns[i])
+				return nil, errors.New("bad table name! " + columns[i])
 			}
 		case "index":
 			// todo implement
@@ -269,6 +269,9 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
 			for _, name := range ind.Columns {
+				if p.FindColumn(name) == nil {
+					return nil, ErrNotFoundColumn{p.Name(), name}
+				}
 				logs.StatusLog("new index column: ", name)
 			}
 
@@ -279,7 +282,7 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 	}
 
 	// todo: chg after implement method
-	return &ind, ErrNotFoundColumn{}
+	return &ind, nil
 }
 
 func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
