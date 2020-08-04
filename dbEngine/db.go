@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
@@ -262,20 +263,28 @@ func logError(err error, ddlSQL string, fileName string) {
 	pgErr, ok := err.(*pgconn.PgError)
 	if ok && pgErr.Position > 0 {
 		line := strings.Count(ddlSQL[:pgErr.Position-1], "\n") + 1
-		// todo mv to logs
-		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %s %#v\n",
-			logs.LogPutColor,
-			33, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
+		printError(fileName, line, pgErr.Message, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
-		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %v \n",
-			logs.LogPutColor, 33, "[[ERROR]]", fileName, e.Line, e)
+		printError(fileName, e.Line, "", e)
 	} else {
 		logs.ErrorLog(err, prefix, fileName)
 	}
 }
 
+func printError(fileName string, line int, msg string, err error) {
+	// todo mv to logs
+	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s %#v\n",
+		logs.LogPutColor,
+		33, "ERROR", logs.LogEndColor, timeLogFormat(), fileName, line, msg, err)
+}
+
 func logInfo(prefix, fileName, msg string, line int) {
 	// todo mv to logs
-	fmt.Printf("%s%d;1m%s%s %s:%d: %s\n",
-		logs.LogPutColor, 30, prefix, logs.LogEndColor, fileName, line, msg)
+	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s\n",
+		logs.LogPutColor, 30, prefix, logs.LogEndColor, timeLogFormat(), fileName, line, msg)
+}
+
+func timeLogFormat() string {
+	hh, mm, ss := time.Now().Clock()
+	return fmt.Sprintf("%.2d:%.2d:%.2d ", hh, mm, ss)
 }

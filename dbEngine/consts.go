@@ -4,4 +4,4 @@
 
 package dbEngine
 
-const prefix = "[[DB_CONFIG]]"
+const prefix = "DB_CONFIG"

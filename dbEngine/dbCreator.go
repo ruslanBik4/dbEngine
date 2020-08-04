@@ -74,7 +74,7 @@ func (p *ParserTableDDL) execSql(sql string) bool {
 }
 
 func (p *ParserTableDDL) addComment(ddl string) bool {
-	if !strings.HasPrefix(strings.ToLower(ddl), "comment") {
+	if !strings.Contains(strings.ToLower(ddl), "comment") {
 		return false
 	}
 
