@@ -26,7 +26,7 @@ type ParserTableDDL struct {
 }
 
 func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
-	t := &ParserTableDDL{Table: table, filename: table.Name() + ".dll", DB: db}
+	t := &ParserTableDDL{Table: table, filename: table.Name() + ".ddl", DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,
 		t.addComment,
@@ -297,7 +297,7 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
 			for _, name := range ind.Columns {
-				if p.FindColumn(name) == nil {
+				if p.FindColumn(strings.TrimSpace(name)) == nil {
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
 			}

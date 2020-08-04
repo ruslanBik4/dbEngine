@@ -144,7 +144,10 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 			err := db.Conn.ExecDDL(context.TODO(), ddlType)
 			if err == nil {
 				logs.StatusLog("New types add to DB", typeName)
-			} else if isErrorAlreadyExists(err) {
+				return nil
+			}
+
+			if isErrorAlreadyExists(err) {
 				ddl := strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1)))
 				fields := regTypeAttr.FindStringSubmatch(ddl)
 				err = nil
@@ -159,7 +162,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 							ddlType := ddlAlterType + " add attribute " + name
 							err = db.Conn.ExecDDL(context.TODO(), ddlType)
 							if err == nil {
-								logs.StatusLog("[DB CONFIG]", ddlType)
+								logs.StatusLog(prefix, ddlType)
 							} else if isErrorAlreadyExists(err) {
 								p := strings.Split(strings.TrimSpace(name), " ")
 								if len(p) < 2 {
@@ -175,7 +178,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 									}
 									err = db.Conn.ExecDDL(context.TODO(), ddlAlterType)
 									if err == nil {
-										logs.StatusLog("[DB CONFIG]", ddlAlterType)
+										logs.StatusLog(prefix, ddlAlterType)
 									}
 								}
 							}
@@ -187,7 +190,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 					}
 				}
 			} else if isErrorForReplace(err) {
-				logs.ErrorLog(err, ddl)
+				logError(err, ddlType, fileName)
 				err = nil
 			}
 
