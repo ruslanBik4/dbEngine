@@ -265,10 +265,10 @@ func logError(err error, ddlSQL string, fileName string) {
 		// todo mv to logs
 		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %s %#v\n",
 			logs.LogPutColor,
-			32, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
+			33, "[[ERROR]]", fileName, line, pgErr.Message, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
 		fmt.Printf("%s%d;1m%s\033[0m %v:%d: %v \n",
-			logs.LogPutColor, 32, "[[ERROR]]", fileName, e.Line, e)
+			logs.LogPutColor, 33, "[[ERROR]]", fileName, e.Line, e)
 	} else {
 		logs.ErrorLog(err, prefix, fileName)
 	}

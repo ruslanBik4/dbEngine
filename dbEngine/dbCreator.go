@@ -26,7 +26,7 @@ type ParserTableDDL struct {
 }
 
 func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
-	t := ParserTableDDL{Table: table, filename: table.Name() + ".dll", DB: db}
+	t := &ParserTableDDL{Table: table, filename: table.Name() + ".dll", DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,
 		t.addComment,
@@ -34,19 +34,19 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 		t.skipPartition,
 	}
 
-	return &t
+	return t
 }
 
 func (p *ParserTableDDL) Parse(ddl string) error {
-	p.line = 0
+	p.line = 1
 	for _, sql := range strings.Split(ddl, ";") {
 		p.line += strings.Count(sql, "\n")
-		str := strings.TrimSpace(strings.Replace(sql, "\n", "", -1))
-		if str == "" {
+
+		if strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" {
 			continue
 		}
 
-		if !p.execSql(str) {
+		if !p.execSql(sql) {
 			logError(NewErrUnknownSql(sql, p.line), ddl, p.filename)
 		}
 
@@ -62,7 +62,7 @@ func (p *ParserTableDDL) Parse(ddl string) error {
 	return nil
 }
 
-func (p ParserTableDDL) execSql(sql string) bool {
+func (p *ParserTableDDL) execSql(sql string) bool {
 	for i, fnc := range p.mapParse {
 		if (!p.isCreateDone || (i > 0)) && fnc(sql) {
 			p.isCreateDone = p.isCreateDone || (i == 0)
@@ -73,7 +73,7 @@ func (p ParserTableDDL) execSql(sql string) bool {
 	return false
 }
 
-func (p ParserTableDDL) addComment(ddl string) bool {
+func (p *ParserTableDDL) addComment(ddl string) bool {
 	if !strings.HasPrefix(strings.ToLower(ddl), "comment") {
 		return false
 	}
@@ -92,7 +92,7 @@ func (p ParserTableDDL) addComment(ddl string) bool {
 
 var regPartionTable = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
 
-func (p ParserTableDDL) skipPartition(ddl string) bool {
+func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	fields := regPartionTable.FindStringSubmatch(ddl)
 	if len(fields) == 0 {
 		return false
@@ -117,7 +117,7 @@ var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s+\((?P<fields
 
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
-func (p ParserTableDDL) updateTable(ddl string) bool {
+func (p *ParserTableDDL) updateTable(ddl string) bool {
 	var err error
 	fields := regTable.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
