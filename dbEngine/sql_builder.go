@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/ruslanBik4/httpgo/logs"
 )
 
@@ -37,15 +38,23 @@ func (b SQLBuilder) UpdateSql() (string, error) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
 	}
 
-	return b.updateSql(), nil
+	return b.updateSql()
 }
 
-func (b SQLBuilder) updateSql() string {
-	return "UPDATE " + b.Table.Name() + b.Set() + b.Where()
+func (b SQLBuilder) updateSql() (string, error) {
+	s, err := b.Set()
+	if err != nil {
+		return "", err
+	}
+	return "UPDATE " + b.Table.Name() + s + b.Where(), nil
 }
 
-func (b SQLBuilder) upsertSql() string {
-	return " DO UPDATE" + b.SetUpsert()
+func (b SQLBuilder) upsertSql() (string, error) {
+	s, err := b.SetUpsert()
+	if err != nil {
+		return "", err
+	}
+	return " DO UPDATE" + s, nil
 }
 
 func (b SQLBuilder) UpsertSql() (string, error) {
@@ -71,7 +80,12 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	b.posFilter = 0
 	b.columns = setCols
 
-	return s + b.upsertSql(), nil
+	u, err := b.upsertSql()
+	if err != nil {
+		return "", err
+	}
+
+	return s + u, nil
 }
 
 func (b SQLBuilder) SelectSql() (string, error) {
@@ -113,10 +127,7 @@ func (b *SQLBuilder) SelectColumns() []Column {
 func (b *SQLBuilder) Select() string {
 	if len(b.columns) == 0 {
 		if b.Table != nil && len(b.Table.Columns()) > 0 {
-			b.columns = make([]string, len(b.Table.Columns()))
-			for i, col := range b.Table.Columns() {
-				b.columns[i] = col.Name()
-			}
+			b.fillColumns()
 		} else {
 			// todo - chk for insert request
 			return "*"
@@ -126,16 +137,23 @@ func (b *SQLBuilder) Select() string {
 	return strings.Join(b.columns, ",")
 }
 
-func (b *SQLBuilder) Set() string {
+func (b *SQLBuilder) fillColumns() {
+	b.columns = make([]string, len(b.Table.Columns()))
+	for i, col := range b.Table.Columns() {
+		b.columns[i] = col.Name()
+	}
+}
+
+func (b *SQLBuilder) Set() (string, error) {
 	s, comma := " SET ", ""
 	if len(b.columns) == 0 {
-		for _, col := range b.Table.Columns() {
-			b.posFilter++
-			s += fmt.Sprintf(comma+" %s=$%d", col.Name(), b.posFilter)
-			comma = ","
+		if b.Table != nil && len(b.Table.Columns()) > 0 {
+			b.fillColumns()
+		} else {
+			// todo add return error
+			return "", errors.Wrap(NewErrWrongType("columns list", "table", "nil"),
+				"Set")
 		}
-
-		return s
 	}
 
 	for _, name := range b.columns {
@@ -144,28 +162,26 @@ func (b *SQLBuilder) Set() string {
 		comma = ","
 	}
 
-	return s
+	return s, nil
 }
 
-func (b *SQLBuilder) SetUpsert() string {
+func (b *SQLBuilder) SetUpsert() (string, error) {
 	s, comma := " SET ", ""
 	if len(b.columns) == 0 {
-		for _, col := range b.Table.Columns() {
-			b.posFilter++
-			s += fmt.Sprintf(comma+" %s=EXCLUDED.%s", col.Name(), col.Name())
-			comma = ","
+		if b.Table != nil && len(b.Table.Columns()) > 0 {
+			b.fillColumns()
+		} else {
+			return "", errors.Wrap(NewErrWrongType("columns list", "table", "nil"),
+				"SetUpsert")
 		}
-
-		return s
 	}
 
 	for _, name := range b.columns {
-		b.posFilter++
-		s += fmt.Sprintf(comma+" %s=EXCLUDED.%s", name, name)
+		s += fmt.Sprintf(comma+" %s=EXCLUDED.%[1]s", name)
 		comma = ","
 	}
 
-	return s
+	return s, nil
 }
 
 func (b *SQLBuilder) Where() string {

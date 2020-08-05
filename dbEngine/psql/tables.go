@@ -288,20 +288,20 @@ func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDesc
 	col := NewColumn(
 		t,
 		values[0].(string),
-		//DataType:
+		// DataType:
 		values[1].(string),
-		//ColumnDefault:
+		// ColumnDefault:
 		shrinkDefault(values[2].(string)),
-		//isNullable:
+		// isNullable:
 		values[3].(bool),
-		//CharacterSetName:
+		// CharacterSetName:
 		values[4].(string),
 		values[9].(string), //comment
 		// udtname
 		values[6].(string),
-		//CharacterMaximumLength:
+		// CharacterMaximumLength:
 		int(values[5].(int32)),
-		//PrimaryKey:
+		// PrimaryKey:
 		isPK && values[8].(bool),
 		false,
 	)

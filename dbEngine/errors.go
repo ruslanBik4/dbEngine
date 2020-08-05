@@ -14,6 +14,10 @@ type ErrNotFoundTable struct {
 	Table string
 }
 
+func NewErrNotFoundTable(table string) *ErrNotFoundTable {
+	return &ErrNotFoundTable{Table: table}
+}
+
 func (err ErrNotFoundTable) Error() string {
 
 	return fmt.Sprintf("Not table `%s` in schema ", err.Table)

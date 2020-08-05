@@ -342,6 +342,7 @@ func TestSQLBuilder_Set(t *testing.T) {
 		name   string
 		fields fields
 		want   string
+		err    error
 	}{
 		// TODO: Add test cases.
 	}
@@ -354,9 +355,10 @@ func TestSQLBuilder_Set(t *testing.T) {
 				posFilter: tt.fields.posFilter,
 				Table:     tt.fields.Table,
 			}
-			if got := b.Set(); got != tt.want {
-				t.Errorf("Set() = %v, want %v", got, tt.want)
-			}
+
+			got, err := b.Set()
+			assert.Equal(t, tt.err, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

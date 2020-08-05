@@ -53,9 +53,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
-		if strings.HasPrefix(col.Type(), "_") {
-			typeCol = "[]" + typeCol
-		} else if col.IsNullable() {
+		if col.IsNullable() {
 			typeCol = "sql.Null" + strings.Title(typeCol)
 		}
 
@@ -66,9 +64,15 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				typeCol = "interface{}"
 			case "date", "timestampt", "timestamptz", "time", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "time.Time"
+			case "timerange", "tsrange":
+				typeCol = "[]time.Time"
 			}
 		} else if bTypeCol == 0 {
 			typeCol = "sql.RawBytes"
+		}
+
+		if strings.HasPrefix(col.Type(), "_") {
+			typeCol = "[]" + typeCol
 		}
 
 		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol, strings.ToLower(col.Name()))

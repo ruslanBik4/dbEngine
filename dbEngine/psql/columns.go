@@ -128,7 +128,7 @@ func toType(dtName string) types.BasicKind {
 		return typesExt.TMap
 	case "timerange", "tsrange":
 		// todo add check ranges
-		return types.String
+		return typesExt.TArray
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "character varying", "_character varying":
 		return types.String
 	case "bytea", "_bytea":
@@ -206,7 +206,7 @@ func (c *Column) Type() string {
 }
 
 func (c *Column) Required() bool {
-	return !c.isNullable && (c.ColumnDefault == "NULL")
+	return !c.isNullable && (c.ColumnDefault == "")
 }
 
 func (c *Column) SetNullable(f bool) {
