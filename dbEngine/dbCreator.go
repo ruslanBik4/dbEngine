@@ -171,7 +171,7 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 
 var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s+\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 
-var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
+var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
 
 func (p *ParserTableDDL) updateTable(ddl string) bool {
 	var err error
