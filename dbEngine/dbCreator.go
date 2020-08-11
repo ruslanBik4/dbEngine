@@ -221,7 +221,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 	return true
 }
 
-var regDefault = regexp.MustCompile(`default\s+'?([^']+)\b`)
+var regDefault = regexp.MustCompile(`default\s+'?([^',]+)`)
 
 func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	res := fs.CheckAttr(title)
