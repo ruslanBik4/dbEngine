@@ -188,7 +188,11 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 	return t.conn.selectAndRunEach(
 		ctx,
 		func(values []interface{}, columns []pgproto3.FieldDescription) error {
-			return each(values, b.SelectColumns())
+			if each != nil {
+				return each(values, b.SelectColumns())
+			}
+
+			return nil
 		},
 		sql,
 		b.Args...)

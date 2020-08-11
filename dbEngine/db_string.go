@@ -5,8 +5,9 @@ import (
 )
 
 type StringColumn struct {
-	comment, name            string
-	req, primary, isNullable bool
+	comment, name, colDefault string
+	req, primary, isNullable  bool
+	maxLen                    int
 }
 
 func (s *StringColumn) AutoIncrement() bool {
@@ -21,8 +22,21 @@ func (s *StringColumn) Default() string {
 	return ""
 }
 
-func NewStringColumn(name, comment string, req bool) *StringColumn {
-	return &StringColumn{comment, name, req, false, false}
+func (s *StringColumn) SetDefault(str string) {
+	s.colDefault = str
+}
+
+func NewStringColumn(name, comment string, req bool, maxLen ...int) *StringColumn {
+	if len(maxLen) == 0 {
+		maxLen = append(maxLen, 0)
+	}
+
+	return &StringColumn{
+		comment: comment,
+		name:    name,
+		req:     req,
+		maxLen:  maxLen[0],
+	}
 }
 
 func (s *StringColumn) BasicType() types.BasicKind {
@@ -58,7 +72,7 @@ func (s *StringColumn) Name() string {
 }
 
 func (s *StringColumn) CharacterMaximumLength() int {
-	return len(s.name)
+	return s.maxLen
 }
 
 func (c *StringColumn) SetNullable(f bool) {

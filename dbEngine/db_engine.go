@@ -64,6 +64,7 @@ type Column interface {
 	AutoIncrement() bool
 	IsNullable() bool
 	Default() string
+	SetDefault(string)
 	Primary() bool
 	Type() string
 	Required() bool

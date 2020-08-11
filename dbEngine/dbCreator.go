@@ -33,6 +33,8 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 		t.updateIndex,
 		t.skipPartition,
 		t.performsInsert,
+		t.performsCreateExt,
+		t.alterTable,
 	}
 
 	return t
@@ -43,7 +45,8 @@ func (p *ParserTableDDL) Parse(ddl string) error {
 	for _, sql := range strings.Split(ddl, ";") {
 		p.line += strings.Count(sql, "\n")
 
-		if strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" {
+		if strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" ||
+			strings.HasPrefix(sql, "--") {
 			continue
 		}
 
@@ -75,6 +78,40 @@ func (p *ParserTableDDL) execSql(sql string) bool {
 	return false
 }
 
+func (p *ParserTableDDL) performsCreateExt(ddl string) bool {
+	if !strings.HasPrefix(strings.ToLower(ddl), "create extension") {
+		return false
+	}
+
+	err := p.Conn.ExecDDL(context.TODO(), ddl)
+	if err == nil {
+		logInfo(prefix, p.filename, ddl, p.line)
+	} else if isErrorAlreadyExists(err) {
+		err = nil
+	} else if err != nil {
+		logError(err, ddl, p.filename)
+	}
+
+	return true
+}
+
+func (p *ParserTableDDL) alterTable(ddl string) bool {
+	if !strings.HasPrefix(strings.ToLower(ddl), "alter table") {
+		return false
+	}
+
+	err := p.Conn.ExecDDL(context.TODO(), ddl)
+	if err == nil {
+		logInfo(prefix, p.filename, ddl, p.line)
+	} else if isErrorAlreadyExists(err) {
+		err = nil
+	} else if err != nil {
+		logError(err, ddl, p.filename)
+	}
+
+	return true
+}
+
 func (p *ParserTableDDL) performsInsert(ddl string) bool {
 	if !strings.Contains(strings.ToLower(ddl), "insert") {
 		return false
@@ -90,8 +127,8 @@ func (p *ParserTableDDL) performsInsert(ddl string) bool {
 	}
 
 	return true
-
 }
+
 func (p *ParserTableDDL) addComment(ddl string) bool {
 	if !strings.Contains(strings.ToLower(ddl), "comment") {
 		return false
@@ -184,9 +221,23 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 	return true
 }
 
+var regDefault = regexp.MustCompile(`default\s+'?([^']+)\b`)
+
 func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	res := fs.CheckAttr(title)
 	fieldName := fs.Name()
+	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
+	if len(defaults) > 1 && fs.Default() != defaults[1] {
+		attr := strings.Split(title, " ")
+		if attr[0] == "character" {
+			attr[0] += " " + attr[1]
+		}
+
+		sql := fmt.Sprintf(" set default '%s'", defaults[1])
+		err = p.alterColumn(sql, fieldName, title, fs)
+		fs.SetDefault(defaults[1])
+	}
+
 	if res > "" {
 		err = ErrNotFoundColumn{
 			Table:  p.Name(),

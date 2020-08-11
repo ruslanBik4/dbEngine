@@ -11,6 +11,7 @@ import (
 type NumberColumn struct {
 	comment, name   string
 	req, isNullable bool
+	colDefault      string
 }
 
 func (c *NumberColumn) AutoIncrement() bool {
@@ -23,6 +24,10 @@ func (c *NumberColumn) IsNullable() bool {
 
 func (c *NumberColumn) Default() string {
 	return "0"
+}
+
+func (s *NumberColumn) SetDefault(str string) {
+	s.colDefault = str
 }
 
 func NewNumberColumn(name, comment string, req bool) *NumberColumn {

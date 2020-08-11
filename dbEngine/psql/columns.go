@@ -40,6 +40,10 @@ func (c *Column) Default() string {
 	return c.ColumnDefault
 }
 
+func (c *Column) SetDefault(s string) {
+	c.ColumnDefault = s
+}
+
 func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
@@ -129,7 +133,8 @@ func toType(dtName string) types.BasicKind {
 	case "timerange", "tsrange":
 		// todo add check ranges
 		return typesExt.TArray
-	case "char", "_char", "varchar", "_varchar", "text", "_text", "character varying", "_character varying":
+	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
+		"character varying", "_character varying":
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
@@ -138,7 +143,10 @@ func toType(dtName string) types.BasicKind {
 	}
 }
 
-const isNotNullable = "not null"
+const (
+	isNotNullable = "not null"
+	isDefault     = "default"
+)
 
 var dataTypeAlias = map[string][]string{
 	"character varying":           {"varchar(255)", "varchar"},
@@ -185,6 +193,7 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 
 	return
 }
+
 func (c *Column) CharacterMaximumLength() int {
 	return c.characterMaximumLength
 }

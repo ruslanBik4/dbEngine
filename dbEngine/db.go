@@ -255,7 +255,6 @@ func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error
 		}
 
 	default:
-		// logs.DebugLog(" unknow type file = %+s", path)
 		return nil
 	}
 

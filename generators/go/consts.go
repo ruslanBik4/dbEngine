@@ -83,8 +83,11 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 	
 func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func(record *%[1]sFields) error, Options ...dbEngine.BuildSqlOptions) error {
 	return t.SelectAndScanEach(ctx, 
-			 func() error {
-				return each(t.Record)
+			 	if each != nil {
+					return each(t.Record)
+				}
+
+				 return nil
 			}, t, Options ... )
 }
 

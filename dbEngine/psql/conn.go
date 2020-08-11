@@ -185,7 +185,9 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 			break
 		}
 
-		err = each()
+		if each != nil {
+			err = each()
+		}
 	}
 
 	if rows.Err() != nil {
@@ -338,7 +340,12 @@ func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, s
 			for i, val := range fields {
 				columns[i] = &Column{name: string(val.Name)}
 			}
-			return each(values, columns)
+
+			if each != nil {
+				return each(values, columns)
+			}
+
+			return nil
 		},
 		sql, args...)
 }
@@ -362,7 +369,9 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each func(values []interfac
 			break
 		}
 
-		err = each(values, rows.FieldDescriptions())
+		if each != nil {
+			err = each(values, rows.FieldDescriptions())
+		}
 	}
 
 	if rows.Err() != nil {
