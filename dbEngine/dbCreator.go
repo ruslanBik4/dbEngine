@@ -228,11 +228,8 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	if len(defaults) > 1 && fs.Default() != defaults[1] {
-		sql := fmt.Sprintf(" set default '%s'", defaults[1])
-		err = p.alterColumn(sql, fieldName, title, fs)
-		if err == nil {
-			fs.SetDefault(defaults[1])
-		} else {
+		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
+		if err != nil {
 			logs.DebugLog(defaults, title)
 		}
 	}
