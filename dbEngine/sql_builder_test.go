@@ -466,8 +466,89 @@ func TestSQLBuilder_Where(t *testing.T) {
 		name   string
 		fields fields
 		want   string
+		fnc    func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
 	}{
 		// TODO: Add test cases.
+		{
+			"simple where",
+			fields{
+				[]interface{}{1},
+				nil,
+				[]string{"id"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id=$1",
+			assert.Equal,
+		},
+		{
+			"select full columns",
+			fields{
+				[]interface{}{1},
+				nil,
+				[]string{"<id"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id < $1",
+			assert.Equal,
+		},
+		{
+			"one columns &one filter select",
+			fields{
+				[]interface{}{1},
+				[]string{"last_login"},
+				[]string{">id"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id > $1",
+			assert.Equal,
+		},
+		{
+			"two columns select",
+			fields{
+				[]interface{}{1},
+				[]string{"last_login", "name"},
+				[]string{"id", "$name"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id=$1 AND name ~ ('.*' + $2 + '$')",
+			assert.Equal,
+		},
+		{
+			"two columns select according two filter columns",
+			fields{
+				[]interface{}{1, 2},
+				[]string{"last_login", "name"},
+				[]string{"<id", ">id_roles"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id < $1 AND id_roles > $2",
+			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+				return assert.Equal(t, expected, actual, msgAndArgs...)
+			},
+		},
+		{
+			"two columns select according two filter columns & wrong args",
+			fields{
+				[]interface{}{1, 3},
+				[]string{"last_login", "name"},
+				[]string{"~name", "^name"},
+				0,
+				tableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  name ~ $1 AND name ~ ('^.*' + $2)",
+			assert.Equal,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -478,9 +559,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				posFilter: tt.fields.posFilter,
 				Table:     tt.fields.Table,
 			}
-			if got := b.Where(); got != tt.want {
-				t.Errorf("Where() = %v, want %v", got, tt.want)
-			}
+			tt.fnc(t, tt.want, b.Where())
 		})
 	}
 }

@@ -186,7 +186,7 @@ func (b *SQLBuilder) SetUpsert() (string, error) {
 
 func (b *SQLBuilder) Where() string {
 
-	where, comma := "", ""
+	where, comma := "", " "
 	for _, name := range b.filter {
 		b.posFilter++
 
@@ -196,18 +196,18 @@ func (b *SQLBuilder) Where() string {
 			name = name[1:]
 			switch pre {
 			case '$':
-				where += fmt.Sprintf(comma+" %s ~ '.*' + $%d + '$' ", name, b.posFilter)
+				where += fmt.Sprintf(comma+"%s ~ ('.*' + $%d + '$')", name, b.posFilter)
 			case '^':
-				where += fmt.Sprintf(comma+" %s ~ '^.*' + $%d + '.*' ", name, b.posFilter)
+				where += fmt.Sprintf(comma+"%s ~ ('^.*' + $%d)", name, b.posFilter)
 			default:
-				where += fmt.Sprintf(comma+" %s %s $%d", name, pre, b.posFilter)
+				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre), b.posFilter)
 			}
 		default:
-			cond := " %s=$%d"
+			cond := "%s=$%d"
 			switch b.Args[b.posFilter-1].(type) {
 			case []int32, []int64, []string:
 				// todo: chk column type
-				cond = " %s=ANY($%d)"
+				cond = "%s=ANY($%d)"
 			}
 			where += fmt.Sprintf(comma+cond, name, b.posFilter)
 		}

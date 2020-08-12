@@ -263,8 +263,12 @@ func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error
 
 func logError(err error, ddlSQL string, fileName string) {
 	pgErr, ok := err.(*pgconn.PgError)
-	if ok && pgErr.Position > 0 {
-		line := strings.Count(ddlSQL[:pgErr.Position-1], "\n") + 1
+	if ok {
+		pos := pgErr.Position - 1
+		if pos < 0 {
+			pos = 0
+		}
+		line := strings.Count(ddlSQL[:pos], "\n") + 1
 		printError(fileName, line, pgErr.Message, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
 		printError(fileName, e.Line, "", e)

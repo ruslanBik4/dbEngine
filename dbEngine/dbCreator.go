@@ -45,12 +45,12 @@ func (p *ParserTableDDL) Parse(ddl string) error {
 	for _, sql := range strings.Split(ddl, ";") {
 		p.line += strings.Count(sql, "\n")
 
+		sql = strings.TrimSpace(strings.TrimPrefix(sql, "\n"))
 		if strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" ||
 			strings.HasPrefix(sql, "--") {
 			continue
 		}
 
-		sql = strings.TrimPrefix(sql, "\n")
 		if !p.execSql(sql) {
 			logError(NewErrUnknownSql(sql, p.line), ddl, p.filename)
 		}
@@ -228,14 +228,13 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	if len(defaults) > 1 && fs.Default() != defaults[1] {
-		attr := strings.Split(title, " ")
-		if attr[0] == "character" {
-			attr[0] += " " + attr[1]
-		}
-
 		sql := fmt.Sprintf(" set default '%s'", defaults[1])
 		err = p.alterColumn(sql, fieldName, title, fs)
-		fs.SetDefault(defaults[1])
+		if err == nil {
+			fs.SetDefault(defaults[1])
+		} else {
+			logs.DebugLog(defaults, title)
+		}
 	}
 
 	if res > "" {
