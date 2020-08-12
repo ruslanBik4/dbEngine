@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -164,7 +165,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	// sqlTypesList = convertSQLFromFuncIsNeed(sqlTypesList, args)
 	rows, err := c.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, rows)...)
+		logs.DebugLog(c.addNoticeToErrLog(sql, args, rows)...)
 		return err
 	}
 
@@ -203,7 +204,15 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 }
 
 func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
-	row := c.QueryRow(context.Background(), sql, args...)
+	if rowValues == nil {
+		return dbEngine.ErrWrongType{
+			Name:     "rowValues",
+			TypeName: fmt.Sprintf("%T", rowValues),
+			Attr:     "nil",
+		}
+	}
+
+	row := c.QueryRow(ctx, sql, args...)
 
 	switch r := rowValues.(type) {
 	case dbEngine.RowScanner:
