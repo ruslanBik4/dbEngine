@@ -226,6 +226,10 @@ func (b *SQLBuilder) OnConflict() string {
 		return ""
 	}
 
+	if b.onConflict == "DO NOTHING" {
+		return " ON CONFLICT " + b.onConflict
+	}
+
 	return " ON CONFLICT (" + b.onConflict + ")"
 }
 
@@ -297,7 +301,7 @@ func InsertOnConflict(onConflict string) BuildSqlOptions {
 func InsertOnConflictDoNothing() BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
-		b.onConflict = " DO NOTHING "
+		b.onConflict = "DO NOTHING"
 
 		return nil
 	}
