@@ -24,6 +24,7 @@ type Column struct {
 	comment                string
 	UdtName                string
 	characterMaximumLength int
+	autoInc                bool
 	PrimaryKey             bool
 	IsHidden               bool
 }
@@ -33,15 +34,11 @@ func (c *Column) IsNullable() bool {
 }
 
 func (c *Column) AutoIncrement() bool {
-	return strings.HasPrefix(c.ColumnDefault, "nextval(")
+	return c.autoInc
 }
 
 func (c *Column) Default() string {
 	return c.ColumnDefault
-}
-
-func (c *Column) SetDefault(s string) {
-	c.ColumnDefault = s
 }
 
 func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
@@ -75,11 +72,10 @@ func NewColumnPone(name string, comment string, characterMaximumLength int) *Col
 }
 
 func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault string, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
-	return &Column{
+	col := &Column{
 		Table:                  table,
 		name:                   name,
 		DataType:               dataType,
-		ColumnDefault:          columnDefault,
 		isNullable:             isNullable,
 		CharacterSetName:       characterSetName,
 		comment:                comment,
@@ -88,6 +84,10 @@ func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault
 		PrimaryKey:             primaryKey,
 		IsHidden:               isHidden,
 	}
+
+	col.SetDefault(columnDefault)
+
+	return col
 }
 
 func (c *Column) BasicTypeInfo() types.BasicInfo {
@@ -220,4 +220,12 @@ func (c *Column) Required() bool {
 
 func (c *Column) SetNullable(f bool) {
 	c.isNullable = f
+}
+
+func (c *Column) SetDefault(str string) {
+	str = (strings.Split(str, "::"))[0]
+
+	c.ColumnDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
+	// todo add other case of autogenerae column value
+	c.autoInc = strings.HasPrefix(str, "nextval(") || c.ColumnDefault == "CURRENT_TIMESTAMP"
 }
