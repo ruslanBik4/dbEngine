@@ -295,7 +295,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				tableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login,name FROM StringTable WHERE  id=$1 AND  id_roles=$2",
+			"SELECT last_login,name FROM StringTable WHERE  id=$1 AND id_roles=$2",
 			false,
 		},
 		{
@@ -415,7 +415,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				tableString{name: "StringTable"},
 				nil,
 			},
-			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3 AND  id_roles=$4",
+			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3 AND id_roles=$4",
 			false,
 		},
 		{
