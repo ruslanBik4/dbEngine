@@ -837,7 +837,7 @@ func TestNewColumn(t *testing.T) {
 		table                  dbEngine.Table
 		name                   string
 		dataType               string
-		columnDefault          string
+		columnDefault          interface{}
 		isNullable             bool
 		characterSetName       string
 		comment                string

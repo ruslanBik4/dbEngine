@@ -246,6 +246,7 @@ func (t *Table) GetColumns(ctx context.Context) error {
 
 func (t *Table) FindIndex(name string) *dbEngine.Index {
 	// todo implements in future
+	logs.DebugLog("findIndex not implements ", name)
 	return nil
 }
 
@@ -294,7 +295,7 @@ func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDesc
 		// DataType:
 		values[1].(string),
 		// ColumnDefault:
-		values[2].(string),
+		values[2],
 		// isNullable:
 		values[3].(bool),
 		// CharacterSetName:

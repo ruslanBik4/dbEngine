@@ -63,8 +63,7 @@ type Column interface {
 	Name() string
 	AutoIncrement() bool
 	IsNullable() bool
-	Default() string
-	SetDefault(string)
+	Default() interface{}
 	Primary() bool
 	Type() string
 	Required() bool

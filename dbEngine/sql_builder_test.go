@@ -222,6 +222,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		Args          []interface{}
 		columns       []string
 		filter        []string
+		orderBy       []string
 		posFilter     int
 		Table         Table
 		SelectColumns []Column
@@ -239,6 +240,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				nil,
 				nil,
 				nil,
+				nil,
 				0,
 				tableString{name: "StringTable"},
 				nil,
@@ -252,11 +254,12 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]interface{}{1},
 				nil,
 				[]string{"id"},
+				[]string{"id"},
 				0,
 				tableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT * FROM StringTable WHERE  id=$1",
+			"SELECT * FROM StringTable WHERE  id=$1 order by id",
 			false,
 		},
 		{
@@ -265,11 +268,12 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]interface{}{1},
 				[]string{"last_login"},
 				[]string{"id"},
+				[]string{"last_login"},
 				0,
 				tableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login FROM StringTable WHERE  id=$1",
+			"SELECT last_login FROM StringTable WHERE  id=$1 order by last_login",
 			false,
 		},
 		{
@@ -278,11 +282,12 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]interface{}{1},
 				[]string{"last_login", "name"},
 				[]string{"id"},
+				[]string{"last_login", "name"},
 				0,
 				tableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login,name FROM StringTable WHERE  id=$1",
+			"SELECT last_login,name FROM StringTable WHERE  id=$1 order by last_login,name",
 			false,
 		},
 		{
@@ -291,6 +296,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]interface{}{1, 2},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
+				nil,
 				0,
 				tableString{name: "StringTable"},
 				nil,
@@ -304,6 +310,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]interface{}{1},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
+				nil,
 				0,
 				tableString{name: "StringTable"},
 				nil,
@@ -318,6 +325,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				Args:      tt.fields.Args,
 				columns:   tt.fields.columns,
 				filter:    tt.fields.filter,
+				OrderBy:   tt.fields.orderBy,
 				posFilter: tt.fields.posFilter,
 				Table:     tt.fields.Table,
 			}

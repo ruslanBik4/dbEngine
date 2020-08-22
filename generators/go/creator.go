@@ -62,9 +62,9 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			switch col.Type() {
 			case "json":
 				typeCol = "interface{}"
-			case "date", "timestampt", "timestamptz", "time", "_date", "_timestampt", "_timestamptz", "_time":
+			case "date", "timestampt", "timestamptz", "time":
 				typeCol = "time.Time"
-			case "timerange", "tsrange":
+			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
 			}
 		} else if bTypeCol == 0 {

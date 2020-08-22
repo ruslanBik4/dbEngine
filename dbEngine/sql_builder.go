@@ -19,6 +19,7 @@ type SQLBuilder struct {
 	posFilter  int
 	Table      Table
 	onConflict string
+	OrderBy    []string
 }
 
 func (b SQLBuilder) InsertSql() (string, error) {
@@ -94,7 +95,14 @@ func (b SQLBuilder) SelectSql() (string, error) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
 	}
 
-	return "SELECT " + b.Select() + " FROM " + b.Table.Name() + b.Where(), nil
+	sql := "SELECT " + b.Select() + " FROM " + b.Table.Name() + b.Where()
+
+	if len(b.OrderBy) > 0 {
+		// todo add column checking
+		sql += " order by " + strings.Join(b.OrderBy, ",")
+	}
+
+	return sql, nil
 }
 
 func (b *SQLBuilder) SelectColumns() []Column {
@@ -275,6 +283,15 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 		}
 
 		b.filter = columns
+
+		return nil
+	}
+}
+
+func OrderBy(columns ...string) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.OrderBy = columns
 
 		return nil
 	}

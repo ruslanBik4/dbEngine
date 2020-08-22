@@ -22,7 +22,7 @@ func (c *NumberColumn) IsNullable() bool {
 	return c.isNullable
 }
 
-func (c *NumberColumn) Default() string {
+func (c *NumberColumn) Default() interface{} {
 	return "0"
 }
 

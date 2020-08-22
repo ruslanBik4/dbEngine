@@ -18,7 +18,7 @@ func (c *StringColumn) IsNullable() bool {
 	return c.isNullable
 }
 
-func (s *StringColumn) Default() string {
+func (s *StringColumn) Default() interface{} {
 	return ""
 }
 

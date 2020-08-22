@@ -18,7 +18,7 @@ type Column struct {
 	Table                  dbEngine.Table `json:"-"`
 	name                   string
 	DataType               string
-	ColumnDefault          string
+	ColumnDefault          interface{}
 	isNullable             bool
 	CharacterSetName       string
 	comment                string
@@ -37,7 +37,7 @@ func (c *Column) AutoIncrement() bool {
 	return c.autoInc
 }
 
-func (c *Column) Default() string {
+func (c *Column) Default() interface{} {
 	return c.ColumnDefault
 }
 
@@ -71,21 +71,20 @@ func NewColumnPone(name string, comment string, characterMaximumLength int) *Col
 	return &Column{name: name, comment: comment, characterMaximumLength: characterMaximumLength}
 }
 
-func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault string, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
+func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault interface{}, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
 	col := &Column{
 		Table:                  table,
 		name:                   name,
 		DataType:               dataType,
 		isNullable:             isNullable,
 		CharacterSetName:       characterSetName,
+		ColumnDefault:          columnDefault,
 		comment:                comment,
 		UdtName:                udtName,
 		characterMaximumLength: characterMaximumLength,
 		PrimaryKey:             primaryKey,
 		IsHidden:               isHidden,
 	}
-
-	col.SetDefault(columnDefault)
 
 	return col
 }
@@ -215,7 +214,7 @@ func (c *Column) Type() string {
 }
 
 func (c *Column) Required() bool {
-	return !c.isNullable && (c.ColumnDefault == "")
+	return !c.isNullable && (c.ColumnDefault == nil)
 }
 
 func (c *Column) SetNullable(f bool) {
