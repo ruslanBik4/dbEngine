@@ -94,7 +94,7 @@ func (r *Routine) GetParams(ctx context.Context) error {
 		row.UdtName = values[2].(string)
 		row.CharacterSetName = values[3].(string)
 		row.characterMaximumLength = int(values[4].(int32))
-		row.ColumnDefault = values[5].(string)
+		row.SetDefault(values[5])
 
 		if values[7].(string) == "IN" {
 			r.params = append(r.params, row)

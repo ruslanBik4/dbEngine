@@ -22,8 +22,8 @@ func (s *StringColumn) Default() interface{} {
 	return ""
 }
 
-func (s *StringColumn) SetDefault(str string) {
-	s.colDefault = str
+func (s *StringColumn) SetDefault(str interface{}) {
+	s.colDefault = str.(string)
 }
 
 func NewStringColumn(name, comment string, req bool, maxLen ...int) *StringColumn {

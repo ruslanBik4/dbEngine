@@ -18,7 +18,7 @@ type Column struct {
 	Table                  dbEngine.Table `json:"-"`
 	name                   string
 	DataType               string
-	ColumnDefault          interface{}
+	colDefault             interface{}
 	isNullable             bool
 	CharacterSetName       string
 	comment                string
@@ -38,7 +38,7 @@ func (c *Column) AutoIncrement() bool {
 }
 
 func (c *Column) Default() interface{} {
-	return c.ColumnDefault
+	return c.colDefault
 }
 
 func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
@@ -48,7 +48,7 @@ func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 		case "data_type":
 			v[i] = &c.DataType
 		case "column_default":
-			v[i] = &c.ColumnDefault
+			v[i] = &c.colDefault
 		case "is_nullable":
 			v[i] = &c.isNullable
 		case "character_set_name":
@@ -71,20 +71,21 @@ func NewColumnPone(name string, comment string, characterMaximumLength int) *Col
 	return &Column{name: name, comment: comment, characterMaximumLength: characterMaximumLength}
 }
 
-func NewColumn(table dbEngine.Table, name string, dataType string, columnDefault interface{}, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
+func NewColumn(table dbEngine.Table, name string, dataType string, colDefault interface{}, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
 	col := &Column{
 		Table:                  table,
 		name:                   name,
 		DataType:               dataType,
 		isNullable:             isNullable,
 		CharacterSetName:       characterSetName,
-		ColumnDefault:          columnDefault,
 		comment:                comment,
 		UdtName:                udtName,
 		characterMaximumLength: characterMaximumLength,
 		PrimaryKey:             primaryKey,
 		IsHidden:               isHidden,
 	}
+
+	col.SetDefault(colDefault)
 
 	return col
 }
@@ -214,17 +215,23 @@ func (c *Column) Type() string {
 }
 
 func (c *Column) Required() bool {
-	return !c.isNullable && (c.ColumnDefault == nil)
+	return !c.isNullable && (c.colDefault == nil)
 }
 
 func (c *Column) SetNullable(f bool) {
 	c.isNullable = f
 }
 
-func (c *Column) SetDefault(str string) {
+func (c *Column) SetDefault(d interface{}) {
+	str, ok := d.(string)
+	if !ok {
+		c.colDefault = nil
+		return
+	}
+
 	str = (strings.Split(str, "::"))[0]
 
-	c.ColumnDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
+	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
 	// todo add other case of autogenerae column value
-	c.autoInc = strings.HasPrefix(str, "nextval(") || c.ColumnDefault == "CURRENT_TIMESTAMP"
+	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
 }
