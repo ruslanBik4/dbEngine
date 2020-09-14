@@ -11,7 +11,7 @@ import (
 type NumberColumn struct {
 	comment, name   string
 	req, isNullable bool
-	colDefault      string
+	colDefault      interface{}
 }
 
 func (c *NumberColumn) AutoIncrement() bool {
@@ -26,7 +26,7 @@ func (c *NumberColumn) Default() interface{} {
 	return "0"
 }
 
-func (s *NumberColumn) SetDefault(str string) {
+func (s *NumberColumn) SetDefault(str interface{}) {
 	s.colDefault = str
 }
 
