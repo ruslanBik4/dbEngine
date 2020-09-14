@@ -69,10 +69,15 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 				logs.StatusLog("Modify func in DB : '%s'", strings.Join(db.modFuncs, "', '"))
 			}
 
-			db.Routines, err = conn.GetRoutines(ctx)
+			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
-				logs.ErrorLog(err, "refresh func")
+				return nil, errors.Wrap(err, "initConn")
 			}
+
+			// db.Routines, err = conn.GetRoutines(ctx)
+			// if err != nil {
+			// 	logs.ErrorLog(err, "refresh func")
+			// }
 		}
 	}
 
