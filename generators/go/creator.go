@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/httpgo/typesExt"
+	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )

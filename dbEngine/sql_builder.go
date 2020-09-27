@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/httpgo/logs"
+	"github.com/ruslanBik4/logs"
 )
 
 type SQLBuilder struct {
@@ -252,7 +252,7 @@ func (b *SQLBuilder) OnConflict() string {
 
 func (b *SQLBuilder) values() string {
 	s, comma := "", ""
-	for _ = range b.Args {
+	for range b.Args {
 		b.posFilter++
 		s += fmt.Sprintf("%s$%d", comma, b.posFilter)
 		comma = ","

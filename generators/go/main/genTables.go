@@ -8,8 +8,8 @@ import (
 	"flag"
 
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/httpgo/logs"
-	"github.com/ruslanBik4/httpgo/typesExt"
+	"github.com/ruslanBik4/dbEngine/typesExt"
+	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"

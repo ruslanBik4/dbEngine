@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
-	"github.com/ruslanBik4/httpgo/typesExt"
+	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -929,7 +929,7 @@ func TestRoutine_Call(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		columns fields
+		columns *fields
 	}{
 		// TODO: Add test cases.
 	}
@@ -944,7 +944,7 @@ func TestRoutine_Call(t *testing.T) {
 				params:  tt.columns.params,
 				Overlay: tt.columns.Overlay,
 				Type:    tt.columns.Type,
-				lock:    tt.columns.lock,
+				lock:    sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 
@@ -966,7 +966,7 @@ func TestRoutine_GetParams(t *testing.T) {
 	}
 	tests := []struct {
 		name    string
-		fields  fields
+		fields  *fields
 		wantErr bool
 	}{
 		// TODO: Add test cases.
@@ -982,7 +982,7 @@ func TestRoutine_GetParams(t *testing.T) {
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    tt.fields.lock,
+				lock:    sync.RWMutex{},
 			}
 			if err := r.GetParams(context.TODO()); (err != nil) != tt.wantErr {
 				t.Errorf("GetParams() error = %v, wantErr %v", err, tt.wantErr)
@@ -1005,7 +1005,7 @@ func TestRoutine_Params(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
+		fields *fields
 	}{
 		// TODO: Add test cases.
 	}
@@ -1020,7 +1020,7 @@ func TestRoutine_Params(t *testing.T) {
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    tt.fields.lock,
+				lock:    sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 		})
@@ -1041,7 +1041,7 @@ func TestRoutine_Select(t *testing.T) {
 	}
 	tests := []struct {
 		name   string
-		fields fields
+		fields *fields
 	}{
 		// TODO: Add test cases.
 	}
@@ -1056,7 +1056,7 @@ func TestRoutine_Select(t *testing.T) {
 				params:  tt.fields.params,
 				Overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    tt.fields.lock,
+				lock:    sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 		})

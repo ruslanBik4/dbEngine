@@ -9,7 +9,7 @@ import (
 	"go/types"
 	"strings"
 
-	"github.com/ruslanBik4/httpgo/typesExt"
+	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -145,7 +145,6 @@ func toType(dtName string) types.BasicKind {
 
 const (
 	isNotNullable = "not null"
-	isDefault     = "default"
 )
 
 var dataTypeAlias = map[string][]string{
