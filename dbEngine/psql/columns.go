@@ -9,6 +9,8 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/ruslanBik4/logs"
+
 	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -134,11 +136,12 @@ func toType(dtName string) types.BasicKind {
 		// todo add check ranges
 		return typesExt.TArray
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
-		"character varying", "_character varying":
+		"character varying", "_character varying", "bpchar", "_bpchar":
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
 	default:
+		logs.DebugLog("unknow type ", dtName)
 		return types.Invalid
 	}
 }
