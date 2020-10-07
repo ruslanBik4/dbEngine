@@ -169,7 +169,7 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s+\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
+var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
 
@@ -344,6 +344,11 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
 			for _, name := range ind.Columns {
+				if i := strings.Index(name, "("); i > 0 {
+					name = name[i+1 : len(name)-2]
+				} else if i := strings.Index(name, "::"); i > 0 {
+					name = name[:i]
+				}
 				if p.FindColumn(strings.TrimSpace(name)) == nil {
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
