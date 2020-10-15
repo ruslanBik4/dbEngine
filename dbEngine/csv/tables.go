@@ -117,6 +117,10 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	panic("implement me")
 }
 
+func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+	panic("implement me")
+}
+
 func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }

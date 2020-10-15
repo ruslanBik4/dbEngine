@@ -153,6 +153,23 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return err
 }
 
+func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+
+	b := &dbEngine.SQLBuilder{Table: t}
+	for _, setOption := range Options {
+		err := setOption(b)
+		if err != nil {
+			return errors.Wrap(err, "setOption")
+		}
+	}
+	sql, err := b.SelectSql()
+	if err != nil {
+		return err
+	}
+
+	return t.conn.SelectOneAndScan(ctx, row, sql, b.Args...)
+}
+
 func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 
 	b := &dbEngine.SQLBuilder{Table: t}

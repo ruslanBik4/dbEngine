@@ -42,6 +42,7 @@ type Table interface {
 	ReReadColumn(name string) Column
 	Select(ctx context.Context, Options ...BuildSqlOptions) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
+	SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
