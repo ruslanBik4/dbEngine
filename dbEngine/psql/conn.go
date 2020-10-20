@@ -6,6 +6,7 @@ package psql
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -21,20 +22,27 @@ import (
 )
 
 type fncConn func(context.Context, *pgx.Conn) error
+type fncAcqu func(context.Context, *pgx.Conn) bool
 
 type Conn struct {
 	*pgxpool.Pool
 	*pgxpool.Config
 	*pgconn.Notice
 	AfterConnect  fncConn
-	BeforeAcquire func(context.Context, *pgx.Conn) bool
+	BeforeAcquire fncAcqu
+	NoticeHandler pgconn.NoticeHandler
 	channels      []string
 	ctxPool       context.Context
 	Cancel        context.CancelFunc
 }
 
-func NewConn(afterConnect fncConn, beforeAcquire func(context.Context, *pgx.Conn) bool, channels ...string) *Conn {
-	return &Conn{AfterConnect: afterConnect, BeforeAcquire: beforeAcquire, channels: channels}
+func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.NoticeHandler, channels ...string) *Conn {
+	return &Conn{
+		AfterConnect:  afterConnect,
+		BeforeAcquire: beforeAcquire,
+		NoticeHandler: noticeHandler,
+		channels:      channels,
+	}
 }
 
 func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
@@ -43,8 +51,13 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 		return errors.Wrap(err, "cannot parse config")
 	}
 
+	poolCfg.ConnConfig.LogLevel = SetLogLevel(os.Getenv("PGX_LOG"))
+	poolCfg.ConnConfig.Logger = &pgxLog{}
+
 	poolCfg.AfterConnect = c.AfterConnect
 	poolCfg.BeforeAcquire = c.BeforeAcquire
+	poolCfg.ConnConfig.OnNotice = c.NoticeHandler
+
 	c.Pool, err = pgxpool.ConnectConfig(ctx, poolCfg)
 	if err != nil {
 		return errors.Wrap(err, "Unable to connect to database")

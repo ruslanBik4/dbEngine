@@ -26,7 +26,7 @@ var (
 
 func main() {
 
-	conn := psql.NewConn(nil, nil)
+	conn := psql.NewConn(nil, nil, nil)
 	ctx := context.WithValue(context.Background(), "dbURL", *fURL)
 	ctx = context.WithValue(ctx, "fillSchema", true)
 	ctx = context.WithValue(ctx, "migration", *fCfgPath)

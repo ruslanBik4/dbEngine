@@ -109,19 +109,20 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 					db.Tables[tableName] = table
 					logs.StatusLog("New table add to DB", tableName)
 				}
+
 				return err
-			} else {
+
+			} else if !isErrorAlreadyExists(err) {
 				logs.ErrorLog(err, "table - "+tableName)
+				return err
 			}
-		} else {
-			return NewParserTableDDL(table, db).Parse(string(ddl))
 		}
+
+		return NewParserTableDDL(table, db).Parse(string(ddl))
 
 	default:
 		return nil
 	}
-
-	return err
 }
 
 var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
