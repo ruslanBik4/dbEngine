@@ -173,7 +173,8 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 		res += " is not nullable "
 	}
 
-	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType)
+	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType) ||
+		strings.HasPrefix(fieldDefine, c.UdtName)
 	if !isTypeValid {
 		for _, alias := range dataTypeAlias[c.DataType] {
 			if isTypeValid = strings.HasPrefix(fieldDefine, alias); isTypeValid {

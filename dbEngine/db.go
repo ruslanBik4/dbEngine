@@ -59,6 +59,11 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 				return nil, errors.Wrap(err, "migration tables")
 			}
 
+			err = filepath.Walk(filepath.Join(mPath, "view"), db.ReadViewSQL)
+			if err != nil {
+				return nil, errors.Wrap(err, "migration views")
+			}
+
 			err = filepath.Walk(filepath.Join(mPath, "func"), db.readAndReplaceFunc)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration func")
@@ -116,6 +121,49 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 				logs.ErrorLog(err, "table - "+tableName)
 				return err
 			}
+			// 	todo: add table new
+		}
+
+		return NewParserTableDDL(table, db).Parse(string(ddl))
+
+	default:
+		return nil
+	}
+}
+
+func (db *DB) ReadViewSQL(path string, info os.FileInfo, err error) error {
+	if (err != nil) || ((info != nil) && info.IsDir()) {
+		return nil
+	}
+
+	ext := filepath.Ext(path)
+	switch ext {
+	case ".ddl":
+		fileName := filepath.Base(path)
+		tableName := strings.TrimSuffix(fileName, ext)
+		ddl, err := ioutil.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		table, ok := db.Tables[tableName]
+		if !ok {
+			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			if err == nil {
+				table = db.Conn.NewTable(tableName, "table")
+				err = table.GetColumns(context.TODO())
+				if err == nil {
+					db.Tables[tableName] = table
+					logs.StatusLog("New table add to DB", tableName)
+				}
+
+				return err
+
+			} else if !isErrorAlreadyExists(err) {
+				logs.ErrorLog(err, "table - "+tableName)
+				return err
+			}
+			// 	todo: add table new
 		}
 
 		return NewParserTableDDL(table, db).Parse(string(ddl))

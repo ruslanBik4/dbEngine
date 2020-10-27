@@ -29,6 +29,7 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 	t := &ParserTableDDL{Table: table, filename: table.Name() + ".ddl", DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,
+		t.updateView,
 		t.addComment,
 		t.updateIndex,
 		t.skipPartition,
@@ -169,7 +170,19 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-var regTable = regexp.MustCompile(`create\s+table\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
+var regView = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*as\s+select`)
+
+func (p *ParserTableDDL) updateView(ddl string) bool {
+	if regView.MatchString(strings.ToLower(ddl)) {
+		p.err = p.Conn.ExecDDL(context.TODO(), ddl)
+		return true
+	}
+
+	return false
+
+}
+
+var regTable = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
 
