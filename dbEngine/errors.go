@@ -95,6 +95,20 @@ func isErrorForReplace(err error) bool {
 	return false
 }
 
+func isErrorCntChgView(err error) bool {
+	ignoreErrors := []string{
+		"cannot change name of view column",
+	}
+	for _, val := range ignoreErrors {
+		if strings.Contains(err.Error(), val) {
+			return true
+		}
+
+	}
+
+	return false
+}
+
 // ErrWrongType if not found in field {Name} field by name {Column}
 type ErrWrongType struct {
 	Name     string

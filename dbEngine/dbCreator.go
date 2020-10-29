@@ -170,12 +170,43 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-var regView = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*as\s+select`)
+var regView = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+as\s+select`)
 
 func (p *ParserTableDDL) updateView(ddl string) bool {
-	if regView.MatchString(strings.ToLower(ddl)) {
-		p.err = p.Conn.ExecDDL(context.TODO(), ddl)
-		return true
+	fields := regView.FindStringSubmatch(strings.ToLower(ddl))
+	if len(fields) == 0 {
+		return false
+	}
+
+	for i, name := range regView.SubexpNames() {
+		if !(i < len(fields)) {
+			return false
+		}
+
+		switch name {
+		case "":
+		case "name":
+			if fields[i] != p.Name() {
+				p.err = errors.New("bad table name! " + fields[i])
+				return false
+			}
+
+			err := p.Conn.ExecDDL(context.TODO(), ddl)
+			if err != nil {
+				if isErrorCntChgView(err) {
+					err = p.Conn.ExecDDL(context.TODO(), "DROP VIEW "+p.Name()+" CASCADE")
+					if err == nil {
+						err = p.Conn.ExecDDL(context.TODO(), ddl)
+					}
+				}
+
+				if err != nil {
+					p.err = err
+				}
+			}
+
+			return true
+		}
 	}
 
 	return false
