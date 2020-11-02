@@ -84,6 +84,7 @@ func isErrorForReplace(err error) bool {
 	ignoreErrors := []string{
 		"cannot change return type of existing function",
 		"cannot change name of input parameter",
+		"cannot alter type of a column used by a view or rule",
 	}
 	for _, val := range ignoreErrors {
 		if strings.Contains(err.Error(), val) {
@@ -134,6 +135,7 @@ func (err ErrWrongType) Error() string {
 type ErrUnknownSql struct {
 	sql  string
 	Line int
+	Msg  string
 }
 
 func NewErrUnknownSql(sql string, line int) *ErrUnknownSql {

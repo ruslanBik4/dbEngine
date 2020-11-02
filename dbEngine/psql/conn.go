@@ -33,6 +33,7 @@ type Conn struct {
 	NoticeHandler pgconn.NoticeHandler
 	channels      []string
 	ctxPool       context.Context
+	lastComTag    pgconn.CommandTag
 	Cancel        context.CancelFunc
 }
 
@@ -68,6 +69,11 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	c.StartChannels()
 
 	return nil
+}
+
+// LastRowAffeted return number of insert/deleted/updated rows
+func (c *Conn) LastRowAffected() int64 {
+	return c.lastComTag.RowsAffected()
 }
 
 func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
@@ -414,10 +420,12 @@ func (c *Conn) GetStat() string {
 }
 
 func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
-	_, err := c.Exec(ctx, sql, args...)
+	comTag, err := c.Exec(ctx, sql, args...)
 	// if err != nil {
-	// 	logs.DebugLog("%v '%s' %s", comTag, err, strings.Split(sqlTypesList, "\n")[0])
+	// 	logs.DebugLog("%v '%s' %s", comTag., err, strings.Split(sqlTypesList, "\n")[0])
 	// }
+
+	c.lastComTag = comTag
 
 	return err
 }

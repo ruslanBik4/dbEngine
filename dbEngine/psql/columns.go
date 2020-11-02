@@ -160,7 +160,7 @@ var dataTypeAlias = map[string][]string{
 	"timestamp with time zone":    {"timestamptz"},
 	//todo: add check user-defined types
 	"USER-DEFINED": {"timerange"},
-	"ARRAY":        {"integer[]", "character varying[]"},
+	"ARRAY":        {"integer[]", "character varying[]", "citext[]", "bpchar[]", "char"},
 }
 
 // todo: add check arrays
@@ -173,25 +173,31 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 		res += " is not nullable "
 	}
 
+	lenCol := c.CharacterMaximumLength()
+	udtName := c.UdtName
+	if strings.HasPrefix(udtName, "_") {
+		udtName = strings.TrimPrefix(udtName, "_") + "[]"
+	}
 	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType) ||
-		strings.HasPrefix(fieldDefine, c.UdtName)
+		strings.HasPrefix(fieldDefine, udtName)
 	if !isTypeValid {
 		for _, alias := range dataTypeAlias[c.DataType] {
-			if isTypeValid = strings.HasPrefix(fieldDefine, alias); isTypeValid {
+			isTypeValid = strings.HasPrefix(fieldDefine, alias)
+			if isTypeValid {
 				break
 			}
 		}
 	}
 
 	if isTypeValid {
-		l := c.CharacterMaximumLength()
 		if strings.HasPrefix(c.DataType, "character") &&
-			(l > 0) &&
-			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", l)) {
-			res += fmt.Sprintf(" has length %d symbols", l)
+			(lenCol > 0) &&
+			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", lenCol)) {
+			res += fmt.Sprintf(" has length %d symbols", lenCol)
 		}
 	} else {
 		res += " has type " + c.DataType
+		logs.DebugLog(c.DataType, c.UdtName, lenCol)
 	}
 
 	return

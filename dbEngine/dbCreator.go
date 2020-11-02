@@ -15,6 +15,7 @@ import (
 	"github.com/ruslanBik4/logs"
 )
 
+// ParserTableDDL is interface for parsing DDL file
 type ParserTableDDL struct {
 	Table
 	*DB
@@ -25,6 +26,7 @@ type ParserTableDDL struct {
 	isCreateDone bool
 }
 
+// NewParserTableDDL create new instance of ParserTableDDL
 func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 	t := &ParserTableDDL{Table: table, filename: table.Name() + ".ddl", DB: db}
 	t.mapParse = []func(string) bool{
@@ -41,6 +43,7 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 	return t
 }
 
+// Parse perform queries from ddl text
 func (p *ParserTableDDL) Parse(ddl string) error {
 	p.line = 1
 	for _, sql := range strings.Split(ddl, ";") {
@@ -84,14 +87,7 @@ func (p *ParserTableDDL) performsCreateExt(ddl string) bool {
 		return false
 	}
 
-	err := p.Conn.ExecDDL(context.TODO(), ddl)
-	if err == nil {
-		logInfo(prefix, p.filename, ddl, p.line)
-	} else if isErrorAlreadyExists(err) {
-		err = nil
-	} else if err != nil {
-		logError(err, ddl, p.filename)
-	}
+	p.runDDL(ddl)
 
 	return true
 }
@@ -101,14 +97,7 @@ func (p *ParserTableDDL) alterTable(ddl string) bool {
 		return false
 	}
 
-	err := p.Conn.ExecDDL(context.TODO(), ddl)
-	if err == nil {
-		logInfo(prefix, p.filename, ddl, p.line)
-	} else if isErrorAlreadyExists(err) {
-		err = nil
-	} else if err != nil {
-		logError(err, ddl, p.filename)
-	}
+	p.runDDL(ddl)
 
 	return true
 }
@@ -118,56 +107,72 @@ func (p *ParserTableDDL) performsInsert(ddl string) bool {
 		return false
 	}
 
-	err := p.Conn.ExecDDL(context.TODO(), ddl+"  ON CONFLICT  DO NOTHING ")
-	if err == nil {
-		logInfo(prefix, p.filename, ddl, p.line)
-	} else if isErrorAlreadyExists(err) {
-		err = nil
-	} else if err != nil {
-		logError(err, ddl, p.filename)
-	}
+	p.runDDL(ddl + "  ON CONFLICT  DO NOTHING ")
 
 	return true
 }
 
 func (p *ParserTableDDL) addComment(ddl string) bool {
-	if !strings.Contains(strings.ToLower(ddl), "comment") {
+	switch lwrDdl := strings.ToLower(ddl); {
+	case !strings.Contains(lwrDdl, "comment"):
 		return false
+	case strings.Contains(lwrDdl, "table") && strings.Contains(ddl, "'"+p.Table.Comment()+"'"):
+		return true
+	case strings.Contains(lwrDdl, "view") && strings.Contains(ddl, "'"+p.Table.Comment()+"'"):
+		return true
+	case strings.Contains(lwrDdl, "column"):
+		posP := strings.Index(lwrDdl, ".")
+		posI := strings.Index(lwrDdl, " is ")
+		if posP < 1 || posI < 1 {
+			logError(&ErrUnknownSql{Line: p.line, Msg: "not found column name"}, ddl, p.filename)
+			return true
+		}
+
+		colName := strings.TrimSpace(lwrDdl[posP+1 : posI])
+		col := p.Table.FindColumn(colName)
+		if col == nil {
+			logError(&ErrUnknownSql{Line: p.line, Msg: "not found column " + colName}, ddl, p.filename)
+			return true
+		}
+
+		if strings.Contains(ddl, "'"+col.Comment()+"'") {
+			return true
+		}
 	}
 
-	err := p.Conn.ExecDDL(context.TODO(), ddl)
-	if err == nil {
-		logInfo(prefix, p.filename, ddl, p.line)
-	} else if isErrorAlreadyExists(err) {
-		err = nil
-	} else if err != nil {
-		logError(err, ddl, p.filename)
-	}
+	p.runDDL(ddl)
 
 	return true
 }
 
-var regPartionTable = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
+var regPartitionTable = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
 
 func (p *ParserTableDDL) skipPartition(ddl string) bool {
-	fields := regPartionTable.FindStringSubmatch(ddl)
+	fields := regPartitionTable.FindStringSubmatch(ddl)
 	if len(fields) == 0 {
 		return false
 	}
 
 	_, ok := p.Tables[fields[1]]
 	if !ok {
-		err := p.Conn.ExecDDL(context.TODO(), ddl)
-		if err == nil {
-			logInfo(prefix, p.filename, ddl, p.line)
-		} else if isErrorAlreadyExists(err) {
-			err = nil
-		} else if err != nil {
-			logError(err, ddl, p.filename)
-		}
+		p.runDDL(ddl)
 	}
 
 	return true
+}
+
+func (p *ParserTableDDL) runDDL(ddl string) {
+	err := p.Conn.ExecDDL(context.TODO(), ddl)
+	if err == nil {
+		if p.Conn.LastRowAffected() > 0 {
+			logInfo(prefix, p.filename, ddl, p.line)
+		}
+	} else if isErrorAlreadyExists(err) {
+		err = nil
+	} else if err != nil {
+		logError(err, ddl, p.filename)
+		p.err = err
+	}
 }
 
 var regView = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+as\s+select`)
@@ -218,7 +223,6 @@ var regTable = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<na
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
 
 func (p *ParserTableDDL) updateTable(ddl string) bool {
-	var err error
 	fields := regTable.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
 		return false
@@ -250,18 +254,16 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 
 				fieldName := title[1]
 				if fs := p.FindColumn(fieldName); fs == nil {
-					sql := " ADD COLUMN " + name
-					err = p.addColumn(sql, fieldName)
+					p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
 				} else if !fs.Primary() {
 					// don't chg primary column
-					err = p.checkColumn(title[2], fs)
+					p.err = p.checkColumn(title[2], fs)
 				}
 
 			}
 		}
 	}
 
-	p.err = err
 	return true
 }
 
@@ -271,7 +273,9 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	res := fs.CheckAttr(title)
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
-	if len(defaults) > 1 && fs.Default() != defaults[1] {
+	colDef, ok := fs.Default().(string)
+	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
+		logs.DebugLog(fs.Default())
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
 			logs.DebugLog(defaults, title)
@@ -350,18 +354,11 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 
 	if p.FindIndex(ind.Name) != nil {
 		logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! ", p.line)
-		//todo: check columns of index
+		// todo: check columns of index
 		return true
 	}
 
-	err = p.Conn.ExecDDL(context.TODO(), ddl)
-	if err == nil {
-		logInfo(prefix, p.filename, ddl, p.line)
-	} else if isErrorAlreadyExists(err) {
-		err = nil
-	} else if err != nil {
-		p.err = err
-	}
+	p.runDDL(ddl)
 
 	return true
 }
@@ -388,12 +385,21 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
 			for _, name := range ind.Columns {
+				name = strings.TrimSpace(name)
+				if strings.HasPrefix(name, "'") {
+					continue
+				}
+
 				if i := strings.Index(name, "("); i > 0 {
-					name = name[i+1 : len(name)-2]
-				} else if i := strings.Index(name, "::"); i > 0 {
+					name = strings.TrimSuffix(name[i+1:], ")")
+				}
+
+				if i := strings.Index(name, "::"); i > 0 {
 					name = name[:i]
 				}
+
 				if p.FindColumn(strings.TrimSpace(name)) == nil {
+					logs.DebugLog(ind.Columns)
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}
 			}
@@ -408,29 +414,15 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 	return &ind, nil
 }
 
-func (p ParserTableDDL) addColumn(sAlter string, fieldName string) error {
-	sql := "ALTER TABLE " + p.Name() + sAlter
-	err := p.Conn.ExecDDL(context.TODO(), sql)
-	if err != nil {
-		logError(err, sql, p.filename)
-	} else {
-		logInfo(prefix, p.filename, sAlter, p.line)
-		p.ReReadColumn(fieldName)
-	}
-
-	return err
-}
-
 func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs Column) error {
-	sql := "ALTER TABLE " + p.Name() + " alter column " + fieldName + sAlter
-	err := p.Conn.ExecDDL(context.TODO(), sql)
-	if err != nil {
-		logError(err, sql, p.filename)
-		logs.DebugLog(`Field %s.%s, different with define: '%s' %v`, p.Name(), fieldName, title, fs)
-	} else {
-		logInfo(prefix, p.filename, sql, p.line)
+	ddl := "ALTER TABLE " + p.Name() + " ALTER COLUMN " + fieldName + sAlter
+	p.runDDL(ddl)
+	if p.err == nil {
+		logInfo(prefix, p.filename, ddl, p.line)
 		p.ReReadColumn(fieldName)
+	} else if !isErrorForReplace(p.err) {
+		logs.DebugLog(`Field %s.%s, different with define: '%s' %v`, p.Name(), fieldName, title, fs)
 	}
 
-	return err
+	return p.err
 }

@@ -325,9 +325,9 @@ func logError(err error, ddlSQL string, fileName string) {
 		line := strings.Count(ddlSQL[:pos], "\n") + 1
 		printError(fileName, line, pgErr.Message, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
-		printError(fileName, e.Line, "", e)
+		printError(fileName, e.Line, e.Msg, e)
 	} else {
-		logs.ErrorLog(err, prefix, fileName)
+		printError(fileName, 1, prefix, err)
 	}
 }
 
