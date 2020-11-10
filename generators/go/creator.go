@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/ruslanBik4/logs"
+
 	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -31,6 +33,7 @@ func NewCreator(dst string) (*Creator, error) {
 }
 
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
+	logs.SetDebug(true)
 	name := strings.Title(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
 	if err != nil && !os.IsExist(err) {

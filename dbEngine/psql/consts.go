@@ -25,11 +25,12 @@ const (
 									on (k.table_name=c.table_name AND k.column_name = c.column_name)
 							WHERE c.table_schema='public' AND c.table_name=$1`
 	sqlGetFuncParams = `SELECT parameter_name, data_type, udt_name,
-		COALESCE(character_set_name, ''),
-		COALESCE(character_maximum_length, -1), COALESCE(parameter_default, ''),
-		ordinal_position, parameter_mode
-		FROM INFORMATION_SCHEMA.parameters
-		WHERE specific_schema='public' AND specific_name=$1`
+								COALESCE(character_set_name, '') as character_set_name,
+								COALESCE(character_maximum_length, -1) as character_maximum_length, 
+								COALESCE(parameter_default, '') as parameter_default,
+								ordinal_position, parameter_mode
+								FROM INFORMATION_SCHEMA.parameters
+						WHERE specific_schema='public' AND specific_name=$1`
 	sqlGetColumnAttr = `SELECT data_type, 
 							column_default,
 							is_nullable='YES' as is_nullable, 

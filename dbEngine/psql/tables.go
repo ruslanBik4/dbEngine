@@ -7,7 +7,6 @@ package psql
 import (
 	"sync"
 
-	"github.com/jackc/pgproto3/v2"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
@@ -203,7 +202,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 
 	return t.conn.selectAndRunEach(
 		ctx,
-		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+		func(values []interface{}, columns []dbEngine.Column) error {
 			if each != nil {
 				return each(values, b.SelectColumns())
 			}
@@ -299,7 +298,7 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	return column
 }
 
-func (t *Table) readColumnRow(values []interface{}, columns []pgproto3.FieldDescription) error {
+func (t *Table) readColumnRow(values []interface{}, columns []dbEngine.Column) error {
 
 	pk, isPK := values[7].(string)
 	if isPK {

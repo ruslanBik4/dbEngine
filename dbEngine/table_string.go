@@ -8,24 +8,24 @@ import (
 	"golang.org/x/net/context"
 )
 
-type tableString struct {
+type TableString struct {
 	columns       []Column
 	name, comment string
 }
 
-func (t tableString) Comment() string {
+func (t TableString) Comment() string {
 	return t.comment
 }
 
-func (t tableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
+func (t TableString) Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
-func (t tableString) Columns() []Column {
+func (t TableString) Columns() []Column {
 	return t.columns
 }
 
-func (t tableString) FindColumn(name string) Column {
+func (t TableString) FindColumn(name string) Column {
 	for _, col := range t.columns {
 		if col.Name() == name {
 			return col
@@ -35,38 +35,38 @@ func (t tableString) FindColumn(name string) Column {
 	return nil
 }
 
-func (t tableString) FindIndex(name string) *Index {
+func (t TableString) FindIndex(name string) *Index {
 	panic("implement me")
 }
 
-func (t tableString) GetColumns(ctx context.Context) error {
+func (t TableString) GetColumns(ctx context.Context) error {
 	panic("implement me")
 }
 
-func (t tableString) Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
+func (t TableString) Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
-func (t tableString) Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
+func (t TableString) Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
-func (t tableString) Name() string {
+func (t TableString) Name() string {
 	return t.name
 }
 
-func (t tableString) ReReadColumn(name string) Column {
+func (t TableString) ReReadColumn(name string) Column {
 	panic("implement me")
 }
 
-func (t tableString) Select(ctx context.Context, Options ...BuildSqlOptions) error {
+func (t TableString) Select(ctx context.Context, Options ...BuildSqlOptions) error {
 	panic("implement me")
 }
 
-func (t tableString) SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error {
+func (t TableString) SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error {
 	panic("implement me")
 }
 
-func (t tableString) SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error {
+func (t TableString) SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error {
 	panic("implement me")
 }

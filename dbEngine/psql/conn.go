@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
-	"github.com/jackc/pgproto3/v2"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
@@ -88,7 +87,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[st
 	types := make(map[string]dbEngine.Types)
 
 	err = c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+		func(values []interface{}, columns []dbEngine.Column) error {
 			types[values[0].(string)] = dbEngine.Types{
 				0,
 				values[0].(string),
@@ -96,13 +95,19 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[st
 			}
 			return nil
 		}, sqlTypesList)
+
+	// logs.DebugLog("types:")
+	// for name, tip := range types {
+	// 	logs.DebugLog("%s: %+v", name, tip)
+	// }
+
 	return tables, routines, types, err
 }
 
 // GetTablesProp получение данных таблиц по условию
 func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngine.Table, err error) {
 	// buf for scan table fileds from query
-	row := &Table{
+	table := &Table{
 		conn: c,
 	}
 
@@ -114,9 +119,9 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 
 			t := &Table{
 				conn:    c,
-				name:    row.Name(),
-				Type:    row.Type,
-				comment: row.comment,
+				name:    table.Name(),
+				Type:    table.Type,
+				comment: table.comment,
 			}
 
 			err := t.GetColumns(ctx)
@@ -124,11 +129,11 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 				return errors.Wrap(err, "during get columns")
 			}
 
-			SchemaCache[row.Name()] = t
+			SchemaCache[table.Name()] = t
 
 			return nil
 		},
-		row, sqlTableList)
+		table, sqlTableList)
 
 	return
 }
@@ -139,7 +144,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 	RoutinesCache = make(map[string]dbEngine.Routine, 0)
 
 	err = c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+		func(values []interface{}, columns []dbEngine.Column) error {
 
 			// use only func knows types
 			rowType, ok := values[2].(string)
@@ -298,9 +303,9 @@ func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{})
 	rows := make(map[string]interface{})
 
 	err := c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+		func(values []interface{}, columns []dbEngine.Column) error {
 			for i, val := range values {
-				rows[string(columns[i].Name)] = val
+				rows[columns[i].Name()] = val
 			}
 
 			return nil
@@ -318,11 +323,11 @@ func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}
 	maps := make([]map[string]interface{}, 0)
 
 	err := c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []pgproto3.FieldDescription) error {
+		func(values []interface{}, columns []dbEngine.Column) error {
 			row := make(map[string]interface{}, len(columns))
 
 			for i, val := range values {
-				row[string(columns[i].Name)] = val
+				row[columns[i].Name()] = val
 			}
 
 			maps = append(maps, row)
@@ -337,17 +342,14 @@ func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}
 	return maps, nil
 }
 
-func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
-	columns := make([]dbEngine.Column, 0)
-	rows := make([][]interface{}, 0)
+func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) (
+	rows [][]interface{}, cols []dbEngine.Column, err error) {
 
-	err := c.selectAndRunEach(ctx,
-		func(values []interface{}, fields []pgproto3.FieldDescription) error {
+	err = c.selectAndRunEach(ctx,
+		func(values []interface{}, columns []dbEngine.Column) error {
 			rows = append(rows, values)
-			if len(columns) == 0 {
-				for _, val := range fields {
-					columns = append(columns, &Column{name: string(val.Name)})
-				}
+			if len(cols) == 0 {
+				cols = columns
 			}
 
 			return nil
@@ -357,31 +359,25 @@ func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...i
 		return nil, nil, err
 	}
 
-	return rows, columns, nil
+	return rows, cols, nil
 }
 
 func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
 
-	return c.selectAndRunEach(ctx,
-		func(values []interface{}, fields []pgproto3.FieldDescription) error {
-			columns := make([]dbEngine.Column, len(fields))
-			for i, val := range fields {
-				columns[i] = &Column{name: string(val.Name)}
-			}
-
-			if each != nil {
-				return each(values, columns)
-			}
-
-			return nil
-		},
-		sql, args...)
+	return c.selectAndRunEach(ctx, each, sql, args...)
 }
 
-func (c *Conn) selectAndRunEach(ctx context.Context, each func(values []interface{}, columns []pgproto3.FieldDescription) error,
+func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 	sql string, args ...interface{}) error {
 
-	rows, err := c.Query(ctx, sql, args...)
+	conn, err := c.Acquire(ctx)
+	if err != nil {
+		return errors.Wrap(err, "c.Acquire")
+	}
+
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx, sql, args...)
 	if err != nil {
 		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, rows)...)
 		return err
@@ -389,16 +385,28 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each func(values []interfac
 
 	defer rows.Close()
 
-	var values []interface{}
+	var columns []dbEngine.Column
 
 	for rows.Next() {
-		values, err = rows.Values()
+		values, err := rows.Values()
 		if err != nil {
 			break
 		}
 
 		if each != nil {
-			err = each(values, rows.FieldDescriptions())
+			if len(columns) == 0 {
+				fields := rows.FieldDescriptions()
+				columns = make([]dbEngine.Column, len(fields))
+				for i, col := range fields {
+					dType, ok := conn.Conn().ConnInfo().DataTypeForOID(col.DataTypeOID)
+					if ok {
+						columns[i] = &Column{name: string(col.Name), DataType: dType.Name, UdtName: dType.Name}
+					} else {
+						columns[i] = &Column{name: string(col.Name)}
+					}
+				}
+			}
+			err = each(values, columns)
 		}
 	}
 

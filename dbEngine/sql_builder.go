@@ -117,25 +117,27 @@ func (b *SQLBuilder) SelectColumns() []Column {
 		}
 
 		return selectColumns
-
 	}
+
 	selectColumns := make([]Column, len(b.columns))
 	for i, name := range b.columns {
 		s := strings.Split(name, "(")
-		if len(s) > 0 {
+		if len(s) > 1 {
 			name = strings.Trim(s[0], ")")
-			s = strings.Split(name, ":")
-			if len(s) > 0 {
-				name = s[0]
-			}
 		}
 
-		if col := b.Table.FindColumn(name); col == nil {
+		s = strings.Split(name, "::")
+		if len(s) > 1 {
+			name = s[0]
+		}
+
+		col := b.Table.FindColumn(name)
+		if !strings.Contains(name, " as ") && col == nil {
 			logs.ErrorLog(NewErrNotFoundColumn(b.Table.Name(), name))
 			return nil
-		} else {
-			selectColumns[i] = col
 		}
+
+		selectColumns[i] = col
 	}
 
 	return selectColumns

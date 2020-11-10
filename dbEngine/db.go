@@ -260,7 +260,10 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 	return err
 }
 
-var regFuncTitle = regexp.MustCompile(`(function|procedure)\s+\w+\s*\(([^()]+(\(\d+\))?)*\)`)
+var (
+	regFuncTitle = regexp.MustCompile(`(function|procedure)\s+\w+\s*\(([^()]+(\(\d+\))?)*\)`)
+	regFuncDef   = regexp.MustCompile(`\sdefault\s+[^,)]+`)
+)
 
 func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
@@ -287,7 +290,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error
 		} else if isErrorForReplace(err) {
 			err = nil
 			for _, funcName := range regFuncTitle.FindAllString(strings.ToLower(ddlSQL), -1) {
-				dropSQL := "DROP " + strings.Replace(funcName, "default null", "", -1)
+				dropSQL := "DROP " + regFuncDef.ReplaceAllString(funcName, "")
 				logs.DebugLog(dropSQL)
 				err = db.Conn.ExecDDL(context.TODO(), dropSQL)
 				if err != nil {

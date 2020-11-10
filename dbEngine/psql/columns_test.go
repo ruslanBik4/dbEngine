@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/jackc/pgconn"
-	"github.com/jackc/pgproto3/v2"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -643,7 +642,7 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 		Cancel        context.CancelFunc
 	}
 	type args struct {
-		each func(values []interface{}, columns []pgproto3.FieldDescription) error
+		each func(values []interface{}, columns []dbEngine.Column) error
 		sql  string
 		args []interface{}
 	}
@@ -906,7 +905,7 @@ func TestNewConn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewConn(tt.args.afterConnect, tt.args.beforeAcquire, tt.args.channels...); !assert.Equal(t, got, tt.want) {
+			if got := NewConn(tt.args.afterConnect, tt.args.beforeAcquire, nil, tt.args.channels...); !assert.Equal(t, got, tt.want) {
 				t.Errorf("NewConn() = %v, want %v", got, tt.want)
 			} else {
 				assert.Implements(t, (*dbEngine.Connection)(nil), got)
@@ -1373,7 +1372,7 @@ func TestTable_readColumnRow(t1 *testing.T) {
 	}
 	type args struct {
 		values  []interface{}
-		columns []pgproto3.FieldDescription
+		columns []dbEngine.Column
 	}
 	tests := []struct {
 		name    string
