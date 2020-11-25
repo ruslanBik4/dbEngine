@@ -61,7 +61,7 @@ func printTables(db *dbEngine.DB) {
 	for key, table := range db.Tables {
 		logs.StatusLog(key, table.Name())
 		for _, col := range table.Columns() {
-			logs.StatusLog("%s %s %s %s", col.Name(), col.Type(), typesExt.StringTypeKinds(col.BasicType()), col.Default())
+			logs.StatusLog("%s %s %s %v", col.Name(), col.Type(), typesExt.StringTypeKinds(col.BasicType()), col.Default())
 		}
 	}
 }

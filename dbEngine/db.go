@@ -117,7 +117,7 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 
 				return err
 
-			} else if !isErrorAlreadyExists(err) {
+			} else if !IsErrorAlreadyExists(err) {
 				logs.ErrorLog(err, "table - "+tableName)
 				return err
 			}
@@ -159,7 +159,7 @@ func (db *DB) ReadViewSQL(path string, info os.FileInfo, err error) error {
 
 				return err
 
-			} else if !isErrorAlreadyExists(err) {
+			} else if !IsErrorAlreadyExists(err) {
 				logs.ErrorLog(err, "table - "+tableName)
 				return err
 			}
@@ -201,7 +201,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 				return nil
 			}
 
-			if isErrorAlreadyExists(err) {
+			if IsErrorAlreadyExists(err) {
 				ddl := strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1)))
 				fields := regTypeAttr.FindStringSubmatch(ddl)
 				err = nil
@@ -217,7 +217,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 							err = db.Conn.ExecDDL(context.TODO(), ddlType)
 							if err == nil {
 								logs.StatusLog(prefix, ddlType)
-							} else if isErrorAlreadyExists(err) {
+							} else if IsErrorAlreadyExists(err) {
 								p := strings.Split(strings.TrimSpace(name), " ")
 								if len(p) < 2 {
 									err = ErrWrongType{
@@ -243,7 +243,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) erro
 						}
 					}
 				}
-			} else if isErrorForReplace(err) {
+			} else if IsErrorForReplace(err) {
 				logError(err, ddlType, fileName)
 				err = nil
 			}
@@ -285,9 +285,9 @@ func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error
 		err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
 		if err == nil {
 			db.newFuncs = append(db.newFuncs, funcName)
-		} else if isErrorAlreadyExists(err) {
+		} else if IsErrorAlreadyExists(err) {
 			err = nil
-		} else if isErrorForReplace(err) {
+		} else if IsErrorForReplace(err) {
 			err = nil
 			for _, funcName := range regFuncTitle.FindAllString(strings.ToLower(ddlSQL), -1) {
 				dropSQL := "DROP " + regFuncDef.ReplaceAllString(funcName, "")

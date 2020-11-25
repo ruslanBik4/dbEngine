@@ -167,7 +167,7 @@ func (p *ParserTableDDL) runDDL(ddl string) {
 		if p.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
 		}
-	} else if isErrorAlreadyExists(err) {
+	} else if IsErrorAlreadyExists(err) {
 		err = nil
 	} else if err != nil {
 		logError(err, ddl, p.filename)
@@ -198,7 +198,7 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 
 			err := p.Conn.ExecDDL(context.TODO(), ddl)
 			if err != nil {
-				if isErrorCntChgView(err) {
+				if IsErrorCntChgView(err) {
 					err = p.Conn.ExecDDL(context.TODO(), "DROP VIEW "+p.Name()+" CASCADE")
 					if err == nil {
 						err = p.Conn.ExecDDL(context.TODO(), ddl)
@@ -352,9 +352,21 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 		return true
 	}
 
-	if p.FindIndex(ind.Name) != nil {
-		logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! ", p.line)
-		// todo: check columns of index
+	if pInd := p.FindIndex(ind.Name); pInd != nil {
+		for i, name := range ind.Columns {
+			if pInd.Columns[i] != name {
+				isFound := false
+				for _, col := range pInd.Columns {
+					if col == name {
+						isFound = true
+						break
+					}
+				}
+				if !isFound {
+					logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! No column '"+name+"'", p.line)
+				}
+			}
+		}
 		return true
 	}
 
@@ -384,8 +396,9 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 			ind.Name = columns[i]
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
-			for _, name := range ind.Columns {
+			for i, name := range ind.Columns {
 				name = strings.TrimSpace(name)
+				ind.Columns[i] = name
 				if strings.HasPrefix(name, "'") {
 					continue
 				}
@@ -420,7 +433,7 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 	if p.err == nil {
 		logInfo(prefix, p.filename, ddl, p.line)
 		p.ReReadColumn(fieldName)
-	} else if !isErrorForReplace(p.err) {
+	} else if !IsErrorForReplace(p.err) {
 		logs.DebugLog(`Field %s.%s, different with define: '%s' %v`, p.Name(), fieldName, title, fs)
 	}
 

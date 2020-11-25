@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
 type pgxLog struct {
@@ -21,11 +23,20 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 		logs.DebugLog("[[PGX]] %s %+v", msg, data)
 	case pgx.LogLevelInfo:
 		logs.StatusLog("[[PGX]] %s %+v", msg, data)
-	case pgx.LogLevelWarn, pgx.LogLevelError:
+	case pgx.LogLevelWarn:
 		if err, ok := data["err"].(*pgconn.PgError); ok {
 			logs.ErrorLog(err, msg, data["sql"], data["args"])
+		} else {
+			logs.DebugLog(msg, data)
 		}
-		logs.DebugLog(data)
+	case pgx.LogLevelError:
+		if err, ok := data["err"].(*pgconn.PgError); ok {
+			if !dbEngine.IsErrorAlreadyExists(err) {
+				logs.ErrorLog(err, msg, data["sql"], data["args"])
+			}
+		} else {
+			logs.DebugLog(msg, data)
+		}
 	case pgx.LogLevelNone:
 
 	default:

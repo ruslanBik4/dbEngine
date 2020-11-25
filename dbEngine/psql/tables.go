@@ -22,6 +22,7 @@ type Table struct {
 	ID         int
 	comment    string
 	columns    []*Column
+	indexes    dbEngine.Indexes
 	PK         string
 	lock       sync.RWMutex
 }
@@ -242,27 +243,25 @@ func (t *Table) GetColumns(ctx context.Context) error {
 	}
 
 	return nil
-	// ind := &Index{}
-	// return SelectAndScanEach(func() error {
-	//
-	// 	ind.columns = make([]*TableColumn, len(ind.col))
-	// 	for i, col := range ind.col {
-	// 		ind.columns[i] = t.FindColumn(col)
-	// 	}
-	//
-	// 	t.Indexes = append(t.Indexes, &Index{
-	// 		Name:   ind.Name,
-	// 		columns: ind.columns,
-	// 	})
-	//
-	// 	return nil
-	// },
-	// 	ind, sqlGetIndexes, t.Name)
 }
 
+// GetIndexes collect index of table
+func (t *Table) GetIndexes(ctx context.Context) error {
+
+	return errors.Wrap(
+		t.conn.SelectAndScanEach(ctx,
+			nil,
+			&t.indexes, sqlGetIndexes, t.Name()), t.Name())
+}
+
+// FindIndex get index according to name
 func (t *Table) FindIndex(name string) *dbEngine.Index {
-	// todo implements in future
-	logs.DebugLog("findIndex not implements ", name)
+	for _, ind := range t.indexes {
+		if name == ind.Name {
+			return ind
+		}
+	}
+
 	return nil
 }
 

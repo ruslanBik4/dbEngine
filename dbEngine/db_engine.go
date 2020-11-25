@@ -3,6 +3,7 @@ package dbEngine
 import (
 	"go/types"
 
+	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
 )
 
@@ -73,11 +74,37 @@ type Column interface {
 	SetNullable(bool)
 }
 
+// Index
 type Index struct {
 	Name    string
 	Columns []string
 }
 
+func (ind *Index) GetFields(columns []Column) []interface{} {
+	fields := make([]interface{}, len(columns))
+	for i, col := range columns {
+		switch col.Name() {
+		case "index_name":
+			fields[i] = &ind.Name
+		case "column_names":
+			fields[i] = &ind.Columns
+		default:
+			logs.DebugLog("unknown column %s", col.Name())
+		}
+	}
+
+	return fields
+}
+
+type Indexes []*Index
+
+func (i *Indexes) GetFields(columns []Column) []interface{} {
+	ind := &Index{}
+	*i = append(*i, ind)
+
+	return ind.GetFields(columns)
+}
+
 type RowScanner interface {
-	GetFields([]Column) []interface{}
+	GetFields(columns []Column) []interface{}
 }

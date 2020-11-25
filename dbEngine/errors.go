@@ -7,7 +7,11 @@ package dbEngine
 import (
 	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
+
+var ErrDBNotFound = errors.New("DB not found")
 
 // ErrNotFoundTable if not found table by name {Table}
 type ErrNotFoundTable struct {
@@ -66,7 +70,7 @@ func (err ErrWrongArgsLen) Error() string {
 
 }
 
-func isErrorAlreadyExists(err error) bool {
+func IsErrorAlreadyExists(err error) bool {
 	ignoreErrors := []string{
 		"already exists",
 	}
@@ -80,7 +84,7 @@ func isErrorAlreadyExists(err error) bool {
 	return false
 }
 
-func isErrorForReplace(err error) bool {
+func IsErrorForReplace(err error) bool {
 	ignoreErrors := []string{
 		"cannot change return type of existing function",
 		"cannot change name of input parameter",
@@ -96,7 +100,7 @@ func isErrorForReplace(err error) bool {
 	return false
 }
 
-func isErrorCntChgView(err error) bool {
+func IsErrorCntChgView(err error) bool {
 	ignoreErrors := []string{
 		"cannot change name of view column",
 	}
