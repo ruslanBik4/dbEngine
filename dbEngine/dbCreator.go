@@ -403,11 +403,11 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 					continue
 				}
 
-				if i := strings.Index(name, "("); i > 0 {
+				if i := strings.Index(name, "("); i > -1 {
 					name = strings.TrimSuffix(name[i+1:], ")")
 				}
 
-				if i := strings.Index(name, "::"); i > 0 {
+				if i := strings.Index(name, "::"); i > -1 {
 					name = name[:i]
 				}
 
