@@ -211,15 +211,21 @@ func (b *SQLBuilder) Where() string {
 
 		switch pre := name[0]; pre {
 		case '>', '<', '$', '~', '^':
+			preStr := ""
+			if name[1] == '=' {
+				preStr = "="
+				name = name[2:]
+			} else {
+				name = name[1:]
+			}
 
-			name = name[1:]
 			switch pre {
 			case '$':
 				where += fmt.Sprintf(comma+"%s ~ ('.*' + $%d + '$')", name, b.posFilter)
 			case '^':
 				where += fmt.Sprintf(comma+"%s ~ ('^.*' + $%d)", name, b.posFilter)
 			default:
-				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre), b.posFilter)
+				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre)+preStr, b.posFilter)
 			}
 		default:
 			cond := "%s=$%d"
@@ -283,7 +289,12 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 
 				switch pre := name[0]; pre {
 				case '>', '<', '$', '~', '^':
-					name = name[1:]
+					if name[1] == '=' {
+						pre += '='
+						name = name[2:]
+					} else {
+						name = name[1:]
+					}
 				}
 
 				if b.Table.FindColumn(name) == nil {
