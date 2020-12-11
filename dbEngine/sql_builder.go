@@ -122,8 +122,10 @@ func (b *SQLBuilder) SelectColumns() []Column {
 	selectColumns := make([]Column, len(b.columns))
 	for i, name := range b.columns {
 		s := strings.Split(name, "(")
-		if len(s) > 1 {
-			name = strings.Trim(s[0], ")")
+		for i := 1; i <= len(s); i++ {
+			if len(s) > i {
+				name = strings.Trim(s[i], ")")
+			}
 		}
 
 		s = strings.Split(name, "::")
