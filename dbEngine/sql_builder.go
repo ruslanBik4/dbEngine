@@ -6,6 +6,7 @@ package dbEngine
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -121,25 +122,43 @@ func (b *SQLBuilder) SelectColumns() []Column {
 
 	selectColumns := make([]Column, len(b.columns))
 	for i, name := range b.columns {
-		s := strings.Split(name, "(")
-		for i := 1; i <= len(s); i++ {
-			if len(s) > i {
-				name = strings.Trim(s[i], ")")
+		r := regexp.MustCompile(`(?:\(([\w:, /s]+)\))`)
+		ss := r.FindAllStringSubmatch(name, -1)
+		trueColumn := false
+		if len(ss) > 0 {
+			for _, list := range ss {
+				if len(list) > 0 {
+					sss := strings.Split(list[len(list)-1], ",")
+					for _, val := range sss {
+						cleanVal := strings.TrimSpace(val)
+						s := strings.Split(cleanVal, "::")
+						newName := s[0]
+
+						col := b.Table.FindColumn(newName)
+						if col != nil {
+							selectColumns[i] = col
+							trueColumn = true
+						}
+					}
+				}
 			}
-		}
 
-		s = strings.Split(name, "::")
-		if len(s) > 1 {
+			if !trueColumn {
+				logs.ErrorLog(NewErrNotFoundColumn(b.Table.Name(), name))
+				return nil
+			}
+
+		} else {
+			s := strings.Split(name, "::")
 			name = s[0]
-		}
 
-		col := b.Table.FindColumn(name)
-		if !strings.Contains(name, " as ") && col == nil {
-			logs.ErrorLog(NewErrNotFoundColumn(b.Table.Name(), name))
-			return nil
+			col := b.Table.FindColumn(name)
+			if !strings.Contains(name, " as ") && col == nil {
+				logs.ErrorLog(NewErrNotFoundColumn(b.Table.Name(), name))
+				return nil
+			}
+			selectColumns[i] = col
 		}
-
-		selectColumns[i] = col
 	}
 
 	return selectColumns
