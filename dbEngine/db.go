@@ -107,7 +107,8 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 		table, ok := db.Tables[tableName]
 		if !ok {
 			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
-			if err == nil {
+			switch {
+			case err == nil:
 				table = db.Conn.NewTable(tableName, "table")
 				err = table.GetColumns(context.TODO())
 				if err == nil {
@@ -115,13 +116,14 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 					logs.StatusLog("New table add to DB", tableName)
 				}
 
-				return err
-
-			} else if !IsErrorAlreadyExists(err) {
+			case !IsErrorAlreadyExists(err) || !strings.Contains(err.Error(), tableName):
 				logs.ErrorLog(err, "table - "+tableName)
-				return err
+
+			default:
+				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
 			}
-			// 	todo: add table new
+
+			return err
 		}
 
 		return NewParserTableDDL(table, db).Parse(string(ddl))

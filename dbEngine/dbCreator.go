@@ -148,7 +148,7 @@ func (p *ParserTableDDL) addComment(ddl string) bool {
 var regPartitionTable = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
 
 func (p *ParserTableDDL) skipPartition(ddl string) bool {
-	fields := regPartitionTable.FindStringSubmatch(ddl)
+	fields := regPartitionTable.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
 		return false
 	}
@@ -354,19 +354,24 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 
 	if pInd := p.FindIndex(ind.Name); pInd != nil {
 		for i, name := range ind.Columns {
-			if pInd.Columns[i] != name {
-				isFound := false
-				for _, col := range pInd.Columns {
-					if col == name {
-						isFound = true
-						break
-					}
-				}
-				if !isFound {
-					logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! No column '"+name+"'", p.line)
+
+			columns := pInd.Columns
+			if i < len(columns) && columns[i] == name {
+				continue
+			}
+			isFound := false
+			for _, col := range columns {
+				if col == name {
+					isFound = true
+					break
 				}
 			}
+			if !isFound {
+				logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! No column '"+name+"'", p.line)
+			}
+
 		}
+
 		return true
 	}
 
@@ -411,7 +416,8 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 					name = name[:i]
 				}
 
-				if p.FindColumn(strings.TrimSpace(name)) == nil {
+				_, ok := checkColumn(name, p)
+				if !ok {
 					logs.DebugLog(ind.Columns)
 					return nil, ErrNotFoundColumn{p.Name(), name}
 				}

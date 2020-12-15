@@ -4,4 +4,13 @@
 
 package dbEngine
 
+import (
+	"regexp"
+)
+
 const prefix = "DB_CONFIG"
+
+// regex consts
+var (
+	regColumns = regexp.MustCompile(`(?:\(([\w:,/s]+)\))`)
+)

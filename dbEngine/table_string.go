@@ -70,3 +70,7 @@ func (t TableString) SelectAndScanEach(ctx context.Context, each func() error, r
 func (t TableString) SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error {
 	panic("implement me")
 }
+
+func (t TableString) SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error {
+	panic("implement me")
+}
