@@ -12,5 +12,5 @@ const prefix = "DB_CONFIG"
 
 // regex consts
 var (
-	regColumns = regexp.MustCompile(`\(([\w:,/s]+)\)`)
+	regColumns = regexp.MustCompile(`\(([^()]+)\)`)
 )
