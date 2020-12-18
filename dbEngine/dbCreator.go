@@ -36,6 +36,7 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 		t.updateIndex,
 		t.skipPartition,
 		t.performsInsert,
+		t.performsUpdate,
 		t.performsCreateExt,
 		t.alterTable,
 	}
@@ -107,7 +108,21 @@ func (p *ParserTableDDL) performsInsert(ddl string) bool {
 		return false
 	}
 
-	p.runDDL(ddl + "  ON CONFLICT  DO NOTHING ")
+	if !strings.Contains(strings.ToLower(ddl), "on conflict") {
+		ddl += " ON CONFLICT  DO NOTHING "
+	}
+
+	p.runDDL(ddl)
+
+	return true
+}
+
+func (p *ParserTableDDL) performsUpdate(ddl string) bool {
+	if !strings.Contains(strings.ToLower(ddl), "update") {
+		return false
+	}
+
+	p.runDDL(ddl)
 
 	return true
 }
@@ -401,25 +416,11 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 			ind.Name = columns[i]
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
-			for i, name := range ind.Columns {
-				name = strings.TrimSpace(name)
-				ind.Columns[i] = name
-				if strings.HasPrefix(name, "'") {
-					continue
-				}
-
-				if i := strings.Index(name, "("); i > -1 {
-					name = strings.TrimSuffix(name[i+1:], ")")
-				}
-
-				if i := strings.Index(name, "::"); i > -1 {
-					name = name[:i]
-				}
-
+			for _, name := range ind.Columns {
 				_, ok := checkColumn(name, p)
 				if !ok {
 					logs.DebugLog(ind.Columns)
-					return nil, ErrNotFoundColumn{p.Name(), name}
+					return nil, ErrNotFoundColumn{p.Name(), columns[i]}
 				}
 			}
 

@@ -133,22 +133,13 @@ func (b *SQLBuilder) SelectColumns() []Column {
 }
 
 func checkColumn(ddl string, table Table) (col Column, trueColumn bool) {
-	columns := regColumns.FindAllStringSubmatch(ddl, -1)
-	if len(columns) > 0 {
-		for _, list := range columns {
+	fullStr := regColumns.FindAllStringSubmatch(ddl, -1)
+	if len(fullStr) > 0 {
+		for _, list := range fullStr {
 			if len(list) > 0 {
-				columns := list[len(list)-1]
-				for _, val := range strings.Split(columns, ",") {
-					name := strings.TrimSpace(val)
-					if strings.HasPrefix(name, "'") {
-						continue
-					}
-
-					s := strings.Split(name, "::")
-					col = table.FindColumn(s[0])
-					if col != nil {
-						return col, true
-					}
+				col, trueColumn = checkParams(strings.Split(list[len(list)-1], ","), table)
+				if trueColumn {
+					return
 				}
 			}
 		}
@@ -156,15 +147,33 @@ func checkColumn(ddl string, table Table) (col Column, trueColumn bool) {
 		return nil, false
 	}
 
-	s := strings.Split(ddl, "::")
-	name := s[0]
-
+	name := shrinkColName(ddl)
 	col = table.FindColumn(name)
 	if !strings.Contains(name, " as ") && col == nil {
 		return nil, false
 	}
 
 	return col, true
+}
+
+func checkParams(columns []string, table Table) (Column, bool) {
+	for _, colName := range columns {
+		name := strings.TrimSpace(colName)
+		if strings.HasPrefix(name, "'") {
+			continue
+		}
+
+		col := table.FindColumn(shrinkColName(name))
+		if col != nil {
+			return col, true
+		}
+	}
+
+	return nil, false
+}
+
+func shrinkColName(name string) string {
+	return strings.TrimSpace(strings.Split(name, "::")[0])
 }
 
 func (b *SQLBuilder) Select() string {
