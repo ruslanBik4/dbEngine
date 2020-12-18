@@ -290,7 +290,6 @@ func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, ok := fs.Default().(string)
 	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
-		logs.DebugLog(fs.Default())
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
 			logs.DebugLog(defaults, title)
@@ -395,7 +394,7 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	return true
 }
 
-var ddlIndex = regexp.MustCompile(`create(?:\s+unique)?\s+index(?:\s+if\s+not\s+exists)?\s+(?P<index>\w+)\s+on\s+(?P<table>\w+)(?:\s+using\s+\w+)?\s*\((?P<columns>[^;]+?)\)\s*(where\s+[^)]\))?`)
+var ddlIndex = regexp.MustCompile(`create(?:\s+unique)?\s+index(?:\s+if\s+not\s+exists)?\s+(?P<index>\w+)\s+on\s+(?P<table>\w+)(?:\s+using\s+\w+)?\s*\((?P<columns>[^;]+)\)\s*(where\s+[^)]\))?`)
 
 func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 
@@ -416,12 +415,9 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 			ind.Name = columns[i]
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
-			for _, name := range ind.Columns {
-				_, ok := checkColumn(name, p)
-				if !ok {
-					logs.DebugLog(ind.Columns)
-					return nil, ErrNotFoundColumn{p.Name(), columns[i]}
-				}
+			_, isLegal := checkColumn(columns[i], p)
+			if !isLegal {
+				return nil, ErrNotFoundColumn{p.Name(), columns[i]}
 			}
 
 		default:
