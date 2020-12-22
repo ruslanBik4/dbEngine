@@ -51,9 +51,11 @@ type Table interface {
 type Routine interface {
 	Name() string
 	Select(ctx context.Context, args ...interface{}) error
-	Call(ctx context.Context) error
+	Call(ctx context.Context, args ...interface{}) error
+	Overlay() Routine
 	Params() []Column
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
+	SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 

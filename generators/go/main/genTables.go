@@ -6,6 +6,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/ruslanBik4/dbEngine/typesExt"
@@ -69,9 +70,17 @@ func printTables(db *dbEngine.DB) {
 func printRoutines(db *dbEngine.DB) {
 	logs.StatusLog("list routines:")
 	for key, r := range db.Routines {
-		logs.StatusLog(key, r.Name())
+		params := "params: "
 		for _, param := range r.Params() {
-			logs.StatusLog("%s %s %s", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType()))
+			params += fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType()))
+		}
+		logs.StatusLog(key, r.Name(), params)
+		if rr := r.Overlay(); rr != nil {
+			params := "columns:"
+			for _, param := range rr.Params() {
+				params += fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType()))
+			}
+			logs.StatusLog("Overlay", key, rr.Name(), params)
 		}
 	}
 }

@@ -24,7 +24,7 @@ const (
 								LEFT JOIN INFORMATION_SCHEMA.key_column_usage k 
 									on (k.table_name=c.table_name AND k.column_name = c.column_name)
 							WHERE c.table_schema='public' AND c.table_name=$1`
-	sqlGetFuncParams = `SELECT parameter_name, data_type, udt_name,
+	sqlGetFuncParams = `SELECT coalesce(parameter_name, 'noName') as parameter_name, data_type, udt_name,
 								COALESCE(character_set_name, '') as character_set_name,
 								COALESCE(character_maximum_length, -1) as character_maximum_length, 
 								COALESCE(parameter_default, '') as parameter_default,

@@ -15,9 +15,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/dbEngine/dbEngine/mock"
 	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
+)
+
+var (
+	testConn = &mock.Conn{}
 )
 
 func TestColumn_BasicType(t *testing.T) {
@@ -916,7 +921,6 @@ func TestNewConn(t *testing.T) {
 
 func TestRoutine_Call(t *testing.T) {
 	type fields struct {
-		conn    *Conn
 		Name    string
 		ID      int
 		Comment string
@@ -924,28 +928,46 @@ func TestRoutine_Call(t *testing.T) {
 		params  []*PgxRoutineParams
 		Overlay *Routine
 		Type    string
-		lock    sync.RWMutex
 	}
 	tests := []struct {
 		name    string
 		columns *fields
 	}{
 		// TODO: Add test cases.
+		{
+			"firest",
+			&fields{
+				Name: "test",
+				Type: "PROCEDURE",
+				params: []*PgxRoutineParams{
+					&PgxRoutineParams{
+						Column: Column{
+							name:     "id",
+							DataType: "int",
+							UdtName:  "integer",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := Routine{
-				conn:    tt.columns.conn,
+			r := &Routine{
+				conn:    nil,
 				name:    tt.columns.Name,
 				ID:      tt.columns.ID,
 				Comment: tt.columns.Comment,
 				columns: tt.columns.Fields,
 				params:  tt.columns.params,
-				Overlay: tt.columns.Overlay,
+				overlay: tt.columns.Overlay,
 				Type:    tt.columns.Type,
-				lock:    sync.RWMutex{},
+				lock:    &sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
+
+			err := r.Call(nil, 1)
+			assert.Nil(t, err)
 
 		})
 	}
@@ -961,7 +983,6 @@ func TestRoutine_GetParams(t *testing.T) {
 		params  []*PgxRoutineParams
 		Overlay *Routine
 		Type    string
-		lock    sync.RWMutex
 	}
 	tests := []struct {
 		name    string
@@ -979,9 +1000,9 @@ func TestRoutine_GetParams(t *testing.T) {
 				Comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				params:  tt.fields.params,
-				Overlay: tt.fields.Overlay,
+				overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    sync.RWMutex{},
+				lock:    &sync.RWMutex{},
 			}
 			if err := r.GetParams(context.TODO()); (err != nil) != tt.wantErr {
 				t.Errorf("GetParams() error = %v, wantErr %v", err, tt.wantErr)
@@ -1000,7 +1021,6 @@ func TestRoutine_Params(t *testing.T) {
 		params  []*PgxRoutineParams
 		Overlay *Routine
 		Type    string
-		lock    sync.RWMutex
 	}
 	tests := []struct {
 		name   string
@@ -1017,9 +1037,9 @@ func TestRoutine_Params(t *testing.T) {
 				Comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				params:  tt.fields.params,
-				Overlay: tt.fields.Overlay,
+				overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    sync.RWMutex{},
+				lock:    &sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 		})
@@ -1036,7 +1056,6 @@ func TestRoutine_Select(t *testing.T) {
 		params  []*PgxRoutineParams
 		Overlay *Routine
 		Type    string
-		lock    sync.RWMutex
 	}
 	tests := []struct {
 		name   string
@@ -1053,9 +1072,9 @@ func TestRoutine_Select(t *testing.T) {
 				Comment: tt.fields.Comment,
 				columns: tt.fields.Fields,
 				params:  tt.fields.params,
-				Overlay: tt.fields.Overlay,
+				overlay: tt.fields.Overlay,
 				Type:    tt.fields.Type,
-				lock:    sync.RWMutex{},
+				lock:    &sync.RWMutex{},
 			}
 			assert.Implements(t, (*dbEngine.Routine)(nil), r)
 		})

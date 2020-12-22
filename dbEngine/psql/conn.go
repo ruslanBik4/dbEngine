@@ -169,10 +169,10 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 
 			fnc, ok := RoutinesCache[name].(*Routine)
 			if ok {
-				for fnc.Overlay != nil {
-					fnc = fnc.Overlay
+				for fnc.overlay != nil {
+					fnc = fnc.overlay
 				}
-				fnc.Overlay = row
+				fnc.overlay = row
 
 			} else {
 				RoutinesCache[name] = row
