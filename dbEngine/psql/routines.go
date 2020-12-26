@@ -210,17 +210,15 @@ func (r *Routine) BuildSql(Options []dbEngine.BuildSqlOptions) (string, []interf
 }
 
 func (r *Routine) correctName(name string, args []interface{}) string {
-	if len(args) > 0 {
-		name += "("
-		for i := range args {
-			if i > 0 {
-				name += ","
-			}
-			// must be type of params
-			name += fmt.Sprintf("$%d :: %s", i+1, r.params[i].Type())
+	name += "("
+	for i := range args {
+		if i > 0 {
+			name += ","
 		}
-		name += ")"
+		// must be type of params
+		name += fmt.Sprintf("$%d :: %s", i+1, r.params[i].Type())
 	}
+	name += ")"
 
 	return name
 }
