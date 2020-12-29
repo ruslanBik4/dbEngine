@@ -50,6 +50,7 @@ type Table interface {
 
 type Routine interface {
 	Name() string
+	BuildSql(Options ...BuildSqlOptions) (string, []interface{}, error)
 	Select(ctx context.Context, args ...interface{}) error
 	Call(ctx context.Context, args ...interface{}) error
 	Overlay() Routine

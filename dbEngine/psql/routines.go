@@ -177,7 +177,7 @@ func (r *Routine) GetParams(ctx context.Context) error {
 
 func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 
-	sql, args, err := r.BuildSql(Options)
+	sql, args, err := r.BuildSql(Options...)
 	if err != nil {
 		return err
 	}
@@ -185,7 +185,7 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 	return r.conn.SelectAndScanEach(ctx, each, row, sql, args...)
 }
 
-func (r *Routine) BuildSql(Options []dbEngine.BuildSqlOptions) (string, []interface{}, error) {
+func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []interface{}, error) {
 	b := &dbEngine.SQLBuilder{Table: r.newTableForSQLBuilder()}
 	for _, setOption := range Options {
 		err := setOption(b)
@@ -238,7 +238,7 @@ func (r *Routine) checkArgs(tableName string, args []interface{}) error {
 }
 
 func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
-	sql, args, err := r.BuildSql(Options)
+	sql, args, err := r.BuildSql(Options...)
 	if err != nil {
 		return err
 	}
@@ -251,7 +251,7 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 }
 
 func (r *Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
-	sql, args, err := r.BuildSql(Options)
+	sql, args, err := r.BuildSql(Options...)
 	if err != nil {
 		return err
 	}
