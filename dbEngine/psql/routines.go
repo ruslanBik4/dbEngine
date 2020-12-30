@@ -163,9 +163,11 @@ func (r *Routine) GetParams(ctx context.Context) error {
 
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
-			if r.paramMode == "IN" {
+			if strings.HasPrefix(r.paramMode, "IN") {
 				r.params = append(r.params, r.temp_param)
-			} else {
+			}
+
+			if strings.HasSuffix(r.paramMode, "OUT") {
 				r.columns = append(r.columns, r.temp_param)
 			}
 
