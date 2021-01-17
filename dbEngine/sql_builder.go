@@ -13,13 +13,14 @@ import (
 )
 
 type SQLBuilder struct {
-	Args       []interface{}
-	columns    []string
-	filter     []string
-	posFilter  int
-	Table      Table
-	onConflict string
-	OrderBy    []string
+	Args          []interface{}
+	columns       []string
+	filter        []string
+	posFilter     int
+	Table         Table
+	onConflict    string
+	OrderBy       []string
+	Offset, Limit int
 }
 
 func (b SQLBuilder) InsertSql() (string, error) {
@@ -100,6 +101,14 @@ func (b SQLBuilder) SelectSql() (string, error) {
 	if len(b.OrderBy) > 0 {
 		// todo add column checking
 		sql += " order by " + strings.Join(b.OrderBy, ",")
+	}
+
+	if b.Offset > 0 {
+		sql += fmt.Sprintf(" offset %d ", b.Offset)
+	}
+
+	if b.Limit > 0 {
+		sql += fmt.Sprintf(" fetch first %d rows only ", b.Limit)
 	}
 
 	return sql, nil
@@ -254,9 +263,9 @@ func (b *SQLBuilder) Where() string {
 
 			switch pre {
 			case '$':
-				where += fmt.Sprintf(comma+"%s ~ ('.*' + $%d + '$')", name, b.posFilter)
+				where += fmt.Sprintf(comma+"%s ~ concat('.*', $%d, '$')", name, b.posFilter)
 			case '^':
-				where += fmt.Sprintf(comma+"%s ~ ('^.*' + $%d)", name, b.posFilter)
+				where += fmt.Sprintf(comma+"%s ~ concat('^.*', $%d)", name, b.posFilter)
 			default:
 				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre)+preStr, b.posFilter)
 			}
@@ -374,6 +383,24 @@ func InsertOnConflictDoNothing() BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.onConflict = "DO NOTHING"
+
+		return nil
+	}
+}
+
+func FetchOnlyRows(i int) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.Limit = i
+
+		return nil
+	}
+}
+
+func Offset(i int) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.Offset = i
 
 		return nil
 	}

@@ -6,6 +6,7 @@ package dbEngine
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -318,6 +319,20 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 			"",
 			true,
 		},
+		{
+			"two columns select according two filter columns & fetch & offset",
+			fields{
+				[]interface{}{1, 2},
+				[]string{"last_login", "name"},
+				[]string{"id", "id_roles"},
+				nil,
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			"SELECT last_login,name FROM StringTable WHERE  id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only ",
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -329,8 +344,13 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				posFilter: tt.fields.posFilter,
 				Table:     tt.fields.Table,
 			}
+
+			if strings.Contains(tt.name, "fetch") {
+				b.Offset = 5
+				b.Limit = 1
+			}
 			got, err := b.SelectSql()
-			assert.Equal(t, tt.wantErr, (err != nil), "SelectSql() error = %v, wantErr %v")
+			assert.Equal(t, tt.wantErr, (err != nil), "SelectSql() error = %v, wantErr %v", err, tt.wantErr)
 			assert.Equal(t, got, tt.want, "SelectSql() got = %v, want %v", got, tt.want)
 
 		})
