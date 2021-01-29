@@ -270,13 +270,22 @@ func (b *SQLBuilder) Where() string {
 				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre)+preStr, b.posFilter)
 			}
 		default:
-			cond := "%s=$%d"
+			cond := ""
 			switch b.Args[b.posFilter-1].(type) {
 			case []int32, []int64, []string:
 				// todo: chk column type
-				cond = "%s=ANY($%d)"
+				cond = "ANY($%d)"
+			default:
+				cond = "$%d"
 			}
-			where += fmt.Sprintf(comma+cond, name, b.posFilter)
+
+			if strings.Contains(name, " in (") {
+				cond = fmt.Sprintf(name, cond)
+			} else {
+				cond = name + "=" + cond
+			}
+
+			where += fmt.Sprintf(comma+cond, b.posFilter)
 		}
 		comma = " AND "
 	}
@@ -336,6 +345,10 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 						name = name[2:]
 					} else {
 						name = name[1:]
+					}
+				default:
+					if strings.Contains(name, " in (") {
+						name = strings.Split(name, " ")[0]
 					}
 				}
 
