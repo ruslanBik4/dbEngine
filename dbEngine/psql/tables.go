@@ -65,13 +65,11 @@ func (t *Table) Columns() []dbEngine.Column {
 	return res
 }
 
+// Insert return new ID or rowsAffected if autoinc field not there
 func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return 0, errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return 0, errors.Wrap(err, "setOption")
 	}
 
 	sql, err := b.InsertSql()
@@ -79,21 +77,13 @@ func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		return 0, err
 	}
 
-	comTag, err := t.conn.Exec(ctx, sql, b.Args...)
-	if err != nil {
-		return -1, errors.Wrap(err, sql)
-	}
-
-	return comTag.RowsAffected(), nil
+	return t.doInsertReturning(ctx, sql, b.Args)
 }
 
 func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return 0, errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return 0, errors.Wrap(err, "setOption")
 	}
 
 	sql, err := b.UpdateSql()
@@ -110,12 +100,9 @@ func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return 0, errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return 0, errors.Wrap(err, "setOption")
 	}
 
 	sql, err := b.UpsertSql()
@@ -123,7 +110,20 @@ func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		return 0, err
 	}
 
-	comTag, err := t.conn.Exec(ctx, sql, b.Args...)
+	return t.doInsertReturning(ctx, sql, b.Args)
+}
+
+func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...interface{}) (int64, error) {
+	for _, col := range t.columns {
+		if col.autoInc {
+			sql += " RETURNING " + col.Name()
+			id := int64(-1)
+			err := t.conn.SelectOneAndScan(ctx, &id, sql, args...)
+			return id, err
+		}
+	}
+
+	comTag, err := t.conn.Exec(ctx, sql, args...)
 	if err != nil {
 		return -1, errors.Wrap(err, sql)
 	}
@@ -136,13 +136,11 @@ func (t *Table) Name() string {
 }
 
 func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions) error {
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return errors.Wrap(err, "setOption")
 	}
+
 	sql, err := b.SelectSql()
 	if err != nil {
 		return err
@@ -154,14 +152,11 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
-
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return errors.Wrap(err, "setOption")
 	}
+
 	sql, err := b.SelectSql()
 	if err != nil {
 		return err
@@ -171,14 +166,11 @@ func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options .
 }
 
 func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
-
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return errors.Wrap(err, "setOption")
 	}
+
 	sql, err := b.SelectSql()
 	if err != nil {
 		return err
@@ -188,12 +180,9 @@ func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row db
 }
 
 func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
-	b := &dbEngine.SQLBuilder{Table: t}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return errors.Wrap(err, "setOption")
 	}
 
 	sql, err := b.SelectSql()
@@ -299,6 +288,7 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 
 func (t *Table) readColumnRow(values []interface{}, columns []dbEngine.Column) error {
 
+	logs.DebugLog(columns)
 	pk, isPK := values[7].(string)
 	if isPK {
 		t.PK = pk

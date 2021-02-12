@@ -70,6 +70,7 @@ func (r *Routine) Columns() []dbEngine.Column {
 }
 
 func (r *Routine) Select(ctx context.Context, args ...interface{}) error {
+	logs.DebugLog(ctx, args)
 	panic("implement me")
 }
 
@@ -188,15 +189,12 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 }
 
 func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []interface{}, error) {
-	b := &dbEngine.SQLBuilder{Table: r.newTableForSQLBuilder()}
-	for _, setOption := range Options {
-		err := setOption(b)
-		if err != nil {
-			return "", nil, errors.Wrap(err, "setOption")
-		}
+	b, err := dbEngine.NewSQLBuilder(r.newTableForSQLBuilder(), Options...)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "setOption")
 	}
 
-	err := r.checkArgs(r.name, b.Args)
+	err = r.checkArgs(r.name, b.Args)
 	if err != nil {
 		return "", nil, err
 	}

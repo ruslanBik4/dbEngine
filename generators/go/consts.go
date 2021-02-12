@@ -25,6 +25,14 @@ import (
 
 type %[1]sFields struct {
 `
+	// todo add DTO interface & SelectToMaps
+	// func (r *CompaniesFields) GetValue() interface{} {
+	// 	return r
+	// }
+	//
+	// func (r *CompaniesFields) NewValue() interface{} {
+	// 	return &CompaniesFields{}
+	// }
 	colFormat     = "\n\t%-15s\t%s\t`json:\"%s\"`"
 	caseRefFormat = `
 	case "%s":

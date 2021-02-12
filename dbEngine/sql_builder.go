@@ -23,6 +23,18 @@ type SQLBuilder struct {
 	Offset, Limit int
 }
 
+func NewSQLBuilder(t Table, Options ...BuildSqlOptions) (*SQLBuilder, error) {
+	b := &SQLBuilder{Table: t}
+	for _, setOption := range Options {
+		err := setOption(b)
+		if err != nil {
+			return nil, errors.Wrap(err, "setOption")
+		}
+	}
+
+	return b, nil
+}
+
 func (b SQLBuilder) InsertSql() (string, error) {
 	if len(b.columns) != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
