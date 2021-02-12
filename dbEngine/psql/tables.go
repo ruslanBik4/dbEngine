@@ -77,7 +77,7 @@ func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		return 0, err
 	}
 
-	return t.doInsertReturning(ctx, sql, b.Args)
+	return t.doInsertReturning(ctx, sql, b.Args...)
 }
 
 func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
@@ -110,7 +110,7 @@ func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		return 0, err
 	}
 
-	return t.doInsertReturning(ctx, sql, b.Args)
+	return t.doInsertReturning(ctx, sql, b.Args...)
 }
 
 func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...interface{}) (int64, error) {
