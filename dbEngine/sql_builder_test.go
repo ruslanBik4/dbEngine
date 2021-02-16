@@ -546,7 +546,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			" WHERE  id=$1 AND name ~ ('.*' + $2 + '$')",
+			" WHERE  id=$1 AND name ~ concat('.*' + $2 + '$')",
 			assert.Equal,
 		},
 		{
@@ -574,7 +574,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			" WHERE  name ~ $1 AND name ~ ('^.*' + $2)",
+			" WHERE  name ~ $1 AND name ~ concat('^.*' + $2)",
 			assert.Equal,
 		},
 	}

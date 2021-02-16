@@ -241,11 +241,28 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 		}
 	}
 
-	row := c.QueryRow(ctx, sql, args...)
+	conn, err := c.Acquire(ctx)
+	if err != nil {
+		return errors.Wrap(err, "c.Acquire")
+	}
+
+	defer conn.Release()
+
+	row, err := conn.Query(ctx, sql, args...)
+	if err != nil {
+		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, row)...)
+		return err
+	}
+
+	defer row.Close()
+
+	if !row.Next() {
+		return pgx.ErrNoRows
+	}
 
 	switch r := rowValues.(type) {
 	case dbEngine.RowScanner:
-		return row.Scan(r.GetFields(nil)...)
+		return row.Scan(r.GetFields(c.getColumns(row, conn))...)
 
 	case []interface{}:
 		return row.Scan(r...)
@@ -400,16 +417,7 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 
 		if each != nil {
 			if len(columns) == 0 {
-				fields := rows.FieldDescriptions()
-				columns = make([]dbEngine.Column, len(fields))
-				for i, col := range fields {
-					dType, ok := conn.Conn().ConnInfo().DataTypeForOID(col.DataTypeOID)
-					if ok {
-						columns[i] = &Column{name: string(col.Name), DataType: dType.Name, UdtName: dType.Name}
-					} else {
-						columns[i] = &Column{name: string(col.Name)}
-					}
-				}
+				columns = c.getColumns(rows, conn)
 			}
 			err = each(values, columns)
 		}
@@ -425,6 +433,21 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 	}
 
 	return nil
+}
+
+func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
+	fields := rows.FieldDescriptions()
+	columns := make([]dbEngine.Column, len(fields))
+	for i, col := range fields {
+		dType, ok := conn.Conn().ConnInfo().DataTypeForOID(col.DataTypeOID)
+		if ok {
+			columns[i] = &Column{name: string(col.Name), DataType: dType.Name, UdtName: dType.Name}
+		} else {
+			columns[i] = &Column{name: string(col.Name)}
+		}
+	}
+
+	return columns
 }
 
 func (c *Conn) GetStat() string {
