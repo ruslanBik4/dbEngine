@@ -255,6 +255,9 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	}
 
 	defer row.Close()
+	if row.Err() != nil {
+		return row.Err()
+	}
 
 	if !row.Next() {
 		return pgx.ErrNoRows

@@ -7,6 +7,7 @@ package psql
 import (
 	"sync"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
@@ -119,6 +120,9 @@ func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...inter
 			sql += " RETURNING " + col.Name()
 			id := int64(-1)
 			err := t.conn.SelectOneAndScan(ctx, &id, sql, args...)
+			if err == pgx.ErrNoRows {
+				err = nil
+			}
 			return id, err
 		}
 	}
@@ -288,7 +292,6 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 
 func (t *Table) readColumnRow(values []interface{}, columns []dbEngine.Column) error {
 
-	logs.DebugLog(columns)
 	pk, isPK := values[7].(string)
 	if isPK {
 		t.PK = pk
