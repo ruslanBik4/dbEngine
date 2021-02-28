@@ -46,9 +46,9 @@ const (
 	sqlTypesList  = "SELECT typname, typcategory FROM pg_type"
 	sqlGetIndexes = `SELECT i.relname as index_name, 
 		t.relname, 
-	   COALESCE(	pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
+	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,
-       array_agg(a.attname order by a.attnum) :: text[] as column_names
+       array_agg(a.attname order by a.attnum) filter ( where a.attname > '' )  :: text[] as column_names
 FROM pg_index ix left join pg_class t on t.oid = ix.indrelid
      left join pg_class i on i.oid = ix.indexrelid
      left join  pg_attribute a on (a.attrelid = t.oid AND a.attnum = ANY(ix.indkey))
