@@ -91,7 +91,7 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 			for _, ind := range b.Table.Indexes() {
 				// we get first unique index for onConflict
 				if ind.Unique {
-					b.filter = append(b.filter, ind.Name)
+					b.filter = append(b.filter, ind.Expr)
 					break
 				}
 			}
