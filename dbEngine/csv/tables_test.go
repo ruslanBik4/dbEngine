@@ -5,6 +5,7 @@
 package csv
 
 import (
+	"bytes"
 	"encoding/csv"
 	"reflect"
 	"testing"
@@ -257,7 +258,7 @@ func TestTable_InitConn(t1 *testing.T) {
 			fields{
 				columns:  nil,
 				fileName: "",
-				csv:      nil,
+				csv:      csv.NewReader(bytes.NewBufferString("r")),
 			},
 			args{
 				ctx:      context.Background(),

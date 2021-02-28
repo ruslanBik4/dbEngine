@@ -36,6 +36,7 @@ type Table interface {
 	Comment() string
 	FindColumn(name string) Column
 	FindIndex(name string) *Index
+	Indexes() Indexes
 	GetColumns(ctx context.Context) error
 	Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
@@ -80,6 +81,8 @@ type Column interface {
 // Index
 type Index struct {
 	Name    string
+	Expr    string
+	Unique  bool
 	Columns []string
 }
 
@@ -89,6 +92,10 @@ func (ind *Index) GetFields(columns []Column) []interface{} {
 		switch col.Name() {
 		case "index_name":
 			fields[i] = &ind.Name
+		case "ind_expr":
+			fields[i] = &ind.Expr
+		case "ind_unique":
+			fields[i] = &ind.Unique
 		case "column_names":
 			fields[i] = &ind.Columns
 		default:
@@ -99,6 +106,7 @@ func (ind *Index) GetFields(columns []Column) []interface{} {
 	return fields
 }
 
+// Indexes claster indexe of table
 type Indexes []*Index
 
 func (i *Indexes) GetFields(columns []Column) []interface{} {
@@ -106,6 +114,10 @@ func (i *Indexes) GetFields(columns []Column) []interface{} {
 	*i = append(*i, ind)
 
 	return ind.GetFields(columns)
+}
+
+func (i Indexes) LastIndex() *Index {
+	return i[len(i)-1]
 }
 
 type RowScanner interface {

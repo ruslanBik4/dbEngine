@@ -415,7 +415,7 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 			ind.Name = columns[i]
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
-			_, isLegal := checkColumn(columns[i], p)
+			_, isLegal := CheckColumn(columns[i], p)
 			if !isLegal {
 				return nil, ErrNotFoundColumn{p.Name(), columns[i]}
 			}

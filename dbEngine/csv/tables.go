@@ -20,10 +20,15 @@ type Conn struct {
 }
 type Table struct {
 	columns  []dbEngine.Column
+	indexes  dbEngine.Indexes
 	fileName string
 	csv      *csv.Reader
 }
 
+// Indexes get indexex according to table
+func (t *Table) Indexes() dbEngine.Indexes {
+	return t.indexes
+}
 func (t *Table) Comment() string {
 	panic("implement me")
 }

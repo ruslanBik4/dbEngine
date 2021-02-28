@@ -546,7 +546,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			" WHERE  id=$1 AND name ~ concat('.*' + $2 + '$')",
+			" WHERE  id=$1 AND name ~ concat('.*', $2, '$')",
 			assert.Equal,
 		},
 		{
@@ -574,7 +574,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			" WHERE  name ~ $1 AND name ~ concat('^.*' + $2)",
+			" WHERE  name ~ $1 AND name ~ concat('^.*', $2)",
 			assert.Equal,
 		},
 	}
@@ -655,12 +655,20 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 	testTable := TableString{
 		name: "StringTable",
 		columns: append(
-			SimpleColumns("last_login", "name", "id_roles"),
+			// todo column blob change!
+			SimpleColumns("last_login", "name", "id_roles", "blob"),
 			&StringColumn{
 				comment: "id",
 				name:    "id",
 				primary: true,
 			}),
+		indexes: Indexes{
+			{
+				Name:    "photos_test",
+				Unique:  true,
+				Columns: []string{"blob"},
+			},
+		},
 	}
 	tests := []struct {
 		name    string
@@ -717,6 +725,18 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 			"INSERT INTO StringTable(id,last_login,name,id_roles) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET  last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
 			false,
 		},
+		{
+			"two columns update according four filter columns & unique index",
+			fields{
+				[]interface{}{1, time.Now(), "ruslan", 2},
+				[]string{"last_login", "name", "id_roles", "blob"},
+				0,
+				testTable,
+				"",
+			},
+			"INSERT INTO StringTable(last_login,name,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (blob) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -728,13 +748,10 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				onConflict: tt.fields.onConflict,
 			}
 			got, err := b.UpsertSql()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpsertSql() error = %v, wantErr %v", err, tt.wantErr)
+			if assert.True(t, tt.wantErr == (err != nil)) {
 				return
 			}
-			if got != tt.want {
-				t.Errorf("UpsertSql() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

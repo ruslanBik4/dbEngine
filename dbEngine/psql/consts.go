@@ -44,19 +44,15 @@ const (
 	sqlTypeExists = "SELECT exists(select null FROM pg_type WHERE typname::text=ANY($1))"
 	sqlGetTypes   = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
 	sqlTypesList  = "SELECT typname, typcategory FROM pg_type"
-	sqlGetIndexes = `SELECT i.relname as index_name,
-    						array_agg(a.attname order by a.attnum) :: text[] as column_names
-					FROM pg_class t,
-    					pg_class i,
-    					pg_index ix,
-    					pg_attribute a
-					WHERE
-					    t.oid = ix.indrelid
-					    and i.oid = ix.indexrelid
-					    and a.attrelid = t.oid
-					    and a.attnum = ANY(ix.indkey)
-					    -- and t.relkind = 'r'
-					    and t.relname = $1
-					group by 1
-					order by 1`
+	sqlGetIndexes = `SELECT i.relname as index_name, 
+		t.relname, 
+		pg_get_expr( ix.indexprs, ix.indrelid ) as ind_expr,
+       ix.indisunique as ind_unique,
+       array_agg(a.attname order by a.attnum) :: text[] as column_names
+FROM pg_index ix left join pg_class t on t.oid = ix.indrelid
+     left join pg_class i on i.oid = ix.indexrelid
+     left join  pg_attribute a on (a.attrelid = t.oid AND a.attnum = ANY(ix.indkey))
+where t.relname = $1
+group by 1,2,3,4
+order by 1`
 )

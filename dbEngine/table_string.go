@@ -10,7 +10,12 @@ import (
 
 type TableString struct {
 	columns       []Column
+	indexes       Indexes
 	name, comment string
+}
+
+func (t TableString) Indexes() Indexes {
+	return t.indexes
 }
 
 func (t TableString) Comment() string {

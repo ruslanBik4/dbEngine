@@ -243,7 +243,18 @@ func (t *Table) GetIndexes(ctx context.Context) error {
 
 	return errors.Wrap(
 		t.conn.SelectAndScanEach(ctx,
-			nil,
+			func() error {
+				i := t.indexes.LastIndex()
+				if len(i.Columns) == 0 && i.Expr > "" {
+					col, ok := dbEngine.CheckColumn(i.Expr, t)
+					if ok {
+						// todo refactoring
+						i.Columns = []string{col.Name()}
+					}
+				}
+
+				return nil
+			},
 			&t.indexes, sqlGetIndexes, t.Name()), t.Name())
 }
 
@@ -256,6 +267,11 @@ func (t *Table) FindIndex(name string) *dbEngine.Index {
 	}
 
 	return nil
+}
+
+// Indexes get indexex according to table
+func (t *Table) Indexes() dbEngine.Indexes {
+	return t.indexes
 }
 
 func (t *Table) ReReadColumn(name string) dbEngine.Column {

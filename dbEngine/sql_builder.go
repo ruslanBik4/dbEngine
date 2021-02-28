@@ -71,28 +71,39 @@ func (b SQLBuilder) upsertSql() (string, error) {
 	return " DO UPDATE" + s, nil
 }
 
+// UpsertSql perform sql-script for insert with update according onConflict
 func (b SQLBuilder) UpsertSql() (string, error) {
 	if len(b.columns) != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
 	}
 
-	b.filter = make([]string, 0)
-	setCols := make([]string, 0)
+	if len(b.filter) == 0 {
+		b.filter = make([]string, 0)
 
-	for _, name := range b.columns {
-		if col := b.Table.FindColumn(name); col == (Column)(nil) {
-			return "", NewErrNotFoundColumn(b.Table.Name(), name)
-		} else if col.Primary() {
-			b.filter = append(b.filter, name)
-		} else {
-			setCols = append(setCols, name)
+		for _, name := range b.columns {
+			if col := b.Table.FindColumn(name); col == (Column)(nil) {
+				return "", NewErrNotFoundColumn(b.Table.Name(), name)
+			} else if col.Primary() {
+				b.filter = append(b.filter, name)
+			}
+		}
+		if len(b.filter) == 0 {
+			for _, ind := range b.Table.Indexes() {
+				// we get firts unique index for onConflict
+				if ind.Unique {
+					for _, name := range ind.Columns {
+						b.filter = append(b.filter, name)
+					}
+					break
+				}
+			}
 		}
 	}
+
 	b.onConflict = strings.Join(b.filter, ",")
 
 	s := b.insertSql()
 	b.posFilter = 0
-	b.columns = setCols
 
 	u, err := b.upsertSql()
 	if err != nil {
@@ -142,7 +153,7 @@ func (b *SQLBuilder) SelectColumns() []Column {
 
 	selectColumns := make([]Column, len(b.columns))
 	for i, name := range b.columns {
-		col, ok := checkColumn(name, b.Table)
+		col, ok := CheckColumn(name, b.Table)
 		if ok {
 			selectColumns[i] = col
 		} else {
@@ -153,7 +164,7 @@ func (b *SQLBuilder) SelectColumns() []Column {
 	return selectColumns
 }
 
-func checkColumn(ddl string, table Table) (col Column, trueColumn bool) {
+func CheckColumn(ddl string, table Table) (col Column, trueColumn bool) {
 	fullStr := regColumns.FindAllStringSubmatch(ddl, -1)
 	if len(fullStr) > 0 {
 		for _, list := range fullStr {
@@ -249,7 +260,13 @@ func (b *SQLBuilder) SetUpsert() (string, error) {
 		}
 	}
 
+loop_columns:
 	for _, name := range b.columns {
+		for _, col := range b.filter {
+			if col == name {
+				continue loop_columns
+			}
+		}
 		s += fmt.Sprintf(comma+" %s=EXCLUDED.%[1]s", name)
 		comma = ","
 	}
