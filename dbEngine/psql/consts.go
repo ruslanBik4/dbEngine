@@ -52,6 +52,6 @@ FROM pg_index ix left join pg_class t on t.oid = ix.indrelid
      left join pg_class i on i.oid = ix.indexrelid
      left join  pg_attribute a on (a.attrelid = t.oid AND a.attnum = ANY(ix.indkey))
 where t.relname = $1
-group by 1,2,3,4
+group by 1,2,3
 order by 1`
 )
