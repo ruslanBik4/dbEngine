@@ -181,13 +181,13 @@ func TestSQLBuilder_Select(t *testing.T) {
 			"two columns update according two filter columns",
 			fields{
 				[]interface{}{1, 2, "ruslan", time.Now()},
-				[]string{"last_login", "name"},
+				[]string{"last_login", "count(*) as allCount"},
 				[]string{"id", "id_roles"},
 				0,
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"last_login,name",
+			"last_login,count(*) as allCount",
 		},
 		{
 			"two columns update according four filter columns",
@@ -665,6 +665,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		indexes: Indexes{
 			{
 				Name:    "photos_test",
+				Expr:    "digest(blob, 'sha1')",
 				Unique:  true,
 				Columns: []string{"blob"},
 			},
@@ -734,7 +735,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(last_login,name,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (blob) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			"INSERT INTO StringTable(last_login,name,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
 			false,
 		},
 	}

@@ -44,8 +44,7 @@ const (
 	sqlTypeExists = "SELECT exists(select null FROM pg_type WHERE typname::text=ANY($1))"
 	sqlGetTypes   = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
 	sqlTypesList  = "SELECT typname, typcategory FROM pg_type"
-	sqlGetIndexes = `SELECT i.relname as index_name, 
-		t.relname, 
+	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,
        array_agg(a.attname order by a.attnum) filter ( where a.attname > '' )  :: text[] as column_names

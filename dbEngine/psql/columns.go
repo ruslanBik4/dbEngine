@@ -132,7 +132,7 @@ func toType(dtName string) types.BasicKind {
 		return typesExt.TStruct
 	case "json":
 		return typesExt.TMap
-	case "timerange", "tsrange":
+	case "timerange", "tsrange", "daterange":
 		// todo add check ranges
 		return typesExt.TArray
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
