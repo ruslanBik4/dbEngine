@@ -269,11 +269,11 @@ func (b *SQLBuilder) Where() string {
 	for _, name := range b.filter {
 		b.posFilter++
 
-		switch pre := name[0]; pre {
-		case '>', '<', '$', '~', '^', '@', '&', '+', '-', '*':
+		switch pre := name[0]; {
+		case isOperator(pre):
 			preStr := string(pre)
-			switch name[1] {
-			case '=', '>', '<', '&', '|':
+			switch {
+			case isOperatorPre(name[1]):
 				preStr += string(name[1])
 				name = name[2:]
 			default:
@@ -340,6 +340,25 @@ func (b *SQLBuilder) values() string {
 	return s
 }
 
+func isOperatorPre(s uint8) bool {
+	switch s {
+	case '=', '>', '<', '&', '|':
+		return true
+	default:
+		return false
+	}
+
+}
+
+func isOperator(s uint8) bool {
+	switch s {
+	case '>', '<', '$', '~', '^', '@', '&', '+', '-', '*':
+		return true
+	default:
+		return false
+	}
+}
+
 type BuildSqlOptions func(b *SQLBuilder) error
 
 func ColumnsForSelect(columns ...string) BuildSqlOptions {
@@ -358,12 +377,13 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 		if b.Table != nil {
 			for _, name := range columns {
 
-				switch pre := name[0]; pre {
-				case '>', '<', '$', '~', '^':
-					if name[1] == '=' {
-						pre += '='
+				switch pre := name[0]; {
+				case isOperator(pre):
+					switch {
+					case isOperatorPre(name[1]):
+						// preStr += string(name[1])
 						name = name[2:]
-					} else {
+					default:
 						name = name[1:]
 					}
 				default:
