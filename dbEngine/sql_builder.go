@@ -52,10 +52,6 @@ func (b SQLBuilder) UpdateSql() (string, error) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
 	}
 
-	return b.updateSql()
-}
-
-func (b SQLBuilder) updateSql() (string, error) {
 	s, err := b.Set()
 	if err != nil {
 		return "", err
@@ -229,13 +225,8 @@ func (b *SQLBuilder) fillColumns() {
 func (b *SQLBuilder) Set() (string, error) {
 	s, comma := " SET ", ""
 	if len(b.columns) == 0 {
-		if b.Table != nil && len(b.Table.Columns()) > 0 {
-			b.fillColumns()
-		} else {
-			// todo add return error
-			return "", errors.Wrap(NewErrWrongType("columns list", "table", "nil"),
-				"Set")
-		}
+		return "", errors.Wrap(NewErrWrongType("columns list", "update", "nil"),
+			"Set")
 	}
 
 	for _, name := range b.columns {
@@ -279,12 +270,13 @@ func (b *SQLBuilder) Where() string {
 		b.posFilter++
 
 		switch pre := name[0]; pre {
-		case '>', '<', '$', '~', '^':
-			preStr := ""
-			if name[1] == '=' {
-				preStr = "="
+		case '>', '<', '$', '~', '^', '@', '&', '+', '-', '*':
+			preStr := string(pre)
+			switch name[1] {
+			case '=', '>', '<', '&', '|':
+				preStr += string(name[1])
 				name = name[2:]
-			} else {
+			default:
 				name = name[1:]
 			}
 
@@ -294,8 +286,9 @@ func (b *SQLBuilder) Where() string {
 			case '^':
 				where += fmt.Sprintf(comma+"%s ~ concat('^.*', $%d)", name, b.posFilter)
 			default:
-				where += fmt.Sprintf(comma+"%s %s $%d", name, string(pre)+preStr, b.posFilter)
+				where += fmt.Sprintf(comma+"%s %s $%d", name, preStr, b.posFilter)
 			}
+
 		default:
 			cond := ""
 			switch b.Args[b.posFilter-1].(type) {
