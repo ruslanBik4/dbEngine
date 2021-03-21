@@ -380,7 +380,6 @@ func TestConn_GetNotice(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -390,7 +389,7 @@ func TestConn_GetNotice(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields fields
-		want   string
+		want   *pgconn.Notice
 	}{
 		// TODO: Add test cases.
 	}
@@ -399,14 +398,13 @@ func TestConn_GetNotice(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			if got := c.GetNotice(); got != tt.want {
+			if got, ok := c.GetNotice(nil); !ok || got != tt.want {
 				t.Errorf("GetNotice() = %v, want %v", got, tt.want)
 			}
 		})
@@ -417,7 +415,6 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -437,7 +434,6 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -460,7 +456,6 @@ func TestConn_GetSchema(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -486,7 +481,6 @@ func TestConn_GetSchema(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -534,7 +528,6 @@ func TestConn_GetStat(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -572,7 +565,6 @@ func TestConn_GetTablesProp(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -595,7 +587,6 @@ func TestConn_InitConn(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -619,7 +610,6 @@ func TestConn_InitConn(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -639,7 +629,6 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -664,7 +653,6 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -682,7 +670,6 @@ func TestConn_SelectAndScanEach(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -708,7 +695,6 @@ func TestConn_SelectAndScanEach(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -726,7 +712,6 @@ func TestConn_StartChannels(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -744,7 +729,6 @@ func TestConn_StartChannels(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
@@ -760,7 +744,6 @@ func TestConn_addNoticeToErrLog(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -783,14 +766,13 @@ func TestConn_addNoticeToErrLog(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			if got := c.addNoticeToErrLog(tt.args.args...); !assert.Equal(t, got, tt.want) {
+			if got := c.addNoticeToErrLog(nil, tt.args.args...); !assert.Equal(t, got, tt.want) {
 				t.Errorf("addNoticeToErrLog() = %v, want %v", got, tt.want)
 			}
 		})
@@ -801,7 +783,6 @@ func TestConn_listen(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		Notice        *pgconn.Notice
 		AfterConnect  fncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
@@ -823,7 +804,6 @@ func TestConn_listen(t *testing.T) {
 			c := &Conn{
 				Pool:          tt.fields.Pool,
 				Config:        tt.fields.Config,
-				Notice:        tt.fields.Notice,
 				AfterConnect:  tt.fields.AfterConnect,
 				BeforeAcquire: tt.fields.BeforeAcquire,
 				channels:      tt.fields.channels,

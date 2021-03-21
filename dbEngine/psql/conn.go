@@ -26,10 +26,10 @@ type fncAcqu func(context.Context, *pgx.Conn) bool
 type Conn struct {
 	*pgxpool.Pool
 	*pgxpool.Config
-	*pgconn.Notice
 	AfterConnect  fncConn
 	BeforeAcquire fncAcqu
 	NoticeHandler pgconn.NoticeHandler
+	NoticeMap     map[uint32]*pgconn.Notice
 	channels      []string
 	ctxPool       context.Context
 	lastComTag    pgconn.CommandTag
@@ -56,7 +56,10 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 
 	poolCfg.AfterConnect = c.AfterConnect
 	poolCfg.BeforeAcquire = c.BeforeAcquire
-	poolCfg.ConnConfig.OnNotice = c.NoticeHandler
+	poolCfg.ConnConfig.OnNotice = func(conn *pgconn.PgConn, notice *pgconn.Notice) {
+		c.NoticeMap[conn.PID()] = notice
+		c.NoticeHandler(conn, notice)
+	}
 
 	c.Pool, err = pgxpool.ConnectConfig(ctx, poolCfg)
 	if err != nil {
@@ -191,10 +194,16 @@ func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
 	sql string, args ...interface{}) error {
 
-	// sqlTypesList = convertSQLFromFuncIsNeed(sqlTypesList, args)
-	rows, err := c.Query(ctx, sql, args...)
+	conn, err := c.Acquire(ctx)
 	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(sql, args, rows)...)
+		return errors.Wrap(err, "c.Acquire")
+	}
+
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx, sql, args...)
+	if err != nil {
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
@@ -202,12 +211,8 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 
 	var columns []dbEngine.Column
 	for rows.Next() && (err == nil) {
-		if columns == nil {
-			columns = make([]dbEngine.Column, len(rows.FieldDescriptions()))
-			for i, val := range rows.FieldDescriptions() {
-				// todo chk DateOId
-				columns[i] = &Column{name: string(val.Name)}
-			}
+		if len(columns) == 0 {
+			columns = c.getColumns(rows, conn)
 		}
 
 		err = rows.Scan(rowValue.GetFields(columns)...)
@@ -225,7 +230,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	}
 
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog("%+v", sql, rows.FieldDescriptions())...)
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, "%+v", sql, rows.FieldDescriptions())...)
 		return err
 	}
 
@@ -250,13 +255,20 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 
 	row, err := conn.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, row)...)
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
 	defer row.Close()
 	if row.Err() != nil {
 		return row.Err()
+	}
+
+	n, ok := c.GetNotice(conn)
+	if ok {
+		if n.Code > "00000" && n.Code != "42P07" {
+			return (*pgconn.PgError)(n)
+		}
 	}
 
 	if !row.Next() {
@@ -404,7 +416,7 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 
 	rows, err := conn.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(sql, args, rows)...)
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
@@ -431,7 +443,7 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 	}
 
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(sql, rows.FieldDescriptions())...)
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
 		return err
 	}
 
@@ -455,7 +467,15 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 
 func (c *Conn) GetStat() string {
 	// todo: implements marshal
-	return "c.Stat()"
+	s := c.Pool.Stat()
+	return fmt.Sprintf("Acquired: %d/%d %v idle: %d, total: %d, max: %d",
+		s.AcquiredConns(),
+		s.AcquireCount(),
+		s.AcquireDuration(),
+		s.IdleConns(),
+		s.TotalConns(),
+		s.MaxConns(),
+	)
 }
 
 func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
@@ -475,12 +495,9 @@ func (c *Conn) StartChannels() {
 	}
 }
 
-func (c *Conn) GetNotice() string {
-	if c.Notice == nil {
-		return ""
-	}
-
-	return c.Message
+func (c *Conn) GetNotice(conn *pgxpool.Conn) (n *pgconn.Notice, ok bool) {
+	n, ok = c.NoticeMap[conn.Conn().PgConn().PID()]
+	return
 }
 
 func (c *Conn) listen(ch string) {
@@ -526,9 +543,10 @@ func (c *Conn) listen(ch string) {
 	}
 }
 
-func (c *Conn) addNoticeToErrLog(args ...interface{}) []interface{} {
-	if c.Notice != nil {
-		return append(args, c.Notice)
+func (c *Conn) addNoticeToErrLog(conn *pgxpool.Conn, args ...interface{}) []interface{} {
+	n, ok := c.GetNotice(conn)
+	if ok {
+		return append(args, n)
 	} else {
 		return args
 	}

@@ -128,11 +128,11 @@ func toType(dtName string) types.BasicKind {
 	case "numeric", "decimal":
 		// todo add check field length
 		return types.Float64
-	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time":
+	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
 		return typesExt.TStruct
 	case "json":
 		return typesExt.TMap
-	case "timerange", "tsrange", "daterange":
+	case "_numeric":
 		// todo add check ranges
 		return typesExt.TArray
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
@@ -141,7 +141,7 @@ func toType(dtName string) types.BasicKind {
 	case "bytea", "_bytea":
 		return types.UnsafePointer
 	default:
-		logs.DebugLog("unknow type ", dtName)
+		logs.DebugLog("unknown type ", dtName)
 		return types.Invalid
 	}
 }

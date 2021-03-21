@@ -123,7 +123,7 @@ func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...inter
 			if err == pgx.ErrNoRows {
 				err = nil
 			}
-			return id, err
+			return id, errors.Wrap(err, sql)
 		}
 	}
 
