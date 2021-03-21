@@ -41,6 +41,7 @@ func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.N
 		AfterConnect:  afterConnect,
 		BeforeAcquire: beforeAcquire,
 		NoticeHandler: noticeHandler,
+		NoticeMap:     make(map[uint32]*pgconn.Notice, 0),
 		channels:      channels,
 	}
 }
