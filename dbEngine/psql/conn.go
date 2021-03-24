@@ -53,7 +53,7 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	}
 
 	poolCfg.ConnConfig.LogLevel = SetLogLevel(os.Getenv("PGX_LOG"))
-	poolCfg.ConnConfig.Logger = &pgxLog{}
+	poolCfg.ConnConfig.Logger = &pgxLog{c}
 
 	poolCfg.AfterConnect = c.AfterConnect
 	poolCfg.BeforeAcquire = c.BeforeAcquire
