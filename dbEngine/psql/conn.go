@@ -238,7 +238,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	return nil
 }
 
-func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
+func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) (err error) {
 	if rowValues == nil {
 		return dbEngine.ErrWrongType{
 			Name:     "rowValues",
@@ -260,17 +260,16 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 		return err
 	}
 
-	defer row.Close()
-	if row.Err() != nil {
-		return row.Err()
-	}
-
-	n, ok := c.GetNotice(conn)
-	if ok {
-		if n.Code > "00000" && n.Code != "42P07" {
-			return (*pgconn.PgError)(n)
+	defer func() {
+		row.Close()
+		n, ok := c.GetNotice(conn)
+		if ok {
+			if n.Code > "00000" && n.Code != "42P07" {
+				err = (*pgconn.PgError)(n)
+				delete(c.NoticeMap, conn.Conn().PgConn().PID())
+			}
 		}
-	}
+	}()
 
 	if !row.Next() {
 		return pgx.ErrNoRows
