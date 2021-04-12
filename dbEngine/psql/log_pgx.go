@@ -36,11 +36,16 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 				logs.ErrorLog(err, msg, data["sql"], data["args"])
 			}
 			l.pool.NoticeMap[data["pid"].(uint32)] = (*pgconn.Notice)(err)
+		} else if err, ok := data["err"].(error); ok {
+			logs.ErrorLog(err, msg, data)
 		} else {
 			logs.DebugLog(msg, data)
 		}
 	case pgx.LogLevelNone:
-
+		ch, ok := ctx.Value("debugChan").(chan interface{})
+		if ok {
+			ch <- data
+		}
 	default:
 		logs.ErrorLog(errors.New("invalid level "), ll.String())
 	}

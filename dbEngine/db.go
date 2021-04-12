@@ -36,13 +36,13 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		logs.DebugLog("init conn with url - ", dbUrl)
 		err := conn.InitConn(ctx, dbUrl)
 		if err != nil {
-			return nil, errors.Wrap(err, "initConn")
+			return nil, err
 		}
 
 		if doRead, ok := ctx.Value("fillSchema").(bool); ok && doRead {
 			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
-				return nil, errors.Wrap(err, "initConn")
+				return nil, err
 			}
 			if doRead, ok = ctx.Value("makeStruct").(bool); ok && doRead {
 
@@ -76,7 +76,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 
 			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
-				return nil, errors.Wrap(err, "initConn")
+				return nil, err
 			}
 
 			// db.Routines, err = conn.GetRoutines(ctx)
