@@ -99,11 +99,18 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	return nil
 }
 
+func (c *Conn) addNotice(pid uint32, notice *pgconn.Notice) {
+	c.lock.RLock()
+	c.NoticeMap[pid] = notice
+	c.lock.RUnlock()
+}
+
 // LastRowAffected return number of insert/deleted/updated rows
 func (c *Conn) LastRowAffected() int64 {
 	return c.lastComTag.RowsAffected()
 }
 
+// GetSchema read DB schema & store it
 func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	tables, err := c.GetTablesProp(ctx)
 	if err != nil {

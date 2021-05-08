@@ -35,7 +35,8 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 			if !dbEngine.IsErrorAlreadyExists(err) {
 				logs.ErrorLog(err, msg, data["sql"], data["args"])
 			}
-			l.pool.NoticeMap[data["pid"].(uint32)] = (*pgconn.Notice)(err)
+
+			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
 		} else if err, ok := data["err"].(error); ok {
 			logs.ErrorLog(err, msg, data)
 		} else {
