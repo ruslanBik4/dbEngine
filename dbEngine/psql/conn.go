@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -36,6 +37,7 @@ type Conn struct {
 	ctxPool       context.Context
 	lastComTag    pgconn.CommandTag
 	Cancel        context.CancelFunc
+	lock          *sync.RWMutex
 }
 
 // NewConn create new instance
@@ -46,6 +48,7 @@ func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.N
 		NoticeHandler: noticeHandler,
 		NoticeMap:     make(map[uint32]*pgconn.Notice, 0),
 		channels:      channels,
+		lock:          &sync.RWMutex{},
 	}
 }
 
@@ -77,7 +80,10 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	}
 	// clear notice
 	poolCfg.AfterRelease = func(conn *pgx.Conn) bool {
+		c.lock.Lock()
 		delete(c.NoticeMap, conn.PgConn().PID())
+		c.lock.Unlock()
+
 		return true
 	}
 
