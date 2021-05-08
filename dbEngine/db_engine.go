@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// Connection implement conn operation
 type Connection interface {
 	InitConn(ctx context.Context, dbURL string) error
 	GetRoutines(ctx context.Context) (map[string]Routine, error)

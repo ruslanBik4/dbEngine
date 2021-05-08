@@ -14,3 +14,7 @@ const prefix = "DB_CONFIG"
 var (
 	regColumns = regexp.MustCompile(`\(([^()]+)\)`)
 )
+
+const (
+	DB_MIGRATION = "migration"
+)

@@ -23,6 +23,7 @@ import (
 type fncConn func(context.Context, *pgx.Conn) error
 type fncAcqu func(context.Context, *pgx.Conn) bool
 
+// Conn implement connection to DB over pgx
 type Conn struct {
 	*pgxpool.Pool
 	*pgxpool.Config
@@ -36,6 +37,7 @@ type Conn struct {
 	Cancel        context.CancelFunc
 }
 
+// NewConn create new instance
 func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.NoticeHandler, channels ...string) *Conn {
 	return &Conn{
 		AfterConnect:  afterConnect,
@@ -46,6 +48,7 @@ func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.N
 	}
 }
 
+// InitConn create pool of connection
 func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	poolCfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
@@ -61,6 +64,11 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 		c.NoticeMap[conn.PID()] = notice
 		c.NoticeHandler(conn, notice)
 	}
+	// clear notice
+	poolCfg.AfterRelease = func(conn *pgx.Conn) bool {
+		delete(c.NoticeMap, conn.PgConn().PID())
+		return true
+	}
 
 	c.Pool, err = pgxpool.ConnectConfig(ctx, poolCfg)
 	if err != nil {
@@ -74,7 +82,7 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	return nil
 }
 
-// LastRowAffeted return number of insert/deleted/updated rows
+// LastRowAffected return number of insert/deleted/updated rows
 func (c *Conn) LastRowAffected() int64 {
 	return c.lastComTag.RowsAffected()
 }
@@ -247,7 +255,8 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 		}
 	}
 
-	conn, err := c.Acquire(ctx)
+	timeoutCtx, _ := context.WithTimeout(ctx, time.Second*5)
+	conn, err := c.Acquire(timeoutCtx)
 	if err != nil {
 		return errors.Wrap(err, "c.Acquire")
 	}
@@ -257,18 +266,17 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	row, err := conn.Query(ctx, sql, args...)
 	if err != nil {
 		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
-		return err
+		return errors.Wrap(err, "Query")
 	}
 
 	defer func() {
-		row.Close()
 		n, ok := c.GetNotice(conn)
 		if ok {
 			if n.Code > "00000" && n.Code != "42P07" {
 				err = (*pgconn.PgError)(n)
-				delete(c.NoticeMap, conn.Conn().PgConn().PID())
 			}
 		}
+		row.Close()
 	}()
 
 	if !row.Next() {

@@ -20,6 +20,7 @@ import (
 	"golang.org/x/net/context"
 )
 
+// todo add DB name & schema
 type DB struct {
 	Cfg      map[string]interface{}
 	Conn     Connection
@@ -48,7 +49,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 
 			}
 		}
-		if mPath, ok := ctx.Value("migration").(string); ok {
+		if mPath, ok := ctx.Value(DB_MIGRATION).(string); ok {
 			err = filepath.Walk(filepath.Join(mPath, "types"), db.readAndReplaceTypes)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration types")
