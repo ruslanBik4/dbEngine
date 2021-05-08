@@ -7,6 +7,7 @@ package psql
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -53,6 +54,16 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	poolCfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
 		return errors.Wrap(err, "cannot parse config")
+	}
+
+	maxConns := os.Getenv("PGX_MAX_CONNS")
+	if maxConns > "" {
+		i, err := strconv.Atoi(maxConns)
+		if err != nil {
+			logs.ErrorLog(err, maxConns)
+		} else {
+			poolCfg.MaxConns = int32(i)
+		}
 	}
 
 	poolCfg.ConnConfig.LogLevel = SetLogLevel(os.Getenv("PGX_LOG"))
