@@ -94,8 +94,11 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 		}
 	}
 
-	b.onConflict = strings.Join(b.filter, ",")
+	if len(b.filter) == 0 {
+		return b.insertSql(), nil
+	}
 
+	b.onConflict = strings.Join(b.filter, ",")
 	s := b.insertSql()
 	b.posFilter = 0
 
