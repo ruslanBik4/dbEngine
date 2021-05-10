@@ -652,6 +652,25 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		Table      Table
 		onConflict string
 	}
+	simpleTable := TableString{
+		name: "simpleTable",
+		columns: append(
+			SimpleColumns("last_login", "name", "id_roles", "blob"),
+			&StringColumn{
+				comment: " ",
+				name:    " ",
+				primary: true,
+			}),
+		indexes: Indexes{
+			{
+				Name:    "photos_test",
+				Expr:    "",
+				Unique:  true,
+				Columns: []string{},
+			},
+		},
+	}
+
 	testTable := TableString{
 		name: "StringTable",
 		columns: append(
@@ -678,6 +697,18 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		wantErr bool
 	}{
 		// TODO: Add test cases.
+		{
+			"simple table",
+			fields{
+				[]interface{}{time.Now(), "ruslan", 2, "222"},
+				[]string{"last_login", "name", "id_roles", "blob"},
+				0,
+				simpleTable,
+				"",
+			},
+			"INSERT INTO simpleTable(last_login,name,id_roles,blob) VALUES ($1,$2,$3,$4)",
+			false,
+		},
 		{
 			"simple insert",
 			fields{
@@ -749,7 +780,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				onConflict: tt.fields.onConflict,
 			}
 			got, err := b.UpsertSql()
-			if assert.True(t, tt.wantErr == (err != nil)) {
+			if !assert.True(t, tt.wantErr == (err != nil)) {
 				return
 			}
 			assert.Equal(t, tt.want, got)

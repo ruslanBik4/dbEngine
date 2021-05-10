@@ -87,18 +87,23 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 			for _, ind := range b.Table.Indexes() {
 				// we get first unique index for onConflict
 				if ind.Unique {
-					b.filter = append(b.filter, ind.Expr)
+					if strings.TrimSpace(ind.Expr) > "" {
+						b.filter = append(b.filter, ind.Expr)
+					} else {
+						b.filter = append(b.filter, strings.Join(ind.Columns, ","))
+					}
 					break
 				}
 			}
 		}
 	}
 
-	if len(b.filter) == 0 {
+	onConflict := strings.Join(b.filter, ",")
+	if strings.TrimSpace(onConflict) == "" {
 		return b.insertSql(), nil
 	}
 
-	b.onConflict = strings.Join(b.filter, ",")
+	b.onConflict = onConflict
 	s := b.insertSql()
 	b.posFilter = 0
 
