@@ -528,7 +528,10 @@ func (c *Conn) StartChannels() {
 }
 
 func (c *Conn) GetNotice(conn *pgxpool.Conn) (n *pgconn.Notice, ok bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	n, ok = c.NoticeMap[conn.Conn().PgConn().PID()]
+
 	return
 }
 
