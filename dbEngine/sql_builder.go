@@ -115,6 +115,17 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	return s + u, nil
 }
 
+func (b SQLBuilder) DeleteSql() (string, error) {
+	// todo check routine
+	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
+		return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
+	}
+
+	sql := "DELETE FROM " + b.Table.Name() + b.Where()
+
+	return sql, nil
+}
+
 func (b SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
 	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {

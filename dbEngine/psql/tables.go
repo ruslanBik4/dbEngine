@@ -66,6 +66,25 @@ func (t *Table) Columns() []dbEngine.Column {
 	return res
 }
 
+func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	b, err := dbEngine.NewSQLBuilder(t, Options...)
+	if err != nil {
+		return 0, errors.Wrap(err, "setOption")
+	}
+
+	sql, err := b.DeleteSql()
+	if err != nil {
+		return 0, err
+	}
+
+	comTag, err := t.conn.Exec(ctx, sql, b.Args...)
+	if err != nil {
+		return -1, errors.Wrap(err, sql)
+	}
+
+	return comTag.RowsAffected(), nil
+}
+
 // Insert return new ID or rowsAffected if autoinc field not there
 func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)

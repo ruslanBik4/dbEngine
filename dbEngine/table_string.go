@@ -48,6 +48,10 @@ func (t TableString) GetColumns(ctx context.Context) error {
 	panic("implement me")
 }
 
+func (t TableString) Delete(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
+	panic("implement me")
+}
+
 func (t TableString) Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }

@@ -37,6 +37,7 @@ type Table interface {
 	Comment() string
 	FindColumn(name string) Column
 	FindIndex(name string) *Index
+	Delete(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Indexes() Indexes
 	GetColumns(ctx context.Context) error
 	Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
