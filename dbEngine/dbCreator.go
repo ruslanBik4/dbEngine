@@ -294,7 +294,10 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
 		attr := strings.Split(fieldDefine, " ")
 		if attr[0] == "double" {
 			attr[0] += " " + attr[1]
+		} else if attr[0] == "serial" {
+			attr[0] = "integer"
 		}
+
 		sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
 		if attr[0] == "money" && fs.Type() == "double precision" {
 			sql = fmt.Sprintf(
