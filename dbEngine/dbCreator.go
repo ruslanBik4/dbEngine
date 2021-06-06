@@ -268,11 +268,15 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				}
 
 				fieldName := title[1]
+				fieldDefine := title[2]
 				if fs := p.FindColumn(fieldName); fs == nil {
 					p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
-				} else if !fs.Primary() {
+				} else if fs.Primary() {
+					p.checkPrimary(fs, fieldDefine)
+
+				} else {
 					// don't chg primary column
-					p.err = p.checkColumn(title[2], fs)
+					p.err = p.checkColumn(fs, fieldDefine)
 				}
 
 			}
@@ -282,9 +286,29 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 	return true
 }
 
+func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
+	res := fs.CheckAttr(fieldDefine)
+	fieldName := fs.Name()
+	// change type
+	if strings.Contains(res, "type") {
+		attr := strings.Split(fieldDefine, " ")
+		if attr[0] == "double" {
+			attr[0] += " " + attr[1]
+		}
+		sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
+		if attr[0] == "money" && fs.Type() == "double precision" {
+			sql = fmt.Sprintf(
+				" type %s using %s::numeric::%[1]s",
+				attr[0], fieldName)
+		}
+
+		p.err = p.alterColumn(sql, fieldName, fieldDefine, fs)
+	}
+}
+
 var regDefault = regexp.MustCompile(`default\s+'?([^',]+)`)
 
-func (p ParserTableDDL) checkColumn(title string, fs Column) (err error) {
+func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 	res := fs.CheckAttr(title)
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))

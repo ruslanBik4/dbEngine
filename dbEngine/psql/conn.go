@@ -100,9 +100,9 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 }
 
 func (c *Conn) addNotice(pid uint32, notice *pgconn.Notice) {
-	c.lock.RLock()
+	c.lock.Lock()
 	c.NoticeMap[pid] = notice
-	c.lock.RUnlock()
+	c.lock.Unlock()
 }
 
 // LastRowAffected return number of insert/deleted/updated rows
