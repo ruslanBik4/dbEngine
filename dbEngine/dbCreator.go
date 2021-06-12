@@ -387,16 +387,23 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 		return false
 	}
 
-	ind, err := p.createIndex(columns)
+	ind, err := p.createIndex(columns, ddlIndex)
 	if err != nil {
 		p.err = err
 		return true
 	}
 
 	if pInd := p.FindIndex(ind.Name); pInd != nil {
+		if pInd.Expr != ind.Expr {
+			logInfo(prefix, p.filename,
+				"index '"+ind.Name+"' exists! New expr '"+ind.Expr+"' (old ="+pInd.Expr,
+				p.line)
+			return true
+		}
+
+		columns := pInd.Columns
 		for i, name := range ind.Columns {
 
-			columns := pInd.Columns
 			if i < len(columns) && columns[i] == name {
 				continue
 			}
@@ -408,7 +415,9 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 				}
 			}
 			if !isFound {
-				logInfo(prefix, p.filename, "index '"+ind.Name+"' exists! No column '"+name+"'", p.line)
+				logInfo(prefix, p.filename,
+					"index '"+pInd.Name+"' exists! No column '"+name+"'"+strings.Join(pInd.Columns, ","),
+					p.line)
 			}
 
 		}
@@ -421,12 +430,10 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	return true
 }
 
-var ddlIndex = regexp.MustCompile(`create(?:\s+unique)?\s+index(?:\s+if\s+not\s+exists)?\s+(?P<index>\w+)\s+on\s+(?P<table>\w+)(?:\s+using\s+\w+)?\s*\((?P<columns>[^;]+)\)\s*(where\s+[^)]\))?`)
-
-func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
+func (p ParserTableDDL) createIndex(columns []string, regexp *regexp.Regexp) (*Index, error) {
 
 	var ind Index
-	for i, name := range ddlIndex.SubexpNames() {
+	for i, name := range regexp.SubexpNames() {
 		if !(i < len(columns)) {
 			return nil, errors.New("out if columns!" + name)
 		}
@@ -442,11 +449,15 @@ func (p ParserTableDDL) createIndex(columns []string) (*Index, error) {
 			ind.Name = columns[i]
 		case "columns":
 			ind.Columns = strings.Split(columns[i], ",")
-			_, isLegal := CheckColumn(columns[i], p)
-			if !isLegal {
-				return nil, ErrNotFoundColumn{p.Name(), columns[i]}
+			for i, colDdl := range ind.Columns {
+				col, isLegal := CheckColumn(colDdl, p)
+				if !isLegal {
+					return nil, ErrNotFoundColumn{p.Name(), colDdl}
+				}
+				ind.Columns[i] = col.Name()
 			}
-
+		case "unique":
+			ind.Unique = columns[i] == name
 		default:
 			logInfo(prefix, p.filename, name+columns[i], p.line)
 		}

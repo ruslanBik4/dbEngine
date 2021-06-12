@@ -12,9 +12,11 @@ const prefix = "DB_CONFIG"
 
 // regex consts
 var (
-	regColumns = regexp.MustCompile(`\(([^()]+)\)`)
+	regColumns = regexp.MustCompile(`\(([^():]+)`)
 )
 
 const (
 	DB_MIGRATION = "migration"
 )
+
+var ddlIndex = regexp.MustCompile(`create\s+(?P<unique>unique)?\s*index(?:\s+if\s+not\s+exists)?\s+(?P<index>\w+)\s+on\s+(?P<table>\w+)(?:\s+using\s+\w+)?\s*\((?P<columns>[^;]+?)\)\s*(where\s+[^)]\))?`)
