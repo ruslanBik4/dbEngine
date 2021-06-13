@@ -416,8 +416,10 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 			}
 			if !isFound {
 				logInfo(prefix, p.filename,
-					"index '"+pInd.Name+"' exists! No column '"+name+"'"+strings.Join(pInd.Columns, ","),
+					"index '"+pInd.Name+"' exists! New column '"+name+"'"+strings.Join(pInd.Columns, ","),
 					p.line)
+				p.runDDL("DROP INDEX " + pInd.Name)
+				p.runDDL(ddl)
 			}
 
 		}

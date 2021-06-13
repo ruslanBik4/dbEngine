@@ -683,10 +683,30 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 			}),
 		indexes: Indexes{
 			{
-				Name:    "photos_test",
-				Expr:    "digest(blob, 'sha1')",
+				Name: "photos_test",
+				Expr: "",
+				// Expr:    "digest(blob, 'sha1')",
 				Unique:  true,
-				Columns: []string{"blob"},
+				Columns: []string{"blob", "name"},
+			},
+		},
+	}
+	testTwoColumns := TableString{
+		name: "StringTable",
+		columns: append(
+			// todo column blob change!
+			SimpleColumns("candidate_id", "vacancy_id", "id_roles", "blob"),
+			&StringColumn{
+				comment: "id",
+				name:    "id",
+				primary: true,
+			}),
+		indexes: Indexes{
+			{
+				Name:    "vacancies_to_candidates_pk",
+				Expr:    "",
+				Unique:  true,
+				Columns: []string{"candidate_id", "vacancy_id"},
 			},
 		},
 	}
@@ -767,6 +787,18 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			"INSERT INTO StringTable(last_login,name,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			false,
+		},
+		{
+			"two columns update according four filter columns & unique index",
+			fields{
+				[]interface{}{1, time.Now(), "ruslan", 2},
+				[]string{"candidate_id", "vacancy_id", "id_roles", "blob"},
+				0,
+				testTwoColumns,
+				"",
+			},
+			"INSERT INTO StringTable(candidate_id,vacancy_id,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
 			false,
 		},
 	}
