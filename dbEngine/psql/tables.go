@@ -135,7 +135,7 @@ func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 
 func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...interface{}) (int64, error) {
 	for _, col := range t.columns {
-		if col.autoInc {
+		if col.Primary() && col.autoInc {
 			sql += " RETURNING " + col.Name()
 			id := int64(-1)
 			err := t.conn.SelectOneAndScan(ctx, &id, sql, args...)
