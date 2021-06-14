@@ -258,7 +258,7 @@ func (b *SQLBuilder) Set() (string, error) {
 }
 
 func (b *SQLBuilder) SetUpsert() (string, error) {
-	s, comma := " SET ", ""
+	s, comma := " SET", " "
 	if len(b.columns) == 0 {
 		if b.Table != nil && len(b.Table.Columns()) > 0 {
 			b.fillColumns()
@@ -272,11 +272,12 @@ loop_columns:
 	for _, name := range b.columns {
 		for _, col := range b.filter {
 			if col == name {
+				fmt.Println(name)
 				continue loop_columns
 			}
 		}
-		s += fmt.Sprintf(comma+" %s=EXCLUDED.%[1]s", name)
-		comma = ","
+		s += fmt.Sprintf(comma+"%s=EXCLUDED.%[1]s", name)
+		comma = ", "
 	}
 
 	return s, nil

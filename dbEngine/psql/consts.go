@@ -17,12 +17,12 @@ const (
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,
 								is_nullable='YES', COALESCE(character_set_name, ''),
 								COALESCE(character_maximum_length, -1), udt_name,
-								k.constraint_name, k.position_in_unique_constraint is null,
+								(SELECT k.constraint_name FROM INFORMATION_SCHEMA.key_column_usage k
+	WHERE k.position_in_unique_constraint is null AND k.table_name=c.table_name AND k.column_name = c.column_name
+								FETCH FIRST 1 ROW ONLY),
 								COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
 							   AS column_comment
 							FROM INFORMATION_SCHEMA.COLUMNS c
-								LEFT JOIN INFORMATION_SCHEMA.key_column_usage k 
-									on (k.table_name=c.table_name AND k.column_name = c.column_name)
 							WHERE c.table_schema='public' AND c.table_name=$1`
 	sqlGetFuncParams = `SELECT coalesce(parameter_name, 'noName') as parameter_name, data_type, udt_name,
 								COALESCE(character_set_name, '') as character_set_name,

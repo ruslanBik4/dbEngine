@@ -5,6 +5,7 @@
 package dbEngine
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -695,21 +696,22 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		name: "StringTable",
 		columns: append(
 			// todo column blob change!
-			SimpleColumns("candidate_id", "vacancy_id", "id_roles", "blob"),
+			SimpleColumns("id_roles", "blob"),
 			&StringColumn{
-				comment: "id",
-				name:    "id",
+				comment: "candidate_id",
+				name:    "candidate_id",
 				primary: true,
-			}),
-		indexes: Indexes{
-			{
-				Name:    "vacancies_to_candidates_pk",
-				Expr:    "",
-				Unique:  true,
-				Columns: []string{"candidate_id", "vacancy_id"},
 			},
-		},
+			&StringColumn{
+				comment: "vacancy_id",
+				name:    "vacancy_id",
+				primary: true,
+			},
+		),
 	}
+	columns := []string{"id", "last_login"}
+	threeColumns := append(columns, "name")
+	const sqlTmpl = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
 	tests := []struct {
 		name    string
 		fields  fields
@@ -733,36 +735,36 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 			"simple insert",
 			fields{
 				[]interface{}{1, time.Now()},
-				[]string{"id", "last_login"},
+				columns,
 				0,
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login) VALUES ($1,$2) ON CONFLICT (id) DO UPDATE SET  last_login=EXCLUDED.last_login",
+			fmt.Sprintf(sqlTmpl, columns[0], columns[1], "$1,$2"),
 			false,
 		},
 		{
 			"two columns update",
 			fields{
 				[]interface{}{1, time.Now(), "ruslan"},
-				[]string{"id", "last_login", "name"},
+				threeColumns,
 				0,
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET  last_login=EXCLUDED.last_login, name=EXCLUDED.name",
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name",
 			false,
 		},
 		{
 			"two columns update according two filter columns",
 			fields{
 				[]interface{}{1, time.Now(), "ruslan"},
-				[]string{"id", "last_login", "name"},
+				threeColumns,
 				0,
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET  last_login=EXCLUDED.last_login, name=EXCLUDED.name",
+			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name",
 			false,
 		},
 		{
@@ -774,7 +776,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(id,last_login,name,id_roles) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET  last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			"INSERT INTO StringTable(id,last_login,name,id_roles) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
 			false,
 		},
 		{
@@ -798,7 +800,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTwoColumns,
 				"",
 			},
-			"INSERT INTO StringTable(candidate_id,vacancy_id,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			fmt.Sprintf(sqlTmpl, "candidate_id, vacancy_id", "id_roles, blob", "$1,$2,$3,$4"),
 			false,
 		},
 	}

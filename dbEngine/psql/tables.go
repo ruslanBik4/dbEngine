@@ -318,7 +318,7 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 		column, sqlGetColumnAttr, t.name, column.Name(),
 	)
 	if err != nil {
-		logs.ErrorLog(err, sqlGetTablesColumns)
+		logs.ErrorLog(err, sqlGetColumnAttr)
 		return nil
 	}
 
@@ -344,13 +344,14 @@ func (t *Table) readColumnRow(values []interface{}, columns []dbEngine.Column) e
 		values[3].(bool),
 		// CharacterSetName:
 		values[4].(string),
-		values[9].(string), //comment
+		// comment
+		values[8].(string),
 		// udtname
 		values[6].(string),
 		// CharacterMaximumLength:
 		int(values[5].(int32)),
 		// PrimaryKey:
-		isPK && values[8].(bool),
+		isPK,
 		false,
 	)
 
