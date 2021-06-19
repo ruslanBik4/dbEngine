@@ -344,5 +344,7 @@ func (t *Table) readColumnRow() error {
 
 	t.columns = append(t.columns, t.buf.Copy())
 
+	t.buf = nil
+
 	return nil
 }
