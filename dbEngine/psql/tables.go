@@ -25,6 +25,7 @@ type Table struct {
 	columns    []*Column
 	indexes    dbEngine.Indexes
 	PK         string
+	buf        *Column
 	lock       sync.RWMutex
 }
 
@@ -49,7 +50,10 @@ func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 		case "oid":
 			v[i] = &t.ID
 		default:
-			panic("not implement scan for field " + name)
+			if t.buf == nil {
+				t.buf = NewColumnForTableBuf(t)
+			}
+			v[i] = t.buf.RefColValue(name)
 		}
 	}
 
@@ -249,7 +253,11 @@ func (t *Table) findColumn(name string) *Column {
 // получение значений полей для таблицы
 func (t *Table) GetColumns(ctx context.Context) error {
 
-	err := t.conn.selectAndRunEach(ctx, t.readColumnRow, sqlGetTablesColumns+" ORDER BY C.ordinal_position", t.name)
+	err := t.conn.SelectAndScanEach(ctx,
+		t.readColumnRow,
+		t,
+		sqlGetTablesColumns+" ORDER BY C.ordinal_position",
+		t.name)
 	if err != nil {
 		return err
 	}
@@ -325,37 +333,16 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	return column
 }
 
-func (t *Table) readColumnRow(values []interface{}, columns []dbEngine.Column) error {
+func (t *Table) readColumnRow() error {
 
-	pk, isPK := values[7].(string)
-	if isPK {
-		t.PK = pk
+	for name, c := range t.buf.Constraints {
+		if c == nil {
+			t.PK = name
+			t.buf.PrimaryKey = true
+		}
 	}
 
-	// tod add according to column column create
-	col := NewColumn(
-		t,
-		values[0].(string),
-		// DataType:
-		values[1].(string),
-		// colDefault:
-		values[2],
-		// isNullable:
-		values[3].(bool),
-		// CharacterSetName:
-		values[4].(string),
-		// comment
-		values[8].(string),
-		// udtname
-		values[6].(string),
-		// CharacterMaximumLength:
-		int(values[5].(int32)),
-		// PrimaryKey:
-		isPK,
-		false,
-	)
-
-	t.columns = append(t.columns, col)
+	t.columns = append(t.columns, t.buf.Copy())
 
 	return nil
 }

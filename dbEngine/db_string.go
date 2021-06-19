@@ -79,6 +79,10 @@ func (c *StringColumn) SetNullable(f bool) {
 	c.isNullable = f
 }
 
+func (c *StringColumn) Foreign() *ForeignKey {
+	return nil
+}
+
 func SimpleColumns(names ...string) []Column {
 	s := make([]Column, len(names))
 	for i, name := range names {

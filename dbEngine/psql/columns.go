@@ -28,7 +28,25 @@ type Column struct {
 	characterMaximumLength int
 	autoInc                bool
 	PrimaryKey             bool
+	Constraints            map[string]*dbEngine.ForeignKey
 	IsHidden               bool
+}
+
+func NewColumnForTableBuf(table dbEngine.Table) *Column {
+	return &Column{
+		Table:       table,
+		Constraints: make(map[string]*dbEngine.ForeignKey),
+	}
+}
+
+func (c *Column) Foreign() *dbEngine.ForeignKey {
+	for _, c := range c.Constraints {
+		if c != nil {
+			return c
+		}
+	}
+
+	return nil
 }
 
 func (c *Column) IsNullable() bool {
@@ -39,6 +57,24 @@ func (c *Column) AutoIncrement() bool {
 	return c.autoInc
 }
 
+func (c *Column) Copy() *Column {
+	return &Column{
+		Table:                  c.Table,
+		name:                   c.name,
+		DataType:               c.DataType,
+		colDefault:             c.colDefault,
+		isNullable:             c.isNullable,
+		CharacterSetName:       c.CharacterSetName,
+		comment:                c.comment,
+		UdtName:                c.UdtName,
+		characterMaximumLength: c.characterMaximumLength,
+		autoInc:                c.autoInc,
+		PrimaryKey:             c.PrimaryKey,
+		Constraints:            c.Constraints,
+		IsHidden:               c.IsHidden,
+	}
+}
+
 func (c *Column) Default() interface{} {
 	return c.colDefault
 }
@@ -46,24 +82,7 @@ func (c *Column) Default() interface{} {
 func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
-		switch name := col.Name(); name {
-		case "data_type":
-			v[i] = &c.DataType
-		case "column_default":
-			v[i] = &c.colDefault
-		case "is_nullable":
-			v[i] = &c.isNullable
-		case "character_set_name":
-			v[i] = &c.CharacterSetName
-		case "character_maximum_length":
-			v[i] = &c.characterMaximumLength
-		case "udt_name":
-			v[i] = &c.UdtName
-		case "column_comment":
-			v[i] = &c.comment
-		default:
-			panic("not implement scan for field " + name)
-		}
+		v[i] = c.RefColValue(col.Name())
 	}
 
 	return v
@@ -73,7 +92,19 @@ func NewColumnPone(name string, comment string, characterMaximumLength int) *Col
 	return &Column{name: name, comment: comment, characterMaximumLength: characterMaximumLength}
 }
 
-func NewColumn(table dbEngine.Table, name string, dataType string, colDefault interface{}, isNullable bool, characterSetName string, comment string, udtName string, characterMaximumLength int, primaryKey bool, isHidden bool) *Column {
+func NewColumn(
+	table dbEngine.Table,
+	name string,
+	dataType string,
+	colDefault interface{},
+	isNullable bool,
+	characterSetName string,
+	comment string,
+	udtName string,
+	characterMaximumLength int,
+	primaryKey bool,
+	isHidden bool,
+) *Column {
 	col := &Column{
 		Table:                  table,
 		name:                   name,
@@ -243,4 +274,30 @@ func (c *Column) SetDefault(d interface{}) {
 	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
 	// todo add other case of autogenerae column value
 	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
+}
+
+func (c *Column) RefColValue(name string) interface{} {
+	switch name {
+	case "data_type":
+		return &c.DataType
+	case "column_name":
+		return &c.name
+	case "column_default":
+		return &c.colDefault
+	case "is_nullable":
+		return &c.isNullable
+	case "character_set_name":
+		return &c.CharacterSetName
+	case "character_maximum_length":
+		return &c.characterMaximumLength
+	case "udt_name":
+		return &c.UdtName
+	case "column_comment":
+		return &c.comment
+	case "keys":
+		return &c.Constraints
+	default:
+		panic("not implement scan for field " + name)
+	}
+
 }

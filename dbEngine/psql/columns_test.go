@@ -1392,7 +1392,7 @@ func TestTable_readColumnRow(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			if err := t.readColumnRow(tt.args.values, tt.args.columns); (err != nil) != tt.wantErr {
+			if err := t.readColumnRow(); (err != nil) != tt.wantErr {
 				t1.Errorf("readColumnRow() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

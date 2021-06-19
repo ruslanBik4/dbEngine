@@ -14,16 +14,24 @@ const (
 	sqlFuncList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
 					FROM INFORMATION_SCHEMA.routines
 					WHERE specific_schema = 'public'`
-	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,
-								is_nullable='YES', COALESCE(character_set_name, ''),
-								COALESCE(character_maximum_length, -1), udt_name,
-								(SELECT k.constraint_name FROM INFORMATION_SCHEMA.key_column_usage k
-	WHERE k.position_in_unique_constraint is null AND k.table_name=c.table_name AND k.column_name = c.column_name
-								FETCH FIRST 1 ROW ONLY),
-								COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
-							   AS column_comment
-							FROM INFORMATION_SCHEMA.COLUMNS c
-							WHERE c.table_schema='public' AND c.table_name=$1`
+	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default, 
+		is_nullable='YES' is_nullable, 
+        COALESCE(character_set_name, '') character_set_name,
+		COALESCE(character_maximum_length, -1) character_maximum_length, 
+        udt_name,
+		COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
+							   AS column_comment,
+  		(select json_object_agg( k.constraint_name,
+			CASE WHEN kcu.table_name IS NULL THEN NULL
+               ELSE json_build_object('parent', kcu.table_name, 'column', kcu.column_name,
+               'update_rule', rc.update_rule, 'delete_rule', rc.delete_rule)
+           END)
+		FROM  INFORMATION_SCHEMA.key_column_usage k
+		    LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
+			LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
+		WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)) as keys
+FROM INFORMATION_SCHEMA.COLUMNS c
+WHERE c.table_schema='public' AND c.table_name=$1`
 	sqlGetFuncParams = `SELECT coalesce(parameter_name, 'noName') as parameter_name, data_type, udt_name,
 								COALESCE(character_set_name, '') as character_set_name,
 								COALESCE(character_maximum_length, -1) as character_maximum_length, 

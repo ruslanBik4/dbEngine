@@ -63,6 +63,14 @@ type Routine interface {
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
+type ForeignKey struct {
+	Parent     string `json:"parent"`
+	Column     string `json:"column"`
+	UpdateRule string `json:"update_rule"`
+	DeleteRule string `json:"delete_rule"`
+}
+
+// Column implements methods of table/view/function fields
 type Column interface {
 	BasicType() types.BasicKind
 	BasicTypeInfo() types.BasicInfo
@@ -74,6 +82,7 @@ type Column interface {
 	IsNullable() bool
 	Default() interface{}
 	SetDefault(interface{})
+	Foreign() *ForeignKey
 	Primary() bool
 	Type() string
 	Required() bool
