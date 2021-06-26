@@ -271,8 +271,13 @@ func (c *Column) SetDefault(d interface{}) {
 
 	str = (strings.Split(str, "::"))[0]
 
+	if str == "NULL" {
+		c.colDefault = nil
+		return
+	}
+
 	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
-	// todo add other case of autogenerae column value
+	// todo add other case of autogenerate column value
 	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
 }
 

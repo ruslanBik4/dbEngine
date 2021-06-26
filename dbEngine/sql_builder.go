@@ -312,7 +312,7 @@ func (b *SQLBuilder) Where() string {
 		default:
 			cond := ""
 			switch b.Args[b.posFilter-1].(type) {
-			case []int32, []int64, []string:
+			case []int, []int32, []int64, []string:
 				// todo: chk column type
 				cond = "ANY($%d)"
 			default:

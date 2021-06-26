@@ -342,6 +342,8 @@ func (t *Table) readColumnRow() error {
 		}
 	}
 
+	t.buf.SetDefault(t.buf.colDefault)
+
 	t.columns = append(t.columns, t.buf.Copy())
 
 	t.buf = nil
