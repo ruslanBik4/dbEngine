@@ -224,6 +224,45 @@ func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 	return &Table{conn: c, name: name, Type: typ}
 }
 
+func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
+	conn, err := c.Acquire(ctx)
+	if err != nil {
+		return errors.Wrap(err, "c.Acquire")
+	}
+
+	defer conn.Release()
+
+	rows, err := conn.Query(ctx, sql, args...)
+	if err != nil {
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
+		return err
+	}
+
+	defer rows.Close()
+
+	var columns []dbEngine.Column
+
+	for rows.Next() {
+		if each != nil {
+			if len(columns) == 0 {
+				columns = c.getColumns(rows, conn)
+			}
+			err = each(rows.RawValues(), columns)
+		}
+	}
+
+	if rows.Err() != nil {
+		err = rows.Err()
+	}
+
+	if err != nil {
+		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
+		return err
+	}
+
+	return nil
+}
+
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
 	sql string, args ...interface{}) error {
 

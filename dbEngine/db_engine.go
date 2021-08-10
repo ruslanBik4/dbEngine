@@ -7,6 +7,9 @@ import (
 	"golang.org/x/net/context"
 )
 
+type FncEachRow func(values []interface{}, columns []Column) error
+type FncRawRow func(values [][]byte, columns []Column) error
+
 // Connection implement conn operation
 type Connection interface {
 	InitConn(ctx context.Context, dbURL string) error
@@ -19,12 +22,11 @@ type Connection interface {
 	SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, args ...interface{}) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, args ...interface{}) error
+	SelectAndPerformRaw(ctx context.Context, each FncRawRow, sql string, args ...interface{}) error
 	SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error)
 	SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error)
 	SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []Column, error)
 }
-
-type FncEachRow func(values []interface{}, columns []Column) error
 
 type Types struct {
 	Id   int

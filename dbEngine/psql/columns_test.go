@@ -915,12 +915,12 @@ func TestRoutine_Call(t *testing.T) {
 	}{
 		// TODO: Add test cases.
 		{
-			"firest",
+			"first",
 			&fields{
 				Name: "test",
 				Type: "PROCEDURE",
 				params: []*PgxRoutineParams{
-					&PgxRoutineParams{
+					{
 						Column: Column{
 							name:     "id",
 							DataType: "int",
@@ -1170,7 +1170,7 @@ func TestTable_GetFields(t1 *testing.T) {
 	}
 }
 
-func TestTable_Insert(t1 *testing.T) {
+func TestTable_Insert(t *testing.T) {
 	type fields struct {
 		conn    *Conn
 		name    string
@@ -1191,8 +1191,8 @@ func TestTable_Insert(t1 *testing.T) {
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
-		t1.Run(tt.name, func(t1 *testing.T) {
-			t := Table{
+		t.Run(tt.name, func(t1 *testing.T) {
+			table := Table{
 				conn:    tt.fields.conn,
 				name:    tt.fields.name,
 				Type:    tt.fields.Type,
@@ -1201,7 +1201,7 @@ func TestTable_Insert(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			assert.Implements(t1, (*dbEngine.Table)(nil), t)
+			assert.Implements(t1, (*dbEngine.Table)(nil), table)
 		})
 	}
 }
