@@ -161,7 +161,7 @@ func toType(dtName string) types.BasicKind {
 		return types.Float64
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
 		return typesExt.TStruct
-	case "json":
+	case "json", "jsonb":
 		return typesExt.TMap
 	case "_numeric":
 		// todo add check ranges
