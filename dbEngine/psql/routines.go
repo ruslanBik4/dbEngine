@@ -48,6 +48,11 @@ type Routine struct {
 	UdtName    string
 }
 
+// ReturnType get type of routine result
+func (r *Routine) ReturnType() string {
+	return r.DataType
+}
+
 func (r *Routine) Name() string {
 	return r.name
 }
