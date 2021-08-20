@@ -154,7 +154,7 @@ func toType(dtName string) types.BasicKind {
 		return types.Int64
 	case "float4", "_float4":
 		return types.Float32
-	case "float8", "_float8":
+	case "float8", "_float8", "money", "_money":
 		return types.Float64
 	case "numeric", "decimal":
 		// todo add check field length
