@@ -33,14 +33,13 @@ type DB struct {
 
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{Conn: conn}
-	if dbUrl, ok := ctx.Value("dbURL").(string); ok {
-		logs.DebugLog("init conn with url - ", dbUrl)
+	if dbUrl, ok := ctx.Value(DB_URL).(string); ok {
 		err := conn.InitConn(ctx, dbUrl)
 		if err != nil {
 			return nil, err
 		}
 
-		if doRead, ok := ctx.Value("fillSchema").(bool); ok && doRead {
+		if doRead, ok := ctx.Value(DB_GET_SCHEMA).(bool); ok && doRead {
 			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
@@ -50,22 +49,22 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			}
 		}
 		if mPath, ok := ctx.Value(DB_MIGRATION).(string); ok {
-			err = filepath.Walk(filepath.Join(mPath, "types"), db.readAndReplaceTypes)
+			err = filepath.WalkDir(filepath.Join(mPath, "types"), db.readAndReplaceTypes)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration types")
 			}
 
-			err = filepath.Walk(filepath.Join(mPath, "table"), db.ReadTableSQL)
+			err = filepath.WalkDir(filepath.Join(mPath, "table"), db.ReadTableSQL)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration tables")
 			}
 
-			err = filepath.Walk(filepath.Join(mPath, "view"), db.ReadViewSQL)
+			err = filepath.WalkDir(filepath.Join(mPath, "view"), db.ReadViewSQL)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration views")
 			}
 
-			err = filepath.Walk(filepath.Join(mPath, "func"), db.readAndReplaceFunc)
+			err = filepath.WalkDir(filepath.Join(mPath, "func"), db.readAndReplaceFunc)
 			if err != nil {
 				return nil, errors.Wrap(err, "migration func")
 			}
@@ -90,7 +89,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
+func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
 	}
@@ -134,7 +133,7 @@ func (db *DB) ReadTableSQL(path string, info os.FileInfo, err error) error {
 	}
 }
 
-func (db *DB) ReadViewSQL(path string, info os.FileInfo, err error) error {
+func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
 	}
@@ -180,7 +179,7 @@ var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\
 
 //var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
-func (db *DB) readAndReplaceTypes(path string, info os.FileInfo, err error) error {
+func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
 	}
@@ -268,7 +267,7 @@ var (
 	regFuncDef   = regexp.MustCompile(`\sdefault\s+[^,)]+`)
 )
 
-func (db *DB) readAndReplaceFunc(path string, info os.FileInfo, err error) error {
+func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
 	}

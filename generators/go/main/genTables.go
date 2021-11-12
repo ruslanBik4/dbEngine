@@ -28,9 +28,9 @@ var (
 func main() {
 
 	conn := psql.NewConn(nil, nil, nil)
-	ctx := context.WithValue(context.Background(), "dbURL", *fURL)
-	ctx = context.WithValue(ctx, "fillSchema", true)
-	ctx = context.WithValue(ctx, "migration", *fCfgPath)
+	ctx := context.WithValue(context.Background(), dbEngine.DB_URL, *fURL)
+	ctx = context.WithValue(ctx, dbEngine.DB_GET_SCHEMA, true)
+	ctx = context.WithValue(ctx, dbEngine.DB_MIGRATION, *fCfgPath)
 	db, err := dbEngine.NewDB(ctx, conn)
 	if err != nil {
 		logs.ErrorLog(err, "dbEngine.NewDB")

@@ -59,6 +59,10 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 		return errors.Wrap(err, "cannot parse config")
 	}
 
+	// schema := os.Getenv("PGX_DB_SCHEMA")
+	// if schema > "" {
+	// 	poolCfg.
+	// }
 	maxConns := os.Getenv("PGX_MAX_CONNS")
 	if maxConns > "" {
 		i, err := strconv.Atoi(maxConns)
@@ -75,7 +79,7 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	poolCfg.AfterConnect = c.AfterConnect
 	poolCfg.BeforeAcquire = c.BeforeAcquire
 	poolCfg.ConnConfig.OnNotice = func(conn *pgconn.PgConn, notice *pgconn.Notice) {
-		c.NoticeMap[conn.PID()] = notice
+		c.addNotice(conn.PID(), notice)
 		c.NoticeHandler(conn, notice)
 	}
 	// clear notice
@@ -329,7 +333,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	row, err := conn.Query(ctx, sql, args...)
 	if err != nil {
 		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
-		return errors.Wrap(err, "Query")
+		return err
 	}
 
 	defer func() {

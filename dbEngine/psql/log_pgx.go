@@ -52,6 +52,7 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 	}
 }
 
+// SetLogLevel set logs level DB operations
 func SetLogLevel(lvl string) pgx.LogLevel {
 	logLvl, err := pgx.LogLevelFromString(lvl)
 	if err == nil {

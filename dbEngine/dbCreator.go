@@ -233,7 +233,7 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 
 }
 
-var regTable = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
+var regTable = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+(,\d+)?\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 
 var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
 
@@ -309,7 +309,7 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
 	}
 }
 
-var regDefault = regexp.MustCompile(`default\s+'?([^',]+)`)
+var regDefault = regexp.MustCompile(`default\s+'?([^',\n]+)`)
 
 func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 	res := fs.CheckAttr(title)

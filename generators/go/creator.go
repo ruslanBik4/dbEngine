@@ -6,16 +6,17 @@ package _go
 
 import (
 	"fmt"
+	"go/types"
 	"os"
 	"path"
 	"strings"
 
+	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
 	"github.com/ruslanBik4/logs"
 
-	"github.com/ruslanBik4/dbEngine/typesExt"
-
 	"github.com/ruslanBik4/dbEngine/dbEngine"
+	"github.com/ruslanBik4/dbEngine/typesExt"
 )
 
 type Creator struct {
@@ -41,23 +42,17 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "creator")
 	}
 
-	_, err = f.WriteString(title)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	_, err = fmt.Fprintf(f, typeTitle, name)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	caseRefFields, caseColFields := "", ""
+	caseRefFields, caseColFields, packages := "", "", ""
 	for _, col := range table.Columns() {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
 		if col.IsNullable() {
-			typeCol = "sql.Null" + strings.Title(typeCol)
+			if bTypeCol == types.UnsafePointer {
+				typeCol = "interface{}"
+			} else {
+				typeCol = "sql.Null" + strings.Title(typeCol)
+			}
 		}
 
 		// todo add import for types
@@ -67,20 +62,43 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				typeCol = "interface{}"
 			case "date", "timestampt", "timestamptz", "time":
 				typeCol = "time.Time"
+				if !strings.Contains(packages, `"name"`) {
+					packages += `"name"
+`
+				}
 			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
+				if !strings.Contains(packages, `"name"`) {
+					packages += `"name"
+`
+				}
 			}
 		} else if bTypeCol == 0 {
 			typeCol = "sql.RawBytes"
+			if !strings.Contains(packages, `"sql"`) {
+				packages += `"sql"
+`
+			}
 		}
 
 		if strings.HasPrefix(col.Type(), "_") {
 			typeCol = "[]" + typeCol
 		}
 
-		_, err = fmt.Fprintf(f, colFormat, strings.Title(col.Name()), typeCol, strings.ToLower(col.Name()))
-		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), strings.Title(col.Name()))
-		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), strings.Title(col.Name()))
+		_, err = fmt.Fprintf(f, title, packages)
+		if err != nil {
+			return errors.Wrap(err, "WriteString title")
+		}
+
+		_, err = fmt.Fprintf(f, typeTitle, name)
+		if err != nil {
+			return errors.Wrap(err, "WriteString title")
+		}
+
+		propName := strcase.ToCamel(col.Name())
+		_, err = fmt.Fprintf(f, colFormat, propName, typeCol, strings.ToLower(col.Name()))
+		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
+		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name())

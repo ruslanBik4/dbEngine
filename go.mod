@@ -4,6 +4,7 @@ go 1.14
 
 require (
 	github.com/getsentry/sentry-go v0.7.0 // indirect
+	github.com/iancoleman/strcase v0.2.0
 	github.com/jackc/pgconn v1.8.1
 	github.com/jackc/pgtype v1.7.0
 	github.com/jackc/pgx/v4 v4.11.0

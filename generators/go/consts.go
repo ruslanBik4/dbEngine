@@ -14,6 +14,7 @@ import (
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 	"golang.org/x/net/context"
+    %s
 )
 
 `

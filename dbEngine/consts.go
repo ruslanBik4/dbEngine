@@ -16,7 +16,9 @@ var (
 )
 
 const (
-	DB_MIGRATION = "migration"
+	DB_URL        = "dbURL"
+	DB_GET_SCHEMA = "fillSchema"
+	DB_MIGRATION  = "migration"
 )
 
 var ddlIndex = regexp.MustCompile(`create\s+(?P<unique>unique)?\s*index(?:\s+if\s+not\s+exists)?\s+(?P<index>\w+)\s+on\s+(?P<table>\w+)(?:\s+using\s+\w+)?\s*\((?P<columns>[^;]+?)\)\s*(where\s+[^)]\))?`)
