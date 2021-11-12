@@ -35,14 +35,14 @@ func NewCreator(dst string) (*Creator, error) {
 
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	logs.SetDebug(true)
-	name := strings.Title(table.Name())
+	name := strcase.ToCamel(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
 	if err != nil && !os.IsExist(err) {
 		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
 	}
 
-	caseRefFields, caseColFields, packages := "", "", ""
+	fields, caseRefFields, caseColFields, packages := "", "", "", ""
 	for _, col := range table.Columns() {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
@@ -53,8 +53,8 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			} else {
 				typeCol = "sql.Null" + strings.Title(typeCol)
 				if !strings.Contains(packages, `"sql"`) {
-					packages += `"sql"
-`
+					packages += `
+	"sql"`
 				}
 			}
 		}
@@ -67,21 +67,21 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			case "date", "timestampt", "timestamptz", "time":
 				typeCol = "time.Time"
 				if !strings.Contains(packages, `"time"`) {
-					packages += `"time"
-`
+					packages += `
+	"time"`
 				}
 			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
 				if !strings.Contains(packages, `"time"`) {
-					packages += `"time"
-`
+					packages += `
+	"time"`
 				}
 			}
 		} else if bTypeCol == 0 {
 			typeCol = "sql.RawBytes"
 			if !strings.Contains(packages, `"sql"`) {
-				packages += `"sql"
-`
+				packages += `
+	"sql"`
 			}
 		}
 
@@ -90,7 +90,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}
 
 		propName := strcase.ToCamel(col.Name())
-		_, err = fmt.Fprintf(f, colFormat, propName, typeCol, strings.ToLower(col.Name()))
+		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
@@ -100,7 +100,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, typeTitle, name)
+	_, err = fmt.Fprintf(f, typeTitle, name, fields)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}

@@ -13,8 +13,7 @@ import (
 	"database/sql"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
-	"golang.org/x/net/context"
-    %s
+	"golang.org/x/net/context"%s
 )
 
 `
@@ -25,15 +24,9 @@ import (
 }
 
 type %[1]sFields struct {
-`
+	// fields %s
+}`
 	// todo add DTO interface & SelectToMaps
-	// func (r *CompaniesFields) GetValue() interface{} {
-	// 	return r
-	// }
-	//
-	// func (r *CompaniesFields) NewValue() interface{} {
-	// 	return &CompaniesFields{}
-	// }
 	colFormat     = "\n\t%-15s\t%s\t`json:\"%s\"`"
 	caseRefFormat = `
 	case "%s":
@@ -44,7 +37,6 @@ type %[1]sFields struct {
 		return r.%s
 `
 	footer = `
-}
 
 func (r *%sFields) RefColValue(name string) interface{}{
 	switch name {	%s
@@ -58,6 +50,14 @@ func (r *%[1]sFields) ColValue(name string) interface{}{
    	default:
 		return nil
 	}
+}
+
+func (r *%[1]sFields) GetValue() interface{} {
+	return r
+}
+
+func (r *%[1]sFields) NewValue() interface{} {
+	return &%[1]sFields{}
 }
 
 func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
