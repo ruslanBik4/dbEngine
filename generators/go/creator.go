@@ -52,6 +52,10 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				typeCol = "interface{}"
 			} else {
 				typeCol = "sql.Null" + strings.Title(typeCol)
+				if !strings.Contains(packages, `"sql"`) {
+					packages += `"sql"
+`
+				}
 			}
 		}
 
@@ -62,14 +66,14 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				typeCol = "interface{}"
 			case "date", "timestampt", "timestamptz", "time":
 				typeCol = "time.Time"
-				if !strings.Contains(packages, `"name"`) {
-					packages += `"name"
+				if !strings.Contains(packages, `"time"`) {
+					packages += `"time"
 `
 				}
 			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
-				if !strings.Contains(packages, `"name"`) {
-					packages += `"name"
+				if !strings.Contains(packages, `"time"`) {
+					packages += `"time"
 `
 				}
 			}
@@ -85,20 +89,20 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			typeCol = "[]" + typeCol
 		}
 
-		_, err = fmt.Fprintf(f, title, packages)
-		if err != nil {
-			return errors.Wrap(err, "WriteString title")
-		}
-
-		_, err = fmt.Fprintf(f, typeTitle, name)
-		if err != nil {
-			return errors.Wrap(err, "WriteString title")
-		}
-
 		propName := strcase.ToCamel(col.Name())
 		_, err = fmt.Fprintf(f, colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
+	}
+
+	_, err = fmt.Fprintf(f, title, packages)
+	if err != nil {
+		return errors.Wrap(err, "WriteString title")
+	}
+
+	_, err = fmt.Fprintf(f, typeTitle, name)
+	if err != nil {
+		return errors.Wrap(err, "WriteString title")
 	}
 
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name())
