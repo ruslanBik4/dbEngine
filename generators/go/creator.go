@@ -47,41 +47,42 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
-		if col.IsNullable() {
-			if bTypeCol == types.UnsafePointer {
+		switch {
+		case bTypeCol == 0:
+			typeCol = "sql.RawBytes"
+			packages += c.addImport(packages, "database/sql")
+
+		case bTypeCol < 0:
+			switch col.Type() {
+			case "inet":
+				typeCol = "pgtype.Inet"
+				packages += c.addImport(packages, "github.com/jackc/pgtype")
+
+			case "json":
+				typeCol = "interface{}"
+
+			case "date", "timestampt", "timestamptz", "time":
+				if col.IsNullable() {
+					typeCol = "sql.NullTime"
+					packages += c.addImport(packages, "database/sql")
+				} else {
+					typeCol = "time.Time"
+					packages += c.addImport(packages, "time")
+				}
+
+			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
+				typeCol = "[]time.Time"
+				packages += c.addImport(packages, "time")
+			default:
+				typeCol = "interface{}"
+			}
+
+		case col.IsNullable():
+			if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
 				typeCol = "interface{}"
 			} else {
 				typeCol = "sql.Null" + strings.Title(typeCol)
-				if !strings.Contains(packages, `"sql"`) {
-					packages += `
-	"sql"`
-				}
-			}
-		}
-
-		// todo add import for types
-		if bTypeCol < 0 {
-			switch col.Type() {
-			case "json":
-				typeCol = "interface{}"
-			case "date", "timestampt", "timestamptz", "time":
-				typeCol = "time.Time"
-				if !strings.Contains(packages, `"time"`) {
-					packages += `
-	"time"`
-				}
-			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
-				typeCol = "[]time.Time"
-				if !strings.Contains(packages, `"time"`) {
-					packages += `
-	"time"`
-				}
-			}
-		} else if bTypeCol == 0 {
-			typeCol = "sql.RawBytes"
-			if !strings.Contains(packages, `"sql"`) {
-				packages += `
-	"sql"`
+				packages += c.addImport(packages, "database/sql")
 			}
 		}
 
@@ -108,4 +109,13 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name())
 
 	return err
+}
+
+func (c *Creator) addImport(packages, moduloName string) string {
+	if !strings.Contains(packages, moduloName) {
+		return `"` + moduloName + `"
+	`
+	}
+
+	return ""
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// Column implement store data of column of table
 type Column struct {
 	Table                  dbEngine.Table `json:"-"`
 	name                   string
@@ -32,6 +33,7 @@ type Column struct {
 	IsHidden               bool
 }
 
+// NewColumnForTableBuf
 func NewColumnForTableBuf(table dbEngine.Table) *Column {
 	return &Column{
 		Table:       table,
@@ -39,6 +41,7 @@ func NewColumnForTableBuf(table dbEngine.Table) *Column {
 	}
 }
 
+// Foreign return  first foreign key of column
 func (c *Column) Foreign() *dbEngine.ForeignKey {
 	for _, c := range c.Constraints {
 		if c != nil {
@@ -49,14 +52,17 @@ func (c *Column) Foreign() *dbEngine.ForeignKey {
 	return nil
 }
 
+// IsNullable return isNullable flag
 func (c *Column) IsNullable() bool {
 	return c.isNullable
 }
 
+// AutoIncrement return true if column is autoincrement
 func (c *Column) AutoIncrement() bool {
 	return c.autoInc
 }
 
+// Copy column & return new instance
 func (c *Column) Copy() *Column {
 	return &Column{
 		Table:                  c.Table,
@@ -75,10 +81,7 @@ func (c *Column) Copy() *Column {
 	}
 }
 
-func (c *Column) Default() interface{} {
-	return c.colDefault
-}
-
+// GetFields implement RowColumn interface
 func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 	v := make([]interface{}, len(columns))
 	for i, col := range columns {
@@ -88,10 +91,12 @@ func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
 	return v
 }
 
+// NewColumnPone create new column with several properties
 func NewColumnPone(name string, comment string, characterMaximumLength int) *Column {
 	return &Column{name: name, comment: comment, characterMaximumLength: characterMaximumLength}
 }
 
+// NewColumn create new column with many properties
 func NewColumn(
 	table dbEngine.Table,
 	name string,
@@ -123,6 +128,7 @@ func NewColumn(
 	return col
 }
 
+// BasicTypeInfo of columns value
 func (c *Column) BasicTypeInfo() types.BasicInfo {
 	switch c.BasicType() {
 	case types.Bool:
@@ -138,6 +144,7 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 	}
 }
 
+// BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
 	return toType(c.UdtName)
 }
@@ -171,6 +178,8 @@ func toType(dtName string) types.BasicKind {
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
+	case "inet":
+		return typesExt.TMap
 	default:
 		logs.DebugLog("unknown type ", dtName)
 		return types.Invalid
@@ -234,34 +243,47 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 	return
 }
 
+// CharacterMaximumLength return max of length text columns
 func (c *Column) CharacterMaximumLength() int {
 	return c.characterMaximumLength
 }
 
+// Comment of column
 func (c *Column) Comment() string {
 	return c.comment
 }
 
+// Name of column
 func (c *Column) Name() string {
 	return c.name
 }
 
+// Primary return true if column is primary key
 func (c *Column) Primary() bool {
 	return c.PrimaryKey
 }
 
+// Type of column (psql native)
 func (c *Column) Type() string {
 	return c.UdtName
 }
 
+// Required return true if column need a value
 func (c *Column) Required() bool {
 	return !c.isNullable && (c.colDefault == nil)
 }
 
+// SetNullable set nullable flag of column
 func (c *Column) SetNullable(f bool) {
 	c.isNullable = f
 }
 
+// Default return default value of column
+func (c *Column) Default() interface{} {
+	return c.colDefault
+}
+
+// SetDefault set default value into column
 func (c *Column) SetDefault(d interface{}) {
 	str, ok := d.(string)
 	if !ok {
@@ -281,6 +303,7 @@ func (c *Column) SetDefault(d interface{}) {
 	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
 }
 
+// RefColValue referral of column property 'name'
 func (c *Column) RefColValue(name string) interface{} {
 	switch name {
 	case "data_type":
