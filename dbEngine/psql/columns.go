@@ -135,7 +135,7 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 		return types.IsBoolean
 	case types.Int32, types.Int64:
 		return types.IsInteger
-	case types.Float32, types.Float64:
+	case types.Float32, types.Float64, types.UntypedFloat:
 		return types.IsFloat
 	case types.String:
 		return types.IsString
@@ -165,7 +165,7 @@ func toType(dtName string) types.BasicKind {
 		return types.Float64
 	case "numeric", "decimal":
 		// todo add check field length
-		return types.Float64
+		return types.UntypedFloat
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
 		return typesExt.TStruct
 	case "json", "jsonb":
@@ -206,10 +206,10 @@ var dataTypeAlias = map[string][]string{
 // todo: add check arrays
 func (c *Column) CheckAttr(fieldDefine string) (res string) {
 	fieldDefine = strings.ToLower(fieldDefine)
-	isMayNull := strings.Contains(fieldDefine, isNotNullable)
-	if c.isNullable && isMayNull {
+	isNotNull := strings.Contains(fieldDefine, isNotNullable)
+	if c.isNullable && isNotNull {
 		res += " is nullable "
-	} else if !c.isNullable && !isMayNull {
+	} else if !c.isNullable && !isNotNull {
 		res += " is not nullable "
 	}
 

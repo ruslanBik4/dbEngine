@@ -233,10 +233,6 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 
 }
 
-var regTable = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<fields>(\s*(\w*)\s*(?P<define>[\w\[\]':\s]*(\(\d+(,\d+)?\))?[\w\s]*)('[^']*')?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
-
-var regField = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s_]+)`)
-
 func (p *ParserTableDDL) updateTable(ddl string) bool {
 	fields := regTable.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
@@ -257,7 +253,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 			}
 		case "fields":
 
-			nameFields := strings.Split(fields[i], ",")
+			nameFields := strings.Split(fields[i], "\n")
 			for _, name := range nameFields {
 
 				title := regField.FindStringSubmatch(name)
@@ -309,8 +305,6 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
 	}
 }
 
-var regDefault = regexp.MustCompile(`default\s+'?([^',\n]+)`)
-
 func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 	res := fs.CheckAttr(title)
 	fieldName := fs.Name()
@@ -332,21 +326,27 @@ func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 		if strings.Contains(res, "has length") {
 			logs.DebugLog(res)
 			attr := strings.Split(title, " ")
-			if attr[0] == "character" {
-				attr[0] += " " + attr[1]
+
+			typeDef := attr[0]
+			if typeDef == "character" ||
+				(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
+
+				typeDef += " " + attr[1]
 			}
 
-			sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
+			sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
 			err = p.alterColumn(sql, fieldName, title, fs)
 		}
 
 		// change type
 		if strings.Contains(res, "type") {
 			attr := strings.Split(title, " ")
-			if attr[0] == "double" {
-				attr[0] += " " + attr[1]
+			typeDef := attr[0]
+			if typeDef == "double" ||
+				(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
+				typeDef += " " + attr[1]
 			}
-			sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
+			sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
 			if attr[0] == "money" && fs.Type() == "double precision" {
 				sql = fmt.Sprintf(
 					" type %s using %s::numeric::%[1]s",

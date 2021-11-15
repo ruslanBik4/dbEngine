@@ -48,15 +48,25 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
 		switch {
-		case bTypeCol == 0:
+		case bTypeCol == types.Invalid:
 			typeCol = "sql.RawBytes"
-			packages += c.addImport(packages, "database/sql")
+			packages += c.addImport(packages, moduloSql)
+
+		case bTypeCol == types.UntypedFloat:
+			switch col.Type() {
+			case "numeric":
+				typeCol = "pgtype.Numeric"
+				packages += c.addImport(packages, moduloPgType)
+			case "decimal":
+				typeCol = "pgtype.Decimal"
+				packages += c.addImport(packages, moduloPgType)
+			}
 
 		case bTypeCol < 0:
 			switch col.Type() {
 			case "inet":
 				typeCol = "pgtype.Inet"
-				packages += c.addImport(packages, "github.com/jackc/pgtype")
+				packages += c.addImport(packages, moduloPgType)
 
 			case "json":
 				typeCol = "interface{}"
@@ -64,7 +74,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			case "date", "timestampt", "timestamptz", "time":
 				if col.IsNullable() {
 					typeCol = "sql.NullTime"
-					packages += c.addImport(packages, "database/sql")
+					packages += c.addImport(packages, moduloSql)
 				} else {
 					typeCol = "time.Time"
 					packages += c.addImport(packages, "time")
@@ -82,7 +92,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				typeCol = "interface{}"
 			} else {
 				typeCol = "sql.Null" + strings.Title(typeCol)
-				packages += c.addImport(packages, "database/sql")
+				packages += c.addImport(packages, moduloSql)
 			}
 		}
 
