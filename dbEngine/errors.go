@@ -84,6 +84,20 @@ func IsErrorAlreadyExists(err error) bool {
 	return false
 }
 
+func IsErrorDoesNotExists(err error) bool {
+	ignoreErrors := []string{
+		"does not exist",
+	}
+
+	for _, val := range ignoreErrors {
+		if strings.Contains(err.Error(), val) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func IsErrorForReplace(err error) bool {
 	ignoreErrors := []string{
 		"cannot change return type of existing function",

@@ -22,17 +22,22 @@ import (
 
 // todo add DB name & schema
 type DB struct {
-	Cfg      map[string]interface{}
-	Conn     Connection
-	Tables   map[string]Table
-	Types    map[string]Types
-	Routines map[string]Routine
-	modFuncs []string
-	newFuncs []string
+	Cfg        map[string]interface{}
+	Conn       Connection
+	Tables     map[string]Table
+	Types      map[string]Types
+	Routines   map[string]Routine
+	modFuncs   []string
+	newFuncs   []string
+	readTables map[string]string
 }
 
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
-	db := &DB{Conn: conn}
+	db := &DB{
+		Conn:       conn,
+		readTables: map[string]string{},
+	}
+
 	if dbUrl, ok := ctx.Value(DB_URL).(string); ok {
 		err := conn.InitConn(ctx, dbUrl)
 		if err != nil {
@@ -115,15 +120,27 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 					db.Tables[tableName] = table
 					logs.StatusLog("New table add to DB", tableName)
 				}
+				rel, ok := db.readTables[tableName]
+				if ok {
+					return db.ReadTableSQL(rel, info, err)
+				} else {
+					logs.StatusLog("no relation")
+				}
 
-			case !IsErrorAlreadyExists(err) || !strings.Contains(err.Error(), tableName):
-				logs.ErrorLog(err, "table - "+tableName)
+			case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
+				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
+
+			case IsErrorDoesNotExists(err):
+				errParts := regDoesNotEsists.FindStringSubmatch(err.Error())
+				if len(errParts) > 1 {
+					db.readTables[errParts[1]] = path
+				}
 
 			default:
-				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
+				logs.ErrorLog(err, "During create- "+tableName)
 			}
 
-			return err
+			return nil
 		}
 
 		return NewParserTableDDL(table, db).Parse(string(ddl))
