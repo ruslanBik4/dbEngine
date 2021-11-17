@@ -379,8 +379,10 @@ func isOperator(s uint8) bool {
 	}
 }
 
+// BuildSqlOptions set addition property on SQLbuilder
 type BuildSqlOptions func(b *SQLBuilder) error
 
+// ColumnsForSelect set columns for SQLBuilder
 func ColumnsForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -388,6 +390,11 @@ func ColumnsForSelect(columns ...string) BuildSqlOptions {
 
 		return nil
 	}
+}
+
+// ColumnsForInsert set inserted columns for SQLBuilder
+func ColumnsForInsert(columns ...string) BuildSqlOptions {
+	return ColumnsForSelect(columns...)
 }
 
 func WhereForSelect(columns ...string) BuildSqlOptions {
@@ -434,6 +441,7 @@ func OrderBy(columns ...string) BuildSqlOptions {
 	}
 }
 
+// ArgsForSelect set slice of arguments sql request
 func ArgsForSelect(args ...interface{}) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -441,6 +449,11 @@ func ArgsForSelect(args ...interface{}) BuildSqlOptions {
 
 		return nil
 	}
+}
+
+// ValuesForInsert set values sql insert
+func ValuesForInsert(values ...interface{}) BuildSqlOptions {
+	return ArgsForSelect(values...)
 }
 
 func InsertOnConflict(onConflict string) BuildSqlOptions {

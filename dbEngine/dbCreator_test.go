@@ -345,12 +345,12 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 				},
 			},
 			ddl: `create index if not exists trades_years
-    on trades (date_part('year' :: text))`,
+    on trades (date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
 				Expr:    "date_part('year' :: text))",
 				Unique:  false,
-				Columns: []string{"year"},
+				Columns: []string{"opendate"},
 			},
 		},
 		{
@@ -362,7 +362,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 				},
 			},
 			ddl: `create index if not exists trades_years
-    on trades (date_part('year' :: text, opendate))`,
+    on trades (year, date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
 				Expr:    "date_part('year' :: text, opendate))",

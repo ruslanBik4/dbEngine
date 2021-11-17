@@ -440,28 +440,35 @@ func (p ParserTableDDL) createIndex(columns []string, regexp *regexp.Regexp) (*I
 			return nil, errors.New("out if columns!" + name)
 		}
 
+		value := columns[i]
 		switch name {
 		case "":
 		case "table":
-			if columns[i] != p.Name() {
-				return nil, errors.New("bad table name! " + columns[i])
+			if value != p.Name() {
+				return nil, errors.New("bad table name! " + value)
 			}
 		case "index":
 			// todo implement
-			ind.Name = columns[i]
+			ind.Name = value
 		case "columns":
-			ind.Columns = strings.Split(columns[i], ",")
-			for i, colDdl := range ind.Columns {
+			for _, colDdl := range strings.Split(value, ",") {
 				col, isLegal := CheckColumn(colDdl, p)
-				if !isLegal {
-					return nil, ErrNotFoundColumn{p.Name(), colDdl}
+				if isLegal {
+					ind.Columns = append(ind.Columns, col.Name())
 				}
-				ind.Columns[i] = col.Name()
+			}
+
+			if len(ind.Columns) == 0 {
+				return nil, ErrNotFoundColumn{p.Name(), value}
+			}
+
+			if strings.Join(ind.Columns, ",") != value {
+				ind.Expr = value
 			}
 		case "unique":
-			ind.Unique = columns[i] == name
+			ind.Unique = value == name
 		default:
-			logInfo(prefix, p.filename, name+columns[i], p.line)
+			logInfo(prefix, p.filename, name+value, p.line)
 		}
 
 	}
