@@ -6,6 +6,7 @@ package _go
 
 const (
 	moduloPgType = "github.com/jackc/pgtype"
+	moduloDEpsql = "github.com/ruslanBik4/dbEngine/dbEngine/psql"
 	moduloSql    = "database/sql"
 )
 
@@ -119,6 +120,11 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 			columns = append(columns, col.Name())
 			v = append(v, t.Record.ColValue( col.Name() ) )
 		}
+		Options = append(
+			Options, 
+			dbEngine.ColumnsForInsert(columns...), 
+			dbEngine.ValuesForInsert(v... ),
+		)
    }
 
 	return t.Table.Insert(ctx, Options...)

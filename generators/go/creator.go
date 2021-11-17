@@ -33,6 +33,7 @@ func NewCreator(dst string) (*Creator, error) {
 	return &Creator{dst: dst}, nil
 }
 
+// MakeStruct create table interface with Columns operations
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	logs.SetDebug(true)
 	name := strcase.ToCamel(table.Name())
@@ -55,11 +56,11 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		case bTypeCol == types.UntypedFloat:
 			switch col.Type() {
 			case "numeric":
-				typeCol = "pgtype.Numeric"
-				packages += c.addImport(packages, moduloPgType)
+				typeCol = "psql.Numeric"
+				packages += c.addImport(packages, moduloDEpsql)
 			case "decimal":
-				typeCol = "pgtype.Decimal"
-				packages += c.addImport(packages, moduloPgType)
+				typeCol = "psql.Decimal"
+				packages += c.addImport(packages, moduloDEpsql)
 			}
 
 		case bTypeCol < 0:
