@@ -122,8 +122,8 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		}
 		Options = append(
 			Options, 
-			dbEngine.ColumnsForInsert(columns...), 
-			dbEngine.ValuesForInsert(v... ),
+			dbEngine.Columns(columns...), 
+			dbEngine.Values(v... ),
 		)
    }
 
@@ -132,30 +132,59 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 // Update record of table according to Options
 func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, len(t.Columns()))
+		v := make([]interface{}, 0, len(t.Columns()))
 		priV := make([]interface{}, 0)
 		columns := make([]string, 0, len(t.Columns()))
 		priColumns := make([]string, 0, len(t.Columns()))
 		for _, col := range t.Columns() {
 			if col.Primary() {
 				priColumns = append( priColumns, col.Name() )
-				priV[len(priColumns)-1] = t.Record.ColValue( col.Name() )
+				priV = append(priV, t.Record.ColValue( col.Name() ))
 				continue
 			}
 
 			columns = append( columns, col.Name() )
-			v[len(columns)-1] = t.Record.ColValue( col.Name() )
+			v = append(v, t.Record.ColValue( col.Name() ) )
 		}
 
 		Options = append(
 			Options, 
-			dbEngine.ColumnsForSelect(columns...), 
+			dbEngine.Columns(columns...), 
 			dbEngine.WhereForSelect(priColumns...), 
-			dbEngine.ArgsForSelect(append(v, priV...)... ),
+			dbEngine.Values(append(v, priV...)... ),
 		)
 	}
 
 	return t.Table.Update(ctx, Options...)
+}
+
+// Upsert insert new Record into table according to Options or update if this record exists
+func (t *%[1]s) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	if len(Options) == 0 {
+		v := make([]interface{}, 0, len(t.Columns()))
+		priV := make([]interface{}, 0)
+		columns := make([]string, 0, len(t.Columns()))
+		priColumns := make([]string, 0, len(t.Columns()))
+		for _, col := range t.Columns() {
+			if col.Primary() {
+				priColumns = append( priColumns, col.Name() )
+				priV = append(priV, t.Record.ColValue( col.Name() ))
+				continue
+			}
+
+			columns = append( columns, col.Name() )
+			v = append(v, t.Record.ColValue( col.Name() ) )
+		}
+
+		Options = append(
+			Options, 
+			dbEngine.Columns(columns...), 
+			dbEngine.WhereForSelect(priColumns...), 
+			dbEngine.Values(v... ),
+		)
+	}
+
+	return t.Table.Upsert(ctx, Options...)
 }
 `
 )

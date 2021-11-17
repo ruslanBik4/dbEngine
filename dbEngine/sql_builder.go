@@ -12,6 +12,7 @@ import (
 	"github.com/ruslanBik4/logs"
 )
 
+// SQLBuilder implement sql native constructor
 type SQLBuilder struct {
 	Args          []interface{}
 	columns       []string
@@ -23,6 +24,7 @@ type SQLBuilder struct {
 	Offset, Limit int
 }
 
+// NewSQLBuilder create SQLBuilder for table
 func NewSQLBuilder(t Table, Options ...BuildSqlOptions) (*SQLBuilder, error) {
 	b := &SQLBuilder{Table: t}
 	for _, setOption := range Options {
@@ -35,6 +37,7 @@ func NewSQLBuilder(t Table, Options ...BuildSqlOptions) (*SQLBuilder, error) {
 	return b, nil
 }
 
+// InsertSql construct insert sql
 func (b SQLBuilder) InsertSql() (string, error) {
 	if len(b.columns) != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
@@ -47,6 +50,7 @@ func (b SQLBuilder) insertSql() string {
 	return "INSERT INTO " + b.Table.Name() + "(" + b.Select() + ") VALUES (" + b.values() + ")" + b.OnConflict()
 }
 
+// UpdateSql construct update sql
 func (b SQLBuilder) UpdateSql() (string, error) {
 	if len(b.columns)+len(b.filter) != len(b.Args) {
 		return "", NewErrWrongArgsLen(b.Table.Name(), b.columns, b.Args)
@@ -115,6 +119,7 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	return s + u, nil
 }
 
+// DeleteSql construct delete sql
 func (b SQLBuilder) DeleteSql() (string, error) {
 	// todo check routine
 	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
@@ -126,6 +131,7 @@ func (b SQLBuilder) DeleteSql() (string, error) {
 	return sql, nil
 }
 
+// SelectSql construct select sql
 func (b SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
 	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
@@ -150,6 +156,7 @@ func (b SQLBuilder) SelectSql() (string, error) {
 	return sql, nil
 }
 
+// SelectColumns construct select clause for sql
 func (b *SQLBuilder) SelectColumns() []Column {
 	if b.Table == nil {
 		return nil
@@ -177,6 +184,7 @@ func (b *SQLBuilder) SelectColumns() []Column {
 	return selectColumns
 }
 
+// CheckColumn check ddl for consists any columns of table
 func CheckColumn(ddl string, table Table) (col Column, trueColumn bool) {
 	fullStr := regColumns.FindAllStringSubmatch(ddl, -1)
 	if len(fullStr) > 0 {
@@ -392,11 +400,27 @@ func ColumnsForSelect(columns ...string) BuildSqlOptions {
 	}
 }
 
-// ColumnsForInsert set inserted columns for SQLBuilder
-func ColumnsForInsert(columns ...string) BuildSqlOptions {
+// Columns set inserted columns for SQLBuilder
+func Columns(columns ...string) BuildSqlOptions {
 	return ColumnsForSelect(columns...)
 }
 
+// ArgsForSelect set slice of arguments sql request
+func ArgsForSelect(args ...interface{}) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.Args = args
+
+		return nil
+	}
+}
+
+// Values set values sql insert
+func Values(values ...interface{}) BuildSqlOptions {
+	return ArgsForSelect(values...)
+}
+
+// WhereForSelect set columns for WHERE clause
 func WhereForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -439,21 +463,6 @@ func OrderBy(columns ...string) BuildSqlOptions {
 
 		return nil
 	}
-}
-
-// ArgsForSelect set slice of arguments sql request
-func ArgsForSelect(args ...interface{}) BuildSqlOptions {
-	return func(b *SQLBuilder) error {
-
-		b.Args = args
-
-		return nil
-	}
-}
-
-// ValuesForInsert set values sql insert
-func ValuesForInsert(values ...interface{}) BuildSqlOptions {
-	return ArgsForSelect(values...)
 }
 
 func InsertOnConflict(onConflict string) BuildSqlOptions {

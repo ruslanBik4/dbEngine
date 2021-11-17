@@ -17,15 +17,14 @@ type Numeric struct {
 
 // Set has performing []byte src
 func (dst *Numeric) Set(src interface{}) error {
+
 	if dst.Numeric == nil {
 		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
 	}
 
-	if src == nil {
-		return nil
-	}
-
 	switch value := src.(type) {
+	case nil:
+
 	case []byte:
 		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
 	default:

@@ -123,6 +123,7 @@ func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return comTag.RowsAffected(), nil
 }
 
+// Upsert preforms INSERT sql or UPDATE if record with primary keys exists
 func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
