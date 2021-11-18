@@ -351,7 +351,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				b.Limit = 1
 			}
 			got, err := b.SelectSql()
-			assert.Equal(t, tt.wantErr, (err != nil), "SelectSql() error = %v, wantErr %v", err, tt.wantErr)
+			assert.Equal(t, tt.wantErr, err != nil, "SelectSql() error = %v, wantErr %v", err, tt.wantErr)
 			assert.Equal(t, got, tt.want, "SelectSql() got = %v, want %v", got, tt.want)
 
 		})
@@ -561,6 +561,21 @@ func TestSQLBuilder_Where(t *testing.T) {
 				nil,
 			},
 			" WHERE  id < $1 AND id_roles > $2",
+			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+				return assert.Equal(t, expected, actual, msgAndArgs...)
+			},
+		},
+		{
+			"two columns select according two filter columns with array",
+			fields{
+				[]interface{}{[]int8{1, 3}, 2},
+				[]string{"last_login", "name"},
+				[]string{"id", ">id_roles"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id=ANY($1) AND id_roles > $2",
 			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
 				return assert.Equal(t, expected, actual, msgAndArgs...)
 			},

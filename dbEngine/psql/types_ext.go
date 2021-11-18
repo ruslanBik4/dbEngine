@@ -34,7 +34,43 @@ func (dst *Numeric) Set(src interface{}) error {
 	return nil
 }
 
-// Numeric expanded pgtype.Numeric
+// AssignTo has performing []byte dst
+func (src *Numeric) AssignTo(dst interface{}) error {
+	switch dst.(type) {
+	case nil:
+		dst = nil
+	case []byte:
+		if src.Status == pgtype.Present {
+			dst = src.Numeric.Int.Bytes()
+		} else {
+			dst = nil
+		}
+	default:
+		return src.Numeric.AssignTo(dst)
+	}
+
+	return nil
+}
+
+// DecodeText expand pgtype.Numeric.DecodeText
+func (dst *Numeric) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	if dst.Numeric == nil {
+		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
+	}
+
+	return dst.Numeric.DecodeText(ci, src)
+}
+
+// DecodeBinary expand pgtype.Numeric.DecodeBinary
+func (dst *Numeric) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	if dst.Numeric == nil {
+		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
+	}
+
+	return dst.Numeric.DecodeBinary(ci, src)
+}
+
+// Decimal expanded pgtype.Numeric
 type Decimal struct {
 	*pgtype.Numeric
 }
