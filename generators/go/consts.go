@@ -35,6 +35,7 @@ type %[1]sFields struct {
 }`
 	// todo add DTO interface & SelectToMaps
 	colFormat     = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
+	initFormat    = "\n\t\t%-21s:\t%s,"
 	caseRefFormat = `
 	case "%s":
 		return &r.%s
@@ -44,8 +45,14 @@ type %[1]sFields struct {
 		return r.%s
 `
 	footer = `
+// New%sFields create new instance & fill struct fill for avoid panic
+func New%[1]sFields() *%[1]sFields{
+	return &%[1]sFields{
+		// init properties %[5]s
+	}
+}
 // RefColValue return referral of column
-func (r *%sFields) RefColValue(name string) interface{}{
+func (r *%[1]sFields) RefColValue(name string) interface{}{
 	switch name {	%s
    	default:
 		return nil
@@ -64,7 +71,7 @@ func (r *%[1]sFields) GetValue() interface{} {
 }
 // NewValue implement RouteDTO interface
 func (r *%[1]sFields) NewValue() interface{} {
-	return &%[1]sFields{}
+	return New%[1]sFields()
 }
 // New%[1]s create new instance of table object
 func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
@@ -79,7 +86,7 @@ func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
 }
 // NewRecord return new row of table
 func (t *%[1]s) NewRecord() *%[1]sFields{
-   t.Record = &%[1]sFields{}
+   t.Record = New%[1]sFields()
 	return t.Record
 }
 // GetFields implement RowColumn interface

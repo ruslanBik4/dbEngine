@@ -43,10 +43,11 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "creator")
 	}
 
-	fields, caseRefFields, caseColFields, packages := "", "", "", ""
+	fields, caseRefFields, caseColFields, packages, initValues := "", "", "", "", ""
 	for _, col := range table.Columns() {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+		propName := strcase.ToCamel(col.Name())
 
 		switch {
 		case bTypeCol == types.Invalid:
@@ -58,9 +59,11 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			case "numeric":
 				typeCol = "psql.Numeric"
 				packages += c.addImport(packages, moduloDEpsql)
+				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
 			case "decimal":
 				typeCol = "psql.Decimal"
 				packages += c.addImport(packages, moduloDEpsql)
+				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
 			}
 
 		case bTypeCol < 0:
@@ -74,12 +77,12 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 			case "date", "timestampt", "timestamptz", "time":
 				if col.IsNullable() {
-					typeCol = "sql.NullTime"
-					packages += c.addImport(packages, moduloSql)
+					typeCol = "*time.Time"
+					initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
 				} else {
 					typeCol = "time.Time"
-					packages += c.addImport(packages, "time")
 				}
+				packages += c.addImport(packages, "time")
 
 			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
@@ -101,7 +104,6 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			typeCol = "[]" + typeCol
 		}
 
-		propName := strcase.ToCamel(col.Name())
 		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
@@ -117,7 +119,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name())
+	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), initValues)
 
 	return err
 }

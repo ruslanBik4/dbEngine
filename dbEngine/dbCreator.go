@@ -181,6 +181,8 @@ func (p *ParserTableDDL) runDDL(ddl string) {
 	if err == nil {
 		if p.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
+		} else if !strings.HasPrefix(ddl, "insert") {
+			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
 		}
 	} else if IsErrorAlreadyExists(err) {
 		err = nil
@@ -253,7 +255,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 			}
 		case "fields":
 
-			nameFields := strings.Split(fields[i], "\n")
+			nameFields := strings.Split(fields[i], ",\n")
 			for _, name := range nameFields {
 
 				title := regField.FindStringSubmatch(name)

@@ -15,6 +15,11 @@ type Numeric struct {
 	*pgtype.Numeric
 }
 
+// NewNumericNull create Numeric with NULL
+func NewNumericNull() Numeric {
+	return Numeric{&pgtype.Numeric{Status: pgtype.Null}}
+}
+
 // Set has performing []byte src
 func (dst *Numeric) Set(src interface{}) error {
 

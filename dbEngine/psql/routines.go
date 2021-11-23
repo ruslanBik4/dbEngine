@@ -79,6 +79,7 @@ func (r *Routine) Select(ctx context.Context, args ...interface{}) error {
 	panic("implement me")
 }
 
+// Call procedure
 func (r *Routine) Call(ctx context.Context, args ...interface{}) error {
 	if r.Type != "PROCEDURE" {
 		return dbEngine.ErrWrongType{Name: r.sName, TypeName: r.Type}

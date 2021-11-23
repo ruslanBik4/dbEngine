@@ -21,6 +21,10 @@ type Conn struct {
 	mock.Call
 }
 
+func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
+	panic("implement me")
+}
+
 func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	panic("implement me")
 }

@@ -20,7 +20,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// todo add DB name & schema
+// DB name & schema
 type DB struct {
 	Cfg        map[string]interface{}
 	Conn       Connection
@@ -32,6 +32,7 @@ type DB struct {
 	readTables map[string]string
 }
 
+// NewDB create new DB instance & performs something migrations
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
 		Conn:       conn,
@@ -74,9 +75,9 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 				return nil, errors.Wrap(err, "migration func")
 			}
 
-			logs.StatusLog("New func add to DB: '%s'", strings.Join(db.newFuncs, "', '"))
+			logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
 			if len(db.modFuncs) > 0 {
-				logs.StatusLog("Modify func in DB : '%s'", strings.Join(db.modFuncs, "', '"))
+				logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
 			}
 
 			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
@@ -90,10 +91,27 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			// }
 		}
 	}
+	if path, ok := ctx.Value(DB_TEST_INIT).(string); ok {
+		if path == "" {
+			path = filepath.Join("cfg/DB", "test_init.ddl")
+		}
+
+		ddl, err := ioutil.ReadFile(path)
+		if err != nil {
+			logs.ErrorLog(err, "db.Conn.ExecDDL")
+		} else {
+
+			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			if err != nil {
+				logs.ErrorLog(err, "db.Conn.ExecDDL")
+			}
+		}
+	}
 
 	return db, nil
 }
 
+// ReadTableSQL perform ddl script for tables
 func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -131,7 +149,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
 
 			case IsErrorDoesNotExists(err):
-				errParts := regDoesNotEsists.FindStringSubmatch(err.Error())
+				errParts := regDoesNotExist.FindStringSubmatch(err.Error())
 				if len(errParts) > 1 {
 					db.readTables[errParts[1]] = path
 				}
