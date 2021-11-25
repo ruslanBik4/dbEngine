@@ -26,15 +26,15 @@ type Table struct {
 }
 
 func NewTable(filePath string) (*Table, error) {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return nil, errors.Wrap(err, "os.Open "+filePath)
+	t := &Table{}
+	if filePath > "" {
+		err := t.InitConn(context.Background(), filePath)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &Table{
-		csv:      csv.NewReader(f),
-		fileName: strings.Split(path.Base(filePath), ".")[0],
-	}, nil
+	return t, nil
 }
 
 // Indexes get indexex according to table
@@ -46,6 +46,14 @@ func (t *Table) Comment() string {
 }
 
 func (t *Table) InitConn(ctx context.Context, filePath string) error {
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return errors.Wrap(err, "os.Open "+filePath)
+	}
+
+	t.csv = csv.NewReader(f)
+	t.fileName = strings.Split(path.Base(filePath), ".")[0]
 
 	return t.GetColumns(ctx)
 }
