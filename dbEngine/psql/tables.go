@@ -16,7 +16,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
-// FieldsTable for columns parameters in form
+// Table implement dbEngine interface Table for PostgreSQL
 type Table struct {
 	conn       *Conn
 	name, Type string
@@ -27,6 +27,17 @@ type Table struct {
 	PK         string
 	buf        *Column
 	lock       sync.RWMutex
+}
+
+func (t *Table) DoCopy(ctx context.Context, src pgx.CopyFromSource, columns ...string) (int64, error) {
+	if len(columns) == 0 {
+		columns = make([]string, len(t.columns))
+		for i, col := range t.columns {
+			columns[i] = col.name
+		}
+	}
+
+	return t.conn.Pool.CopyFrom(ctx, pgx.Identifier{t.name}, columns, src)
 }
 
 func (t *Table) Comment() string {

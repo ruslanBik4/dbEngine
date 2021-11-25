@@ -58,11 +58,9 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			switch col.Type() {
 			case "numeric":
 				typeCol = "psql.Numeric"
-				packages += c.addImport(packages, moduloDEpsql)
 				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
 			case "decimal":
 				typeCol = "psql.Decimal"
-				packages += c.addImport(packages, moduloDEpsql)
 				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
 			}
 
@@ -114,7 +112,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, typeTitle, name, fields)
+	_, err = fmt.Fprintf(f, typeTitle, name, fields, table.Name())
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}

@@ -7,7 +7,6 @@ package mock
 import (
 	"github.com/pkg/errors"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
-	"github.com/ruslanBik4/logs"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 )
@@ -32,10 +31,13 @@ func (r Routine) Select(ctx context.Context, args ...interface{}) error {
 }
 
 func (r Routine) Call(ctx context.Context, args ...interface{}) error {
+	return r.checkParams(args)
+}
+
+func (r Routine) checkParams(args []interface{}) error {
 	for i, val := range args {
 		if !assert.IsType(r.Test, r.TypeParams[i], val) ||
 			assert.ObjectsAreEqualValues(val, r.ParamsIsCallError) {
-			logs.StatusLog(val)
 			return errors.New("test error during proc execute")
 		}
 	}
@@ -43,7 +45,7 @@ func (r Routine) Call(ctx context.Context, args ...interface{}) error {
 }
 
 func (r Routine) Overlay() dbEngine.Routine {
-	panic("implement me")
+	return nil
 }
 
 func (r Routine) Params() []dbEngine.Column {
@@ -55,13 +57,28 @@ func (r Routine) ReturnType() string {
 }
 
 func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
-	panic("implement me")
+	b := &dbEngine.SQLBuilder{}
+	for _, option := range Options {
+		option(b)
+	}
+
+	return r.checkParams(b.Args)
 }
 
 func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
-	panic("implement me")
+	b := &dbEngine.SQLBuilder{}
+	for _, option := range Options {
+		option(b)
+	}
+
+	return r.checkParams(b.Args)
 }
 
 func (r Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
-	panic("implement me")
+	b := &dbEngine.SQLBuilder{}
+	for _, option := range Options {
+		option(b)
+	}
+
+	return r.checkParams(b.Args)
 }

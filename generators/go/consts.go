@@ -6,7 +6,6 @@ package _go
 
 const (
 	moduloPgType = "github.com/jackc/pgtype"
-	moduloDEpsql = "github.com/ruslanBik4/dbEngine/dbEngine/psql"
 	moduloSql    = "database/sql"
 )
 
@@ -18,17 +17,112 @@ const (
 package db
 
 import (
+	"sync"
 	%s
+	"github.com/ruslanBik4/logs"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
+    "github.com/ruslanBik4/dbEngine/dbEngine/psql"
+
 	"golang.org/x/net/context"
 )
 
 `
 	typeTitle = `// %s object for database operations
 type %[1]s struct {
-	dbEngine.Table
+	*psql.Table
 	Record *%[1]sFields
+	doCopyPoll      []*FinanceMatchFields
+	doCopyPoolCount int
+	doCopyPoolColumns []string
+	doCopyValuesCount int
+	doCopyErr       error
+	lock       sync.RWMutex
 }
+
+// New%[1]s create new instance of table object
+func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
+	table, ok := db.Tables["%[3]s"]
+    if !ok {
+      return nil, dbEngine.ErrNotFoundTable{Table: "%[3]s"}
+    }
+
+    return &%[1]s{
+		Table: table.(*psql.Table),
+    }, nil
+}
+// Next
+func (t *%[1]s) Next() bool {
+	t.doCopyValuesCount++
+	return t.doCopyValuesCount < len(t.doCopyPoll)
+}
+// Values
+func (t *%[1]s) Values() ([]interface{}, error) {
+	res := make([]interface{}, len(t.doCopyPoolColumns))
+	for i, col := range t.doCopyPoolColumns {
+		res[i] = t.doCopyPoll[t.doCopyValuesCount].ColValue(col)
+	}
+
+	return res, nil
+}
+// Err
+func (t *%[1]s) Err() error {
+	return t.doCopyErr
+}
+// InitPoolCopy environments
+func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, d time.Duration, columns ...string) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.doCopyPoll = make([]*FinanceMatchFields, 0, capOfPool)
+	t.doCopyPoolCount = 0
+	if len(columns) > 0 {
+		t.doCopyPoolColumns = columns
+	} else {
+		t.doCopyPoolColumns = make([]string, len(t.Columns()))
+		for i, col := range t.Columns() {
+			t.doCopyPoolColumns[i] = col.Name()
+		}
+	}
+
+	go func() {
+		ticket := time.NewTicker(d)
+		for  {
+			select {
+			case <-ticket.C:
+				t.lock.Lock()
+				err := t.doCopy(ctx)
+				t.lock.Unlock()
+				if err != nil {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+}
+// AddToPoolCopy add 'record' into copy pool
+func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
+	if len(t.doCopyPoll) == 0 {
+		t.InitPoolCopy(ctx, 3, 100 * time.Millisecond)
+	}
+
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.doCopyPoll = append(t.doCopyPoll, record)
+	t.doCopyPoolCount++
+	if t.doCopyPoolCount == cap(t.doCopyPoll) {
+		err := t.doCopy(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // %[1]sFields data object for '%[1]s' columns
 type %[1]sFields struct {
 	// columns of table %s
@@ -72,17 +166,6 @@ func (r *%[1]sFields) GetValue() interface{} {
 // NewValue implement RouteDTO interface
 func (r *%[1]sFields) NewValue() interface{} {
 	return New%[1]sFields()
-}
-// New%[1]s create new instance of table object
-func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
-	table, ok := db.Tables["%[4]s"]
-    if !ok {
-      return nil, dbEngine.ErrNotFoundTable{Table: "%[4]s"}
-    }
-
-    return &%[1]s{
-		Table: table,
-    }, nil
 }
 // NewRecord return new row of table
 func (t *%[1]s) NewRecord() *%[1]sFields{
@@ -192,6 +275,25 @@ func (t *%[1]s) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	}
 
 	return t.Table.Upsert(ctx, Options...)
+}
+
+func (t *%[1]s) doCopy(ctx context.Context) error {
+	if len(t.doCopyPoll) == 0 {
+		return nil
+	}
+
+	t.doCopyValuesCount = -1
+	i, err := t.DoCopy(ctx, t, t.doCopyPoolColumns...)
+	if err != nil {
+		logs.ErrorLog(err, "during doCopy")
+		return err
+	}
+
+	logs.DebugLog("%%d record insert with CopyFrom", i)
+	t.doCopyPoll = t.doCopyPoll[:0]
+	t.doCopyPoolCount = 0
+
+	return nil
 }
 `
 )

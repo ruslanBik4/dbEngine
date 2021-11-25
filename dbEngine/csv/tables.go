@@ -25,14 +25,6 @@ type Table struct {
 	csv      *csv.Reader
 }
 
-// Indexes get indexex according to table
-func (t *Table) Indexes() dbEngine.Indexes {
-	return t.indexes
-}
-func (t *Table) Comment() string {
-	panic("implement me")
-}
-
 func NewTable(filePath string) (*Table, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -43,6 +35,14 @@ func NewTable(filePath string) (*Table, error) {
 		csv:      csv.NewReader(f),
 		fileName: strings.Split(path.Base(filePath), ".")[0],
 	}, nil
+}
+
+// Indexes get indexex according to table
+func (t *Table) Indexes() dbEngine.Indexes {
+	return t.indexes
+}
+func (t *Table) Comment() string {
+	panic("implement me")
 }
 
 func (t *Table) InitConn(ctx context.Context, filePath string) error {
@@ -107,6 +107,10 @@ func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	panic("implement me")
+}
+
+func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
