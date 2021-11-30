@@ -482,7 +482,7 @@ func TestConn_GetSchema(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			got, got1, gotTypes, err := c.GetSchema(tt.args.ctx)
+			_, got, got1, gotTypes, err := c.GetSchema(tt.args.ctx)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -1196,7 +1196,7 @@ func TestTable_Insert(t *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			assert.Implements(t1, (*dbEngine.Table)(nil), table)
+			assert.Implements(t1, (dbEngine.Table)(nil), table)
 		})
 	}
 }
@@ -1232,7 +1232,7 @@ func TestTable_Name(t1 *testing.T) {
 			if got := t.Name(); got != tt.want {
 				t1.Errorf("Name() = %v, want %v", got, tt.want)
 			}
-			assert.Implements(t1, (*dbEngine.Table)(nil), t)
+			assert.Implements(t1, (dbEngine.Table)(nil), t)
 		})
 	}
 }
@@ -1268,7 +1268,7 @@ func TestTable_Select(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			assert.Implements(t1, (*dbEngine.Table)(nil), t)
+			assert.Implements(t1, (dbEngine.Table)(nil), t)
 		})
 	}
 }

@@ -26,7 +26,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 		t.FailNow()
 	}
 
-	table.GetColumns(nil)
+	_ = table.GetColumns(nil)
 
 	tests := []struct {
 		name    string
@@ -54,7 +54,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 			// 	return
 			// }
 
-			if err := c.MakeStruct(tt.args.table); (err != nil) != tt.wantErr {
+			if err := c.MakeStruct(&dbEngine.DB{Name: "test", Schema: "test"}, tt.args.table); (err != nil) != tt.wantErr {
 				t.Errorf("MakeStruct() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

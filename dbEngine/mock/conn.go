@@ -33,7 +33,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (map[string]dbEngine.Routine, er
 	panic("implement me")
 }
 
-func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
+func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	panic("implement me")
 }
 

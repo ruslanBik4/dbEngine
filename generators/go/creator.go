@@ -34,7 +34,7 @@ func NewCreator(dst string) (*Creator, error) {
 }
 
 // MakeStruct create table interface with Columns operations
-func (c *Creator) MakeStruct(table dbEngine.Table) error {
+func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 	logs.SetDebug(true)
 	name := strcase.ToCamel(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
@@ -48,6 +48,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		bTypeCol := col.BasicType()
 		typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 		propName := strcase.ToCamel(col.Name())
+		defValue := col.Default()
 
 		switch {
 		case bTypeCol == types.Invalid:
@@ -56,12 +57,15 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 		case bTypeCol == types.UntypedFloat:
 			switch col.Type() {
-			case "numeric":
+			case "numeric", "decimal":
 				typeCol = "psql.Numeric"
-				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
-			case "decimal":
-				typeCol = "psql.Decimal"
-				initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
+				if defValue != nil {
+					initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("psql.NewNumericFromFloat64(%v)", defValue))
+					// prevent finally check default
+					defValue = nil
+				} else {
+					initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
+				}
 			}
 
 		case bTypeCol < 0:
@@ -80,11 +84,9 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 				} else {
 					typeCol = "time.Time"
 				}
-				packages += c.addImport(packages, "time")
 
 			case "timerange", "tsrange", "_date", "_timestampt", "_timestamptz", "_time":
 				typeCol = "[]time.Time"
-				packages += c.addImport(packages, "time")
 			default:
 				typeCol = "interface{}"
 			}
@@ -102,12 +104,16 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			typeCol = "[]" + typeCol
 		}
 
+		if !col.AutoIncrement() && defValue != nil {
+			initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
+		}
+
 		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
-	_, err = fmt.Fprintf(f, title, packages)
+	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}

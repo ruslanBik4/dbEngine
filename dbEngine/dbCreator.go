@@ -18,7 +18,7 @@ import (
 // ParserTableDDL is interface for parsing DDL file
 type ParserTableDDL struct {
 	Table
-	*DB
+	DB           *DB
 	err          error
 	filename     string
 	line         int
@@ -168,7 +168,7 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 		return false
 	}
 
-	_, ok := p.Tables[fields[1]]
+	_, ok := p.DB.Tables[fields[1]]
 	if !ok {
 		p.runDDL(ddl)
 	}
@@ -177,9 +177,9 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 }
 
 func (p *ParserTableDDL) runDDL(ddl string) {
-	err := p.Conn.ExecDDL(context.TODO(), ddl)
+	err := p.DB.Conn.ExecDDL(context.TODO(), ddl)
 	if err == nil {
-		if p.Conn.LastRowAffected() > 0 {
+		if p.DB.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
 		} else if !strings.HasPrefix(ddl, "insert") {
 			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
@@ -213,12 +213,12 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 				return false
 			}
 
-			err := p.Conn.ExecDDL(context.TODO(), ddl)
+			err := p.DB.Conn.ExecDDL(context.TODO(), ddl)
 			if err != nil {
 				if IsErrorCntChgView(err) {
-					err = p.Conn.ExecDDL(context.TODO(), "DROP VIEW "+p.Name()+" CASCADE")
+					err = p.DB.Conn.ExecDDL(context.TODO(), "DROP VIEW "+p.Name()+" CASCADE")
 					if err == nil {
-						err = p.Conn.ExecDDL(context.TODO(), ddl)
+						err = p.DB.Conn.ExecDDL(context.TODO(), ddl)
 					}
 				}
 

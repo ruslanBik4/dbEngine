@@ -24,12 +24,15 @@ import (
 type DB struct {
 	Cfg        map[string]interface{}
 	Conn       Connection
+	Name       string
+	Schema     string
 	Tables     map[string]Table
 	Types      map[string]Types
 	Routines   map[string]Routine
 	modFuncs   []string
 	newFuncs   []string
 	readTables map[string]string
+	DbSet      map[string]*string
 }
 
 // NewDB create new DB instance & performs something migrations
@@ -46,10 +49,12 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 
 		if doRead, ok := ctx.Value(DB_GET_SCHEMA).(bool); ok && doRead {
-			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
+			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}
+			db.Name = *db.DbSet["db_name"]
+			db.Schema = *db.DbSet["db_schema"]
 			if doRead, ok = ctx.Value("makeStruct").(bool); ok && doRead {
 
 			}
@@ -80,7 +85,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 				logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
 			}
 
-			db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
+			_, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}

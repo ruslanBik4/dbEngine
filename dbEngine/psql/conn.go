@@ -115,14 +115,14 @@ func (c *Conn) LastRowAffected() int64 {
 }
 
 // GetSchema read DB schema & store it
-func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
+func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	tables, err := c.GetTablesProp(ctx)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "GetTablesProp")
+		return nil, nil, nil, nil, errors.Wrap(err, "GetTablesProp")
 	}
 	routines, err := c.GetRoutines(ctx)
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "GetRoutines")
+		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
 	types := make(map[string]dbEngine.Types)
 
@@ -136,12 +136,16 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[st
 			return nil
 		}, sqlTypesList)
 
-	// logs.DebugLog("types:")
-	// for name, tip := range types {
-	// 	logs.DebugLog("%s: %+v", name, tip)
-	// }
-
-	return tables, routines, types, err
+	database := make(map[string]*string)
+	err = c.SelectOneAndScan(ctx, database,
+		`SELECT current_database() as db_name, current_schema() as db_schema,
+       current_setting('work_mem') as work_mem, current_setting('datestyle') as datestyle,
+       current_setting('port') as db_port,
+       current_user as db_user`)
+	if err != nil {
+		logs.ErrorLog(err, "during getting settings")
+	}
+	return database, tables, routines, types, err
 }
 
 // GetTablesProp получение данных таблиц по условию
@@ -350,9 +354,24 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 		return pgx.ErrNoRows
 	}
 
+	columns := c.getColumns(row, conn)
 	switch r := rowValues.(type) {
 	case dbEngine.RowScanner:
-		return row.Scan(r.GetFields(c.getColumns(row, conn))...)
+		return row.Scan(r.GetFields(columns)...)
+
+	case map[string]*string:
+		if len(r) == 0 {
+			for _, col := range columns {
+				r[col.Name()] = new(string)
+			}
+		}
+
+		v := make([]interface{}, len(r))
+		for i, col := range columns {
+			v[i] = r[col.Name()]
+		}
+
+		return row.Scan(v...)
 
 	case []interface{}:
 		return row.Scan(r...)

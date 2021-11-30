@@ -20,6 +20,14 @@ func NewNumericNull() Numeric {
 	return Numeric{&pgtype.Numeric{Status: pgtype.Null}}
 }
 
+// NewNumericFromFloat64 create Numeric with NULL
+func NewNumericFromFloat64(value float64) Numeric {
+	numeric := &pgtype.Numeric{Status: pgtype.Present}
+	_ = numeric.Set(value)
+
+	return Numeric{numeric}
+}
+
 // Set has performing []byte src
 func (dst *Numeric) Set(src interface{}) error {
 
@@ -73,29 +81,4 @@ func (dst *Numeric) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	}
 
 	return dst.Numeric.DecodeBinary(ci, src)
-}
-
-// Decimal expanded pgtype.Numeric
-type Decimal struct {
-	*pgtype.Numeric
-}
-
-// Set has performing []byte src
-func (dst *Decimal) Set(src interface{}) error {
-	if dst.Numeric == nil {
-		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
-	}
-
-	if src == nil {
-		return nil
-	}
-
-	switch value := src.(type) {
-	case []byte:
-		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
-	default:
-		return dst.Numeric.Set(src)
-	}
-
-	return nil
 }

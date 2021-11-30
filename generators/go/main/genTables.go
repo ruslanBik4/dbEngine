@@ -50,7 +50,7 @@ func main() {
 	}
 
 	for name, table := range db.Tables {
-		err = creator.MakeStruct(table)
+		err = creator.MakeStruct(db, table)
 		if err != nil {
 			logs.ErrorLog(errors.Wrap(err, "makeStruct - "+name))
 		}
