@@ -5,7 +5,7 @@
 package mock
 
 import (
-	"fmt"
+	"github.com/ruslanBik4/logs"
 	"regexp"
 
 	"github.com/jackc/pgtype/pgxtype"
@@ -22,7 +22,20 @@ type Conn struct {
 }
 
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
-	panic("implement me")
+
+	if !regSQl.MatchString(sql) {
+		return errors.New(sql)
+	}
+
+	if !c.Call.Arguments.Is(args...) {
+		logs.DebugLog("args failes")
+	}
+
+	c.Call.Run(func(args mock.Arguments) {
+		logs.StatusLog(args.String())
+	})
+
+	return nil
 }
 
 func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
@@ -44,7 +57,7 @@ func (c *Conn) GetStat() string {
 var regSQl = regexp.MustCompile(`select\s+(\.+)\s+from\s+`)
 
 func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error {
-	fmt.Print(sql)
+	logs.StatusLog(sql)
 	if regSQl.MatchString(sql) {
 		return nil
 	}

@@ -19,11 +19,16 @@ type Routine struct {
 }
 
 func (r Routine) Name() string {
-	panic("implement me")
+	return "mock DB  routine"
 }
 
 func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args []interface{}, err error) {
-	panic("implement me")
+	b := &dbEngine.SQLBuilder{}
+	for _, option := range Options {
+		_ = option(b)
+	}
+
+	return b.Select(), b.Args, nil
 }
 
 func (r Routine) Select(ctx context.Context, args ...interface{}) error {
@@ -59,7 +64,7 @@ func (r Routine) ReturnType() string {
 func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
-		option(b)
+		_ = option(b)
 	}
 
 	return r.checkParams(b.Args)
@@ -68,7 +73,7 @@ func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowVa
 func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
-		option(b)
+		_ = option(b)
 	}
 
 	return r.checkParams(b.Args)
@@ -77,7 +82,7 @@ func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options 
 func (r Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
-		option(b)
+		_ = option(b)
 	}
 
 	return r.checkParams(b.Args)
