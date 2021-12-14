@@ -194,6 +194,7 @@ var dataTypeAlias = map[string][]string{
 	"character varying":           {"varchar(255)", "varchar"},
 	"character":                   {"char"},
 	"integer":                     {"serial", "int"},
+	"smallint":                    {"smallserial"},
 	"bigint":                      {"bigserial"},
 	"double precision":            {"float", "real"},
 	"timestamp without time zone": {"timestamp"},

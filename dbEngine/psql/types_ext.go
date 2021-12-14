@@ -5,7 +5,9 @@
 package psql
 
 import (
+	"github.com/pkg/errors"
 	"math/big"
+	"strconv"
 
 	"github.com/jackc/pgtype"
 )
@@ -63,6 +65,25 @@ func (src *Numeric) AssignTo(dst interface{}) error {
 	}
 
 	return nil
+}
+
+func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
+	switch src.Status {
+	case pgtype.Null:
+		return nil, nil
+	case pgtype.Undefined:
+		return nil, errors.New("cannot encode status undefined")
+	}
+
+	if src.NaN {
+		buf = append(buf, "NaN"...)
+		return buf, nil
+	}
+
+	buf = append(buf, strconv.FormatUint(src.Int.Uint64(), 10)...)
+	buf = append(buf, 'e')
+	buf = append(buf, strconv.FormatInt(int64(src.Exp), 10)...)
+	return buf, nil
 }
 
 // DecodeText expand pgtype.Numeric.DecodeText
