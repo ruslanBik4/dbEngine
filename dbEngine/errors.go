@@ -6,9 +6,13 @@ package dbEngine
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
+	"github.com/ruslanBik4/logs"
 )
 
 var ErrDBNotFound = errors.New("DB not found")
@@ -126,6 +130,38 @@ func IsErrorCntChgView(err error) bool {
 	}
 
 	return false
+}
+
+var (
+	regKeyWrong   = regexp.MustCompile(`Key\s+\((\w+)\)=\((.+)\)([^.]+)`)
+	regDuplicated = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
+)
+
+// IsErrorDuplicated indicate about abort updating becouse there is a duplicated reroc
+func IsErrorDuplicated(err error) (map[string]string, bool) {
+	if err == pgx.ErrNoRows {
+		return nil, false
+	}
+	msg := err.Error()
+	e, ok := errors.Cause(err).(*pgconn.PgError)
+	if ok {
+		msg = e.Detail
+	}
+
+	if s := regKeyWrong.FindStringSubmatch(msg); len(s) > 0 {
+		return map[string]string{
+			s[1]: "`" + s[2] + "`" + s[3],
+		}, true
+	}
+
+	if s := regDuplicated.FindStringSubmatch(msg); len(s) > 0 {
+		logs.DebugLog("%#v %[1]T", errors.Cause(err))
+		return map[string]string{
+			s[1]: "duplicate key value violates unique constraint",
+		}, true
+	}
+
+	return nil, false
 }
 
 // ErrWrongType if not found in field {Name} field by name {Column}
