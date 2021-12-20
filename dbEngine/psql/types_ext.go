@@ -22,12 +22,24 @@ func NewNumericNull() Numeric {
 	return Numeric{&pgtype.Numeric{Status: pgtype.Null}}
 }
 
-// NewNumericFromFloat64 create Numeric with NULL
+// NewNumericFromFloat64 create Numeric with float value
 func NewNumericFromFloat64(value float64) Numeric {
 	numeric := &pgtype.Numeric{Status: pgtype.Present}
 	_ = numeric.Set(value)
 
 	return Numeric{numeric}
+}
+
+// NewNumericFromBytes create Numeric from bytes
+func NewNumericFromBytes(value []byte) (*Numeric, error) {
+	numeric := &Numeric{&pgtype.Numeric{Status: pgtype.Present}}
+	err := numeric.Set(value)
+	if err != nil {
+		numeric.Status = pgtype.Null
+		return nil, err
+	}
+
+	return numeric, nil
 }
 
 // Set has performing []byte src
