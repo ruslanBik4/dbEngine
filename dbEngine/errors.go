@@ -139,6 +139,7 @@ var (
 
 // IsErrorDuplicated indicate about abort updating becouse there is a duplicated reroc
 func IsErrorDuplicated(err error) (map[string]string, bool) {
+	logs.ErrorLog(err)
 	if err == pgx.ErrNoRows {
 		return nil, false
 	}

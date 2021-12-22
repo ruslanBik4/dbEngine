@@ -16,6 +16,36 @@ type Table struct {
 	columns    []dbEngine.Column
 }
 
+func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *Table) Indexes() dbEngine.Indexes {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *Table) ReReadColumn(name string) dbEngine.Column {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+	//TODO implement me
+	panic("implement me")
+}
+
+func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
+	//TODO implement me
+	panic("implement me")
+}
+
 func NewTable(name string, typ string, comment string, columns ...dbEngine.Column) *Table {
 	return &Table{name: name, Type: typ, comment: comment, columns: columns}
 }
@@ -41,18 +71,6 @@ func (t *Table) ExecDDL(ctx context.Context, sql string, args ...interface{}) er
 }
 
 func (t *Table) NewTable(name, typ string) dbEngine.Table {
-	panic("implement me")
-}
-
-func (t *Table) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
-	panic("implement me")
-}
-
-func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, sql string, args ...interface{}) error {
-	panic("implement me")
-}
-
-func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 

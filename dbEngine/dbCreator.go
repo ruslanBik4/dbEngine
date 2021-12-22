@@ -186,6 +186,7 @@ func (p *ParserTableDDL) runDDL(ddl string) {
 		}
 	} else if IsErrorAlreadyExists(err) {
 		err = nil
+		//logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
 	} else if err != nil {
 		logError(err, ddl, p.filename)
 		p.err = err
@@ -384,15 +385,14 @@ func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 }
 
 func (p *ParserTableDDL) updateIndex(ddl string) bool {
-	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
-	if len(columns) == 0 {
-		return false
-	}
-
-	ind, err := p.createIndex(columns, ddlIndex)
+	ind, err := p.checkDdlCreateIndex(ddl)
 	if err != nil {
 		p.err = err
 		return true
+	}
+
+	if ind == nil {
+		return false
 	}
 
 	if pInd := p.FindIndex(ind.Name); pInd != nil {
@@ -434,10 +434,21 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	return true
 }
 
-func (p ParserTableDDL) createIndex(columns []string, regexp *regexp.Regexp) (*Index, error) {
+func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
+
+	regIndex := ddlIndex
+	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
+	if len(columns) == 0 {
+		columns = ddlForeignIndex.FindStringSubmatch(strings.ToLower(ddl))
+		if len(columns) == 0 {
+			return nil, nil
+		}
+		regIndex = ddlForeignIndex
+	}
 
 	var ind Index
-	for i, name := range regexp.SubexpNames() {
+	for i, name := range regIndex.SubexpNames() {
+
 		if !(i < len(columns)) {
 			return nil, errors.New("out if columns!" + name)
 		}

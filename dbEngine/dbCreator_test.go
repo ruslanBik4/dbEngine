@@ -382,8 +382,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			columns := ddlIndex.FindStringSubmatch(strings.ToLower(tt.ddl))
-			got, err := p.createIndex(columns, ddlIndex)
+			got, err := p.checkDdlCreateIndex(strings.ToLower(tt.ddl))
 			if tt.wantErr && !assert.NotNil(t, err) {
 				return
 			}
@@ -702,6 +701,7 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 		Routines: nil,
 		modFuncs: nil,
 		newFuncs: nil,
+		Name:     DB_GET_SCHEMA,
 	}
 	tests := []struct {
 		name   string
@@ -714,6 +714,12 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 			"simple index",
 			fields{
 				DB: &testDB,
+				Table: &TableString{
+					columns: nil,
+					indexes: nil,
+					name:    "test",
+					comment: "",
+				},
 			},
 			testCandidate,
 			true,
