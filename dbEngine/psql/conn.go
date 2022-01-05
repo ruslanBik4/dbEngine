@@ -29,15 +29,16 @@ type fncAcqu func(context.Context, *pgx.Conn) bool
 type Conn struct {
 	*pgxpool.Pool
 	*pgxpool.Config
-	AfterConnect  fncConn
-	BeforeAcquire fncAcqu
-	NoticeHandler pgconn.NoticeHandler
-	NoticeMap     map[uint32]*pgconn.Notice
-	channels      []string
-	ctxPool       context.Context
-	lastComTag    pgconn.CommandTag
-	Cancel        context.CancelFunc
-	lock          *sync.RWMutex
+	AfterConnect   fncConn
+	BeforeAcquire  fncAcqu
+	ChannelHandler pgconn.NotificationHandler
+	NoticeHandler  pgconn.NoticeHandler
+	NoticeMap      map[uint32]*pgconn.Notice
+	channels       []string
+	ctxPool        context.Context
+	lastComTag     pgconn.CommandTag
+	Cancel         context.CancelFunc
+	lock           *sync.RWMutex
 }
 
 // NewConn create new instance
@@ -626,6 +627,10 @@ func (c *Conn) listen(ch string) {
 			return
 		}
 
+		if c.ChannelHandler != nil {
+			c.ChannelHandler(conn.Conn().PgConn(), n)
+			continue
+		}
 		// todo: implements performs of messages
 		switch n.Payload {
 		// case "all_calc":
