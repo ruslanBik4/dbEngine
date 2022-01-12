@@ -32,7 +32,7 @@ import (
 type %[1]s struct {
 	*psql.Table
 	Record 				*%[1]sFields
-	doCopyPoll      	[]*%[1]sFields
+	DoCopyPoll      	[]*%[1]sFields
 	doCopyPoolCount 	int
 	doCopyPoolColumns 	[]string
 	doCopyValuesCount 	int
@@ -54,13 +54,13 @@ func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
 // Next
 func (t *%[1]s) Next() bool {
 	t.doCopyValuesCount++
-	return t.doCopyValuesCount < len(t.doCopyPoll)
+	return t.doCopyValuesCount < len(t.DoCopyPoll)
 }
 // Values
 func (t *%[1]s) Values() ([]interface{}, error) {
 	res := make([]interface{}, len(t.doCopyPoolColumns))
 	for i, col := range t.doCopyPoolColumns {
-		res[i] = t.doCopyPoll[t.doCopyValuesCount].ColValue(col)
+		res[i] = t.DoCopyPoll[t.doCopyValuesCount].ColValue(col)
 	}
 
 	return res, nil
@@ -70,11 +70,11 @@ func (t *%[1]s) Err() error {
 	return t.doCopyErr
 }
 // InitPoolCopy environments
-func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, d time.Duration, columns ...string) {
+func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan error, d time.Duration, columns ...string) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.doCopyPoll = make([]*%[1]sFields, 0, capOfPool)
+	t.DoCopyPoll = make([]*%[1]sFields, 0, capOfPool)
 	t.doCopyPoolCount = 0
 	if len(columns) > 0 {
 		t.doCopyPoolColumns = columns
@@ -94,6 +94,10 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, d time.Duration
 				err := t.doCopy(ctx)
 				t.lock.Unlock()
 				if err != nil {
+					if chErr != nil {
+					   *chErr <- err
+					}
+					t.doCopyErr = err
 					return
 				}
 			case <-ctx.Done():
@@ -105,16 +109,20 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, d time.Duration
 }
 // AddToPoolCopy add 'record' into copy pool
 func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
-	if cap(t.doCopyPoll) == 0 {
-		t.InitPoolCopy(ctx, 3, 100 * time.Millisecond)
+	if t.doCopyErr != nil {
+		return t.doCopyErr
+	}
+
+	if cap(t.DoCopyPoll) == 0 {
+		t.InitPoolCopy(ctx, 3, nil,  100 * time.Millisecond)
 	}
 
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
-	t.doCopyPoll = append(t.doCopyPoll, record)
+	t.DoCopyPoll = append(t.DoCopyPoll, record)
 	t.doCopyPoolCount++
-	if t.doCopyPoolCount == cap(t.doCopyPoll) {
+	if t.doCopyPoolCount == cap(t.DoCopyPoll) {
 		err := t.doCopy(ctx)
 		if err != nil {
 			return err
@@ -279,7 +287,7 @@ func (t *%[1]s) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 func (t *%[1]s) doCopy(ctx context.Context) error {
-	if len(t.doCopyPoll) == 0 {
+	if len(t.DoCopyPoll) == 0 {
 		return nil
 	}
 
@@ -291,7 +299,7 @@ func (t *%[1]s) doCopy(ctx context.Context) error {
 	}
 
 	logs.DebugLog("%%d record insert with CopyFrom", i)
-	t.doCopyPoll = t.doCopyPoll[:0]
+	t.DoCopyPoll = t.DoCopyPoll[:0]
 	t.doCopyPoolCount = 0
 
 	return nil
