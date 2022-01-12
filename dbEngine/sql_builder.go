@@ -280,7 +280,6 @@ loop_columns:
 	for _, name := range b.columns {
 		for _, col := range b.filter {
 			if col == name {
-				fmt.Println(name)
 				continue loop_columns
 			}
 		}

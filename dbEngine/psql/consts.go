@@ -6,10 +6,14 @@ package psql
 
 const (
 	sqlTableList = `SELECT table_name, table_type,
-					COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
-				   		AS comment
-					FROM INFORMATION_SCHEMA.tables
-					WHERE table_schema = 'public' 
+						COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
+							AS comment
+						FROM INFORMATION_SCHEMA.tables
+						WHERE table_schema = 'public' 
+					union
+						select c.relname, 'MATERIALIZED VIEW', COALESCE(pg_catalog.obj_description(c.oid, 'pg_class'), '')
+						FROM pg_catalog.pg_class c
+						WHERE c.relkind = 'm'
 					order by 1`
 	sqlFuncList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
 					FROM INFORMATION_SCHEMA.routines
