@@ -136,6 +136,9 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 			}
 			return nil
 		}, sqlTypesList)
+	if err != nil {
+		logs.ErrorLog(err, "during getting settings")
+	}
 
 	database := make(map[string]*string)
 	err = c.SelectOneAndScan(ctx, database,
@@ -146,6 +149,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 	if err != nil {
 		logs.ErrorLog(err, "during getting settings")
 	}
+
 	return database, tables, routines, types, err
 }
 
@@ -188,7 +192,7 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 	return
 }
 
-// GetRoutines get params ect of DB routines
+// GetRoutines get properties of DB routines & returns them as map
 func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngine.Routine, err error) {
 
 	RoutinesCache = make(map[string]dbEngine.Routine, 0)
@@ -209,7 +213,15 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 				Type:  rowType,
 			}
 			row.DataType, ok = values[3].(string)
+			if !ok {
+				return nil
+			}
+
 			row.UdtName, ok = values[4].(string)
+			if !ok {
+				return nil
+			}
+
 			name := values[1].(string)
 
 			fnc, ok := RoutinesCache[name].(*Routine)
@@ -530,6 +542,10 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 				columns = c.getColumns(rows, conn)
 			}
 			err = each(values, columns)
+			if err != nil {
+				break
+			}
+
 		}
 	}
 

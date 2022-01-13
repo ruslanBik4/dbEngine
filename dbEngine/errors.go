@@ -137,7 +137,7 @@ var (
 	regDuplicated = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
 )
 
-// IsErrorDuplicated indicate about abort updating becouse there is a duplicated reroc
+// IsErrorDuplicated indicate about abort updating because there is a duplicated reroc
 func IsErrorDuplicated(err error) (map[string]string, bool) {
 	logs.ErrorLog(err)
 	if err == pgx.ErrNoRows {

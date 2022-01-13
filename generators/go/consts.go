@@ -84,6 +84,7 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan err
 			t.doCopyPoolColumns[i] = col.Name()
 		}
 	}
+	t.doCopyErr = nil
 
 	go func() {
 		ticket := time.NewTicker(d)
