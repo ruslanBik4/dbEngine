@@ -123,7 +123,7 @@ func (ind *Index) GetFields(columns []Column) []interface{} {
 	return fields
 }
 
-// Indexes claster indexe of table
+// Indexes cluster index of table
 type Indexes []*Index
 
 func (i *Indexes) GetFields(columns []Column) []interface{} {
@@ -137,6 +137,7 @@ func (i Indexes) LastIndex() *Index {
 	return i[len(i)-1]
 }
 
+// RowScanner must return slice variables for pgx.Rows.Scan
 type RowScanner interface {
 	GetFields(columns []Column) []interface{}
 }
