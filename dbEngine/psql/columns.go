@@ -204,7 +204,7 @@ var dataTypeAlias = map[string][]string{
 	"ARRAY":        {"integer[]", "character varying[]", "citext[]", "bpchar[]", "char"},
 }
 
-// todo: add check arrays
+// CheckAttr check attributes of column on DB schema according to ddl-file
 func (c *Column) CheckAttr(fieldDefine string) (res string) {
 	fieldDefine = strings.ToLower(fieldDefine)
 	isNotNull := strings.Contains(fieldDefine, isNotNullable)
@@ -214,6 +214,7 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 		res += " is not nullable "
 	}
 
+	// todo: add check arrays
 	lenCol := c.CharacterMaximumLength()
 	udtName := c.UdtName
 	if strings.HasPrefix(udtName, "_") {

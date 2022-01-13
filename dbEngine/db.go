@@ -7,6 +7,7 @@ package dbEngine
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -35,6 +36,12 @@ type DB struct {
 	DbSet      map[string]*string
 }
 
+var (
+	migrationOrder = []string{
+		"types", "table", "view", "func",
+	}
+)
+
 // NewDB create new DB instance & performs something migrations
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
@@ -60,26 +67,21 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			}
 		}
 		if mPath, ok := ctx.Value(DB_MIGRATION).(string); ok {
-			err = filepath.WalkDir(filepath.Join(mPath, "types"), db.readAndReplaceTypes)
-			if err != nil {
-				return nil, errors.Wrap(err, "migration types")
+			migrationParts := map[string]fs.WalkDirFunc{
+				"types": db.readAndReplaceTypes,
+				"table": db.ReadTableSQL,
+				"view":  db.ReadViewSQL,
+				"func":  db.readAndReplaceFunc,
 			}
 
-			err = filepath.WalkDir(filepath.Join(mPath, "table"), db.ReadTableSQL)
-			if err != nil {
-				return nil, errors.Wrap(err, "migration tables")
-			}
+			for _, name := range migrationOrder {
 
-			err = filepath.WalkDir(filepath.Join(mPath, "view"), db.ReadViewSQL)
-			if err != nil {
-				return nil, errors.Wrap(err, "migration views")
-			}
+				err = filepath.WalkDir(filepath.Join(mPath, name), migrationParts[name])
+				if err != nil {
+					return nil, errors.Wrap(err, "migration "+name)
+				}
 
-			err = filepath.WalkDir(filepath.Join(mPath, "func"), db.readAndReplaceFunc)
-			if err != nil {
-				return nil, errors.Wrap(err, "migration func")
 			}
-
 			logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
 			if len(db.modFuncs) > 0 {
 				logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
@@ -90,12 +92,14 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 				return nil, err
 			}
 
-			// db.Routines, err = conn.GetRoutines(ctx)
-			// if err != nil {
-			// 	logs.ErrorLog(err, "refresh func")
-			// }
 		}
 	}
+	db.runTestInitScript(ctx)
+
+	return db, nil
+}
+
+func (db *DB) runTestInitScript(ctx context.Context) {
 	if path, ok := ctx.Value(DB_TEST_INIT).(string); ok {
 		if path == "" {
 			path = filepath.Join("cfg/DB", "test_init.ddl")
@@ -112,8 +116,6 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			}
 		}
 	}
-
-	return db, nil
 }
 
 // ReadTableSQL perform ddl script for tables
@@ -215,10 +217,6 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	}
 }
 
-var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
-
-//var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
-
 func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -244,47 +242,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 			}
 
 			if IsErrorAlreadyExists(err) {
-				ddl := strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1)))
-				fields := regTypeAttr.FindStringSubmatch(ddl)
-				err = nil
-
-				for i, name := range regTypeAttr.SubexpNames() {
-					if name == "fields" && (i < len(fields)) {
-
-						nameFields := strings.Split(fields[i], ",")
-						for _, name := range nameFields {
-
-							ddlAlterType := "alter type " + typeName
-							ddlType := ddlAlterType + " add attribute " + name
-							err = db.Conn.ExecDDL(context.TODO(), ddlType)
-							if err == nil {
-								logs.StatusLog(prefix, ddlType)
-							} else if IsErrorAlreadyExists(err) {
-								p := strings.Split(strings.TrimSpace(name), " ")
-								if len(p) < 2 {
-									err = ErrWrongType{
-										Name:     name,
-										TypeName: typeName,
-										Attr:     p[0],
-									}
-								} else {
-									ddlAlterType += " alter attribute " + p[0] + " SET DATA TYPE "
-									for _, val := range p[1:] {
-										ddlAlterType += " " + val
-									}
-									err = db.Conn.ExecDDL(context.TODO(), ddlAlterType)
-									if err == nil {
-										logs.StatusLog(prefix, ddlAlterType)
-									}
-								}
-							}
-
-							if err != nil {
-								logs.ErrorLog(err, name, ddlAlterType)
-							}
-						}
-					}
-				}
+				err = db.alterType(typeName, strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1))))
 			} else if IsErrorForReplace(err) {
 				logError(err, ddlType, fileName)
 				err = nil
@@ -300,6 +258,55 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 	}
 
 	return err
+}
+
+var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
+
+//var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
+
+func (db *DB) alterType(typeName, ddl string) error {
+	fields := regTypeAttr.FindStringSubmatch(ddl)
+
+	for i, name := range regTypeAttr.SubexpNames() {
+		if name == "fields" && (i < len(fields)) {
+
+			nameFields := strings.Split(fields[i], ",")
+			for _, name := range nameFields {
+
+				ddlAlterType := "alter type " + typeName
+				ddlType := ddlAlterType + " add attribute " + name
+				err := db.Conn.ExecDDL(context.TODO(), ddlType)
+				if err == nil {
+					logs.StatusLog(prefix, ddlType)
+				} else if IsErrorAlreadyExists(err) {
+					p := strings.Split(strings.TrimSpace(name), " ")
+					if len(p) < 2 {
+						err = ErrWrongType{
+							Name:     name,
+							TypeName: typeName,
+							Attr:     p[0],
+						}
+					} else {
+						ddlAlterType += " alter attribute " + p[0] + " SET DATA TYPE "
+						for _, val := range p[1:] {
+							ddlAlterType += " " + val
+						}
+						err = db.Conn.ExecDDL(context.TODO(), ddlAlterType)
+						if err == nil {
+							logs.StatusLog(prefix, ddlAlterType)
+						}
+					}
+				}
+
+				if err != nil {
+					logs.ErrorLog(err, name, ddlAlterType)
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 var (

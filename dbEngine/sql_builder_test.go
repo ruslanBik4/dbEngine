@@ -700,8 +700,8 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		indexes: Indexes{
 			{
 				Name: "photos_test",
-				Expr: "",
-				// Expr:    "digest(blob, 'sha1')",
+				//Expr: "",
+				Expr:    "digest(blob, 'sha1')",
 				Unique:  true,
 				Columns: []string{"blob", "name"},
 			},
@@ -803,7 +803,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(last_login,name,id_roles, blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
+			"INSERT INTO StringTable(last_login,name,id_roles,blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
 			false,
 		},
 		{
@@ -815,7 +815,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTwoColumns,
 				"",
 			},
-			fmt.Sprintf(sqlTmpl, "candidate_id, vacancy_id", "id_roles, blob", "$1,$2,$3,$4"),
+			fmt.Sprintf(sqlTmpl, "candidate_id,vacancy_id", "id_roles,blob", "$1,$2,$3,$4"),
 			false,
 		},
 	}

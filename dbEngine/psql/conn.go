@@ -368,9 +368,21 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	}
 
 	columns := c.getColumns(row, conn)
+	dest := c.getFieldForScan(rowValues, columns)
+	if dest == nil {
+		return row.Scan(rowValues)
+	}
+
+	return row.Scan(dest...)
+}
+
+func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column) []interface{} {
 	switch r := rowValues.(type) {
+	case []interface{}:
+		return r
+
 	case dbEngine.RowScanner:
-		return row.Scan(r.GetFields(columns)...)
+		return r.GetFields(columns)
 
 	case map[string]*string:
 		if len(r) == 0 {
@@ -384,10 +396,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = r[col.Name()]
 		}
 
-		return row.Scan(v...)
-
-	case []interface{}:
-		return row.Scan(r...)
+		return v
 
 	case []string:
 		v := make([]interface{}, len(r))
@@ -395,7 +404,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	case []int32:
 		v := make([]interface{}, len(r))
@@ -403,7 +412,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	case []int64:
 		v := make([]interface{}, len(r))
@@ -411,7 +420,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	case []float32:
 		v := make([]interface{}, len(r))
@@ -419,7 +428,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	case []float64:
 		v := make([]interface{}, len(r))
@@ -427,7 +436,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	case []time.Time:
 		v := make([]interface{}, len(r))
@@ -435,10 +444,10 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 			v[i] = &(r[i])
 		}
 
-		return row.Scan(v...)
+		return v
 
 	default:
-		return row.Scan(rowValues)
+		return nil
 	}
 }
 

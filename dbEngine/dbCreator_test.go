@@ -348,7 +348,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
     on trades (date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
-				Expr:    "date_part('year' :: text))",
+				Expr:    "date_part('year' :: text, opendate",
 				Unique:  false,
 				Columns: []string{"opendate"},
 			},
@@ -365,7 +365,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
     on trades (year, date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
-				Expr:    "date_part('year' :: text, opendate))",
+				Expr:    "year, date_part('year' :: text, opendate",
 				Unique:  false,
 				Columns: []string{"year", "opendate"},
 			},

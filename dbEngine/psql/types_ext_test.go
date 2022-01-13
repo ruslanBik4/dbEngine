@@ -29,7 +29,9 @@ func TestNewNumericFromFloat64(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			n := NewNumericFromFloat64(tt.value)
 			assert.NotNil(t, n)
-			assert.Implements(t, (*pgtype.Numeric)(nil), n)
+			assert.Implements(t, (*pgtype.Value)(nil), &n)
+			assert.Implements(t, (*pgtype.TextDecoder)(nil), &n)
+			assert.Implements(t, (*pgtype.BinaryDecoder)(nil), &n)
 			var got float64
 			err := n.AssignTo(&got)
 			assert.Nil(t, err)
@@ -41,9 +43,9 @@ func TestNewNumericFromFloat64(t *testing.T) {
 func TestNewNumericNull(t *testing.T) {
 	n := NewNumericNull()
 	assert.NotNil(t, n)
-	assert.Implements(t, (*pgtype.Value)(nil), n)
-	assert.Implements(t, (*pgtype.TextDecoder)(nil), n)
-	assert.Implements(t, (*pgtype.BinaryDecoder)(nil), n)
+	assert.Implements(t, (*pgtype.Value)(nil), &n)
+	assert.Implements(t, (*pgtype.TextDecoder)(nil), &n)
+	assert.Implements(t, (*pgtype.BinaryDecoder)(nil), &n)
 	assert.Nil(t, n.Int)
 	assert.Equal(t, n.Status, pgtype.Null)
 }

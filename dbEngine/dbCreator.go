@@ -327,36 +327,12 @@ func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 		}
 		// change length
 		if strings.Contains(res, "has length") {
-			logs.DebugLog(res)
-			attr := strings.Split(title, " ")
-
-			typeDef := attr[0]
-			if typeDef == "character" ||
-				(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
-
-				typeDef += " " + attr[1]
-			}
-
-			sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
-			err = p.alterColumn(sql, fieldName, title, fs)
+			err = p.alterColumnsLength(fs, title, fieldName)
 		}
 
 		// change type
 		if strings.Contains(res, "type") {
-			attr := strings.Split(title, " ")
-			typeDef := attr[0]
-			if typeDef == "double" ||
-				(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
-				typeDef += " " + attr[1]
-			}
-			sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
-			if attr[0] == "money" && fs.Type() == "double precision" {
-				sql = fmt.Sprintf(
-					" type %s using %s::numeric::%[1]s",
-					attr[0], fieldName)
-			}
-
-			err = p.alterColumn(sql, fieldName, title, fs)
+			err = p.alterColumnsType(fs, title, fieldName)
 		}
 
 		// set not nullable
@@ -378,10 +354,41 @@ func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
 				fs.SetNullable(false)
 			}
 		}
-
 	}
 
 	return err
+}
+
+func (p ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) error {
+	attr := strings.Split(title, " ")
+	typeDef := attr[0]
+	if typeDef == "double" ||
+		(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
+		typeDef += " " + attr[1]
+	}
+	sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
+	if attr[0] == "money" && fs.Type() == "double precision" {
+		sql = fmt.Sprintf(
+			" type %s using %s::numeric::%[1]s",
+			attr[0], fieldName)
+	}
+
+	return p.alterColumn(sql, fieldName, title, fs)
+}
+
+func (p ParserTableDDL) alterColumnsLength(fs Column, title, fieldName string) error {
+	attr := strings.Split(title, " ")
+
+	typeDef := attr[0]
+	if typeDef == "character" ||
+		(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
+
+		typeDef += " " + attr[1]
+	}
+
+	sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
+
+	return p.alterColumn(sql, fieldName, title, fs)
 }
 
 func (p *ParserTableDDL) updateIndex(ddl string) bool {

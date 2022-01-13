@@ -229,6 +229,7 @@ func shrinkColName(name string) string {
 	return strings.TrimSpace(strings.Split(name, "::")[0])
 }
 
+// Select return select clause of sql query
 func (b *SQLBuilder) Select() string {
 	if len(b.columns) == 0 {
 		if b.Table != nil && len(b.Table.Columns()) > 0 {
@@ -249,6 +250,7 @@ func (b *SQLBuilder) fillColumns() {
 	}
 }
 
+// Set return SET clause of sql update query
 func (b *SQLBuilder) Set() (string, error) {
 	s, comma := " SET ", ""
 	if len(b.columns) == 0 {
@@ -265,6 +267,7 @@ func (b *SQLBuilder) Set() (string, error) {
 	return s, nil
 }
 
+// SetUpsert return SET clause of sql query  for handling error on insert
 func (b *SQLBuilder) SetUpsert() (string, error) {
 	s, comma := " SET", " "
 	if len(b.columns) == 0 {
@@ -290,6 +293,7 @@ loop_columns:
 	return s, nil
 }
 
+// Where return where-clause of sql query
 func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
@@ -344,6 +348,7 @@ func (b *SQLBuilder) Where() string {
 	return ""
 }
 
+// OnConflict return sql-text for handling error on insert
 func (b *SQLBuilder) OnConflict() string {
 	if b.onConflict == "" {
 		return ""
@@ -455,6 +460,7 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 	}
 }
 
+// OrderBy parameter for sql query
 func OrderBy(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -464,6 +470,7 @@ func OrderBy(columns ...string) BuildSqlOptions {
 	}
 }
 
+// InsertOnConflict parameter for sql query
 func InsertOnConflict(onConflict string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -473,6 +480,7 @@ func InsertOnConflict(onConflict string) BuildSqlOptions {
 	}
 }
 
+// InsertOnConflictDoNothing parameter for sql query
 func InsertOnConflictDoNothing() BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -482,6 +490,7 @@ func InsertOnConflictDoNothing() BuildSqlOptions {
 	}
 }
 
+// FetchOnlyRows parameter for sql query
 func FetchOnlyRows(i int) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
@@ -491,6 +500,7 @@ func FetchOnlyRows(i int) BuildSqlOptions {
 	}
 }
 
+// Offset parameter for sql query
 func Offset(i int) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
