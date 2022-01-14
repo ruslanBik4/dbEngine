@@ -39,6 +39,7 @@ func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
 		t.performsUpdate,
 		t.performsCreateExt,
 		t.alterTable,
+		t.alterMaterializedView,
 	}
 
 	return t
@@ -95,6 +96,16 @@ func (p *ParserTableDDL) performsCreateExt(ddl string) bool {
 
 func (p *ParserTableDDL) alterTable(ddl string) bool {
 	if !strings.HasPrefix(strings.ToLower(ddl), "alter table") {
+		return false
+	}
+
+	p.runDDL(ddl)
+
+	return true
+}
+
+func (p *ParserTableDDL) alterMaterializedView(ddl string) bool {
+	if !strings.Contains(strings.ToLower(ddl), "materialized view") {
 		return false
 	}
 

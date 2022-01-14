@@ -701,7 +701,7 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 		Routines: nil,
 		modFuncs: nil,
 		newFuncs: nil,
-		Name:     DB_GET_SCHEMA,
+		Name:     "DB_GET_SCHEMA",
 	}
 	tests := []struct {
 		name   string
@@ -819,4 +819,8 @@ func TestParserTableDDL_updateView(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDB_ReadTableSQL(t *testing.T) {
+	assert.IsType(t, (TypeCfgDB)(""), DB_SETTING, "test")
 }

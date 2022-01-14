@@ -10,16 +10,9 @@ import (
 
 const prefix = "DB_CONFIG"
 
-// regex consts
+// regex const's
 var (
 	regColumns = regexp.MustCompile(`\(([^():]+)`)
-)
-
-const (
-	DB_URL        = "dbURL"
-	DB_GET_SCHEMA = "fillSchema"
-	DB_MIGRATION  = "migration"
-	DB_TEST_INIT  = "run {cfg}/DB/test_init.ddl"
 )
 
 // regexp const for parsing DDL
@@ -30,4 +23,8 @@ var (
 	regField        = regexp.MustCompile(`(\w+)\s+([\w\s]+(\(\d+(,\s*\d+)?\))?[\w\[\]\s_]*)`)
 	regDefault      = regexp.MustCompile(`default\s+'?([^',\n]+)`)
 	regDoesNotExist = regexp.MustCompile(`relation\s+"(\w+)" does not exist`)
+)
+
+const (
+	DB_SETTING = TypeCfgDB("set of CfgDB")
 )

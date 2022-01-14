@@ -21,6 +21,16 @@ import (
 	"golang.org/x/net/context"
 )
 
+// CfgDB consist of setting for creating new DB
+type CfgDB struct {
+	Url       string
+	GetSchema *struct{}
+	PathCfg   *string
+	TestInit  *string
+}
+
+type TypeCfgDB string
+
 // DB name & schema
 type DB struct {
 	Cfg        map[string]interface{}
@@ -36,12 +46,6 @@ type DB struct {
 	DbSet      map[string]*string
 }
 
-var (
-	migrationOrder = []string{
-		"types", "table", "view", "func",
-	}
-)
-
 // NewDB create new DB instance & performs something migrations
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
@@ -49,71 +53,86 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		readTables: map[string]string{},
 	}
 
-	if dbUrl, ok := ctx.Value(DB_URL).(string); ok {
-		err := conn.InitConn(ctx, dbUrl)
+	if cfg, ok := ctx.Value(DB_SETTING).(CfgDB); ok {
+		err := conn.InitConn(ctx, cfg.Url)
 		if err != nil {
 			return nil, err
 		}
 
-		if doRead, ok := ctx.Value(DB_GET_SCHEMA).(bool); ok && doRead {
+		if cfg.GetSchema != nil {
 			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}
 			db.Name = *db.DbSet["db_name"]
 			db.Schema = *db.DbSet["db_schema"]
-			if doRead, ok = ctx.Value("makeStruct").(bool); ok && doRead {
-
-			}
 		}
-		if mPath, ok := ctx.Value(DB_MIGRATION).(string); ok {
-			migrationParts := map[string]fs.WalkDirFunc{
-				"types": db.readAndReplaceTypes,
-				"table": db.ReadTableSQL,
-				"view":  db.ReadViewSQL,
-				"func":  db.readAndReplaceFunc,
-			}
 
-			for _, name := range migrationOrder {
+		if cfg.PathCfg != nil {
 
-				err = filepath.WalkDir(filepath.Join(mPath, name), migrationParts[name])
-				if err != nil {
-					return nil, errors.Wrap(err, "migration "+name)
-				}
-
-			}
-			logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
-			if len(db.modFuncs) > 0 {
-				logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
-			}
-
-			_, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
+			err := db.readCfg(ctx, *cfg.PathCfg)
 			if err != nil {
 				return nil, err
 			}
 
 		}
+
+		if cfg.TestInit != nil {
+			db.runTestInitScript(*cfg.TestInit)
+		}
 	}
-	db.runTestInitScript(ctx)
 
 	return db, nil
 }
 
-func (db *DB) runTestInitScript(ctx context.Context) {
-	if path, ok := ctx.Value(DB_TEST_INIT).(string); ok {
-		if path == "" {
-			path = filepath.Join("cfg/DB", "test_init.ddl")
+func (db *DB) readCfg(ctx context.Context, path string) error {
+	var (
+		migrationOrder = []string{
+			"types", "table", "view", "func",
 		}
+	)
 
-		ddl, err := ioutil.ReadFile(path)
+	migrationParts := map[string]fs.WalkDirFunc{
+		"types": db.readAndReplaceTypes,
+		"table": db.ReadTableSQL,
+		"view":  db.ReadViewSQL,
+		"func":  db.readAndReplaceFunc,
+	}
+
+	for _, name := range migrationOrder {
+		err := filepath.WalkDir(filepath.Join(path, name), migrationParts[name])
+		if err != nil {
+			return errors.Wrap(err, "migration "+name)
+		}
+	}
+
+	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
+	if len(db.modFuncs) > 0 {
+		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
+	}
+
+	var err error
+	_, db.Tables, db.Routines, db.Types, err = db.Conn.GetSchema(ctx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *DB) runTestInitScript(name string) {
+	if name == "" {
+		name = filepath.Join("cfg/DB", "test_init.ddl")
+	}
+
+	ddl, err := ioutil.ReadFile(name)
+	if err != nil {
+		logs.ErrorLog(err, "db.Conn.ExecDDL")
+	} else {
+
+		err = db.Conn.ExecDDL(context.TODO(), string(ddl))
 		if err != nil {
 			logs.ErrorLog(err, "db.Conn.ExecDDL")
-		} else {
-
-			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
-			if err != nil {
-				logs.ErrorLog(err, "db.Conn.ExecDDL")
-			}
 		}
 	}
 }
