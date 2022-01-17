@@ -60,10 +60,12 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 
 		if cfg.GetSchema != nil {
+			logs.StatusLog(cfg.GetSchema)
 			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}
+			logs.StatusLog(db.Routines)
 			db.Name = *db.DbSet["db_name"]
 			db.Schema = *db.DbSet["db_schema"]
 		}

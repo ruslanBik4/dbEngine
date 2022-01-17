@@ -15,7 +15,7 @@ const (
 						FROM pg_catalog.pg_class c
 						WHERE c.relkind = 'm'
 					order by 1`
-	sqlFuncList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
+	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
 					FROM INFORMATION_SCHEMA.routines
 					WHERE specific_schema = 'public'`
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default, 

@@ -3,3 +3,10 @@
 // license that can be found in the LICENSE file.
 
 package psql
+
+import "github.com/pkg/errors"
+
+var (
+	ErrUnknownRoutineType        = errors.New("Can't add routine unknown type!")
+	ErrFunctionWithoutResultType = errors.New("Can't add function without results type!")
+)

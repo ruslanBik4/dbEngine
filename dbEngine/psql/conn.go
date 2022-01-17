@@ -203,6 +203,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 			// use only func knows types
 			rowType, ok := values[2].(string)
 			if !ok {
+				logs.ErrorLog(errors.Wrapf(ErrUnknownRoutineType, " %+v", values))
 				return nil
 			}
 
@@ -213,12 +214,14 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 				Type:  rowType,
 			}
 			row.DataType, ok = values[3].(string)
-			if !ok {
+			if !ok && row.Type == "FUNCTION" {
+				logs.ErrorLog(errors.Wrapf(ErrFunctionWithoutResultType, " %+v", values))
 				return nil
 			}
 
 			row.UdtName, ok = values[4].(string)
-			if !ok {
+			if !ok && row.Type == "FUNCTION" {
+				logs.ErrorLog(errors.Wrapf(ErrUnknownRoutineType, " %+v", values))
 				return nil
 			}
 
@@ -236,7 +239,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 			}
 
 			return row.GetParams(ctx)
-		}, sqlFuncList)
+		}, sqlRoutineList)
 
 	return
 }
@@ -598,6 +601,7 @@ func (c *Conn) GetStat() string {
 	)
 }
 
+// ExecDDL execute sql
 func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
 	comTag, err := c.Exec(ctx, sql, args...)
 	// if err != nil {
