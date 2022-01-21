@@ -298,8 +298,9 @@ func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
 	for _, name := range b.filter {
-		// 'is null, 'is not null' write as is
-		if strings.Contains(name, "is ") {
+		hasTempl := strings.Contains(name, "%s")
+		// 'is null, 'is not null', 'CASE WHEN ..END' write as is when they not consist of '%s'
+		if strings.Index(name, " ") > 0 && !hasTempl {
 			where += comma + name
 			comma = " AND "
 			continue
@@ -307,7 +308,7 @@ func (b *SQLBuilder) Where() string {
 
 		b.posFilter++
 
-		where += comma + b.writeCondition(name)
+		where += comma + b.writeCondition(name, hasTempl)
 		comma = " AND "
 	}
 
@@ -318,7 +319,7 @@ func (b *SQLBuilder) Where() string {
 	return ""
 }
 
-func (b *SQLBuilder) writeCondition(name string) string {
+func (b *SQLBuilder) writeCondition(name string, hasTempl bool) string {
 	switch pre := name[0]; {
 	case isOperator(pre):
 		preStr := string(pre)
@@ -340,20 +341,20 @@ func (b *SQLBuilder) writeCondition(name string) string {
 		}
 
 	default:
-		return b.chkSpecialParams(name)
+		return b.chkSpecialParams(name, hasTempl)
 	}
 }
 
 // chkSpecialParams get condition for WHERE include complex params as:
 // 'is null, 'is not null'
 // in (select ... from ... where field = {param})
-func (b *SQLBuilder) chkSpecialParams(name string) string {
+func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 
-	cond := "$%d"
+	cond := "$%[1]d"
 	switch arg := b.Args[b.posFilter-1].(type) {
 	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string:
 		// todo: chk column type
-		cond = "ANY($%d)"
+		cond = "ANY($%[1]d)"
 	case nil:
 		cond = "is null"
 	case string:
@@ -370,7 +371,7 @@ func (b *SQLBuilder) chkSpecialParams(name string) string {
 		return name + " " + cond
 	}
 
-	if strings.Contains(name, " in (") {
+	if hasTempl {
 		cond = fmt.Sprintf(name, cond)
 	} else {
 		cond = name + "=" + cond

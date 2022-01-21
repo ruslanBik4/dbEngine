@@ -551,6 +551,62 @@ func TestSQLBuilder_Where(t *testing.T) {
 			assert.Equal,
 		},
 		{
+			"with CASE condition",
+			fields{
+				[]interface{}{1},
+				nil,
+				[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END",
+			assert.Equal,
+		},
+		{
+			"with CASE condition that included param",
+			fields{
+				[]interface{}{1},
+				nil,
+				[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = %s ELSE true END"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = $1 ELSE true END",
+			assert.Equal,
+		},
+		{
+			"with OR condition that included param",
+			fields{
+				[]interface{}{1},
+				nil,
+				[]string{"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  (m.wallet_type = $1 or m.pair_id = $1 OR m.wallet_type > m.pair_id)",
+			assert.Equal,
+		},
+		{
+			"some params with OR condition one of them included param",
+			fields{
+				[]interface{}{"name", 1, 3},
+				nil,
+				[]string{
+					"name",
+					"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)",
+					"id",
+				},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  name=$1 AND (m.wallet_type = $2 or m.pair_id = $2 OR m.wallet_type > m.pair_id) AND id=$3",
+			assert.Equal,
+		},
+		{
 			"one columns & one filter select",
 			fields{
 				[]interface{}{1},
