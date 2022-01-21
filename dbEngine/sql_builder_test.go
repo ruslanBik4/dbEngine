@@ -512,6 +512,32 @@ func TestSQLBuilder_Where(t *testing.T) {
 			assert.Equal,
 		},
 		{
+			"with 'is null' & 'is not null'",
+			fields{
+				[]interface{}{nil, "is not null", "is null"},
+				nil,
+				[]string{"id_parent", "id", "name"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id_parent is null AND id is not null AND name is null",
+			assert.Equal,
+		},
+		{
+			"with 'is null' & 'is not null' and other simples arguments",
+			fields{
+				[]interface{}{nil, 0, "is not null", 4, "is null"},
+				nil,
+				[]string{"id_parent", "id", "name", "id_user", "comment"},
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			" WHERE  id_parent is null AND id=$1 AND name is not null AND id_user=$2 AND comment is null",
+			assert.Equal,
+		},
+		{
 			"select full columns",
 			fields{
 				[]interface{}{1},
@@ -525,7 +551,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 			assert.Equal,
 		},
 		{
-			"one columns &one filter select",
+			"one columns & one filter select",
 			fields{
 				[]interface{}{1},
 				[]string{"last_login"},
@@ -726,7 +752,9 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 	}
 	columns := []string{"id", "last_login"}
 	threeColumns := append(columns, "name")
-	const sqlTmpl = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
+	const sqlTmpl2Columns = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
+	const sqlTmpl3Columns = "INSERT INTO StringTable(%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s"
+	const sqlTmpl4Columns = "INSERT INTO StringTable(%s,%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s, %s=EXCLUDED.%[4]s"
 	tests := []struct {
 		name    string
 		fields  fields
@@ -755,7 +783,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			fmt.Sprintf(sqlTmpl, columns[0], columns[1], "$1,$2"),
+			fmt.Sprintf(sqlTmpl2Columns, columns[0], columns[1], "$1,$2"),
 			false,
 		},
 		{
@@ -815,7 +843,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTwoColumns,
 				"",
 			},
-			fmt.Sprintf(sqlTmpl, "candidate_id,vacancy_id", "id_roles,blob", "$1,$2,$3,$4"),
+			fmt.Sprintf(sqlTmpl3Columns, "candidate_id,vacancy_id", "id_roles", "blob", "$1,$2,$3,$4"),
 			false,
 		},
 	}

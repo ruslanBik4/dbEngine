@@ -298,46 +298,16 @@ func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
 	for _, name := range b.filter {
+		// 'is null, 'is not null' write as is
+		if strings.Contains(name, "is ") {
+			where += comma + name
+			comma = " AND "
+			continue
+		}
+
 		b.posFilter++
 
-		switch pre := name[0]; {
-		case isOperator(pre):
-			preStr := string(pre)
-			switch {
-			case isOperatorPre(name[1]):
-				preStr += string(name[1])
-				name = name[2:]
-			default:
-				name = name[1:]
-			}
-
-			switch pre {
-			case '$':
-				where += fmt.Sprintf(comma+"%s ~ concat('.*', $%d, '$')", name, b.posFilter)
-			case '^':
-				where += fmt.Sprintf(comma+"%s ~ concat('^.*', $%d)", name, b.posFilter)
-			default:
-				where += fmt.Sprintf(comma+"%s %s $%d", name, preStr, b.posFilter)
-			}
-
-		default:
-			cond := ""
-			switch b.Args[b.posFilter-1].(type) {
-			case []int, []int8, []int16, []int32, []int64, []string:
-				// todo: chk column type
-				cond = "ANY($%d)"
-			default:
-				cond = "$%d"
-			}
-
-			if strings.Contains(name, " in (") {
-				cond = fmt.Sprintf(name, cond)
-			} else {
-				cond = name + "=" + cond
-			}
-
-			where += fmt.Sprintf(comma+cond, b.posFilter)
-		}
+		where += comma + b.writeCondition(name)
 		comma = " AND "
 	}
 
@@ -346,6 +316,75 @@ func (b *SQLBuilder) Where() string {
 	}
 
 	return ""
+}
+
+func (b *SQLBuilder) writeCondition(name string) string {
+	switch pre := name[0]; {
+	case isOperator(pre):
+		preStr := string(pre)
+		switch {
+		case isOperatorPre(name[1]):
+			preStr += string(name[1])
+			name = name[2:]
+		default:
+			name = name[1:]
+		}
+
+		switch pre {
+		case '$':
+			return fmt.Sprintf("%s ~ concat('.*', $%d, '$')", name, b.posFilter)
+		case '^':
+			return fmt.Sprintf("%s ~ concat('^.*', $%d)", name, b.posFilter)
+		default:
+			return fmt.Sprintf("%s %s $%d", name, preStr, b.posFilter)
+		}
+
+	default:
+		return b.chkSpecialParams(name)
+	}
+}
+
+// chkSpecialParams get condition for WHERE include complex params as:
+// 'is null, 'is not null'
+// in (select ... from ... where field = {param})
+func (b *SQLBuilder) chkSpecialParams(name string) string {
+
+	cond := "$%d"
+	switch arg := b.Args[b.posFilter-1].(type) {
+	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string:
+		// todo: chk column type
+		cond = "ANY($%d)"
+	case nil:
+		cond = "is null"
+	case string:
+		if strings.Contains(arg, "is ") {
+			cond = arg
+		}
+	}
+
+	if strings.Contains(cond, "is ") {
+		// rm agr from slice
+		rmElem(b.Args, b.posFilter-1)
+		b.posFilter--
+		// condition without psql params
+		return name + " " + cond
+	}
+
+	if strings.Contains(name, " in (") {
+		cond = fmt.Sprintf(name, cond)
+	} else {
+		cond = name + "=" + cond
+	}
+
+	return fmt.Sprintf(cond, b.posFilter)
+}
+
+func rmElem(a []interface{}, i int) {
+	if i < len(a)-1 {
+		copy(a[i:], a[i+1:])
+	}
+	a[len(a)-1] = nil // or the zero value of T
+	a = a[:len(a)-1]
 }
 
 // OnConflict return sql-text for handling error on insert
@@ -425,6 +464,12 @@ func Values(values ...interface{}) BuildSqlOptions {
 }
 
 // WhereForSelect set columns for WHERE clause
+// may consisted first symbol as conditions rule:
+//    '>', '<', '$', '~', '^', '@', '&', '+', '-', '*'
+// that will replace equals condition, instead:
+//  field_name = $1
+//  write:
+//  field_name > $1, field_name < $1, ect
 func WhereForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 

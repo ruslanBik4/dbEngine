@@ -54,6 +54,11 @@ func (dst *Numeric) Set(src interface{}) error {
 
 	case []byte:
 		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
+	case *big.Int:
+		dst.Numeric = &pgtype.Numeric{Int: value, Status: pgtype.Present}
+	case big.Int:
+		dst.Numeric = &pgtype.Numeric{Int: &value, Status: pgtype.Present}
+
 	default:
 		return dst.Numeric.Set(src)
 	}
