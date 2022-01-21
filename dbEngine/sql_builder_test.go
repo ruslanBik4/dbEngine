@@ -529,12 +529,12 @@ func TestSQLBuilder_Where(t *testing.T) {
 			fields{
 				[]interface{}{nil, 0, "is not null", 4, "is null"},
 				nil,
-				[]string{"id_parent", "id", "name", "id_user", "comment"},
+				[]string{"id_parent", "id", "temp is null", "name", "id_user", "comment"},
 				0,
 				TableString{name: "StringTable"},
 				nil,
 			},
-			" WHERE  id_parent is null AND id=$1 AND name is not null AND id_user=$2 AND comment is null",
+			" WHERE  id_parent is null AND id=$1 AND temp is null AND name is not null AND id_user=$2 AND comment is null",
 			assert.Equal,
 		},
 		{
