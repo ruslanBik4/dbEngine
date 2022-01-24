@@ -76,7 +76,7 @@ type ForeignKey struct {
 	DeleteRule string `json:"delete_rule"`
 }
 
-// Column implements methods of table/view/function fields
+// Column implements methods of table/view/function builderOpts
 type Column interface {
 	BasicType() types.BasicKind
 	BasicTypeInfo() types.BasicInfo

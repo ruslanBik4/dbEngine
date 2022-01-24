@@ -29,6 +29,7 @@ type Table struct {
 	lock       sync.RWMutex
 }
 
+// DoCopy run CopyFrom PSQL use src interface
 func (t *Table) DoCopy(ctx context.Context, src pgx.CopyFromSource, columns ...string) (int64, error) {
 	if len(columns) == 0 {
 		columns = make([]string, len(t.columns))
@@ -40,10 +41,12 @@ func (t *Table) DoCopy(ctx context.Context, src pgx.CopyFromSource, columns ...s
 	return t.conn.Pool.CopyFrom(ctx, pgx.Identifier{t.name}, columns, src)
 }
 
+// Comment of Table
 func (t *Table) Comment() string {
 	return t.comment
 }
 
+// GetFields implement RowScanner interface
 func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 	if len(columns) == 0 {
 		return []interface{}{&t.name, &t.Type, &t.comment}
@@ -72,6 +75,7 @@ func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 
 }
 
+// Columns of Table
 func (t *Table) Columns() []dbEngine.Column {
 	res := make([]dbEngine.Column, len(t.columns))
 	for i, col := range t.columns {
@@ -81,6 +85,7 @@ func (t *Table) Columns() []dbEngine.Column {
 	return res
 }
 
+// Delete row of table according to Options
 func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -100,7 +105,7 @@ func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return comTag.RowsAffected(), nil
 }
 
-// Insert return new ID or rowsAffected if autoinc field not there
+// Insert new row & return new ID or rowsAffected if there not autoinc field
 func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -115,6 +120,7 @@ func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return t.doInsertReturning(ctx, sql, b.Args...)
 }
 
+// Update table according to Options
 func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -170,10 +176,12 @@ func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...inter
 	return comTag.RowsAffected(), nil
 }
 
+// Name of Table
 func (t *Table) Name() string {
 	return t.name
 }
 
+// Select run sql with Options (deprecated)
 func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -190,6 +198,7 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return err
 }
 
+// SelectOneAndScan run sqlof table  with Options & return rows into rowValues
 func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -204,6 +213,7 @@ func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options .
 	return t.conn.SelectOneAndScan(ctx, row, sql, b.Args...)
 }
 
+// SelectAndScanEach run sql of table with Options & return every row into rowValues & run each
 func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -218,6 +228,7 @@ func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row db
 	return t.conn.SelectAndScanEach(ctx, each, row, sql, b.Args...)
 }
 
+// SelectAndRunEach run sql of table with Options & performs each every row of query results
 func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
@@ -242,6 +253,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 		b.Args...)
 }
 
+// FindColumn return column 'name' on Table or nil
 func (t *Table) FindColumn(name string) dbEngine.Column {
 	c := t.findColumn(name)
 	if c == nil {
@@ -313,6 +325,7 @@ func (t *Table) Indexes() dbEngine.Indexes {
 	return t.indexes
 }
 
+// ReReadColumn renew properties of column 'name'
 func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	t.lock.RLock()
 	defer t.lock.RUnlock()

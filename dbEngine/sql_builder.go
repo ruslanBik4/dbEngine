@@ -132,10 +132,20 @@ func (b SQLBuilder) DeleteSql() (string, error) {
 }
 
 // SelectSql construct select sql
-func (b SQLBuilder) SelectSql() (string, error) {
+func (b *SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
-	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
-		return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
+	lenFilter := len(b.filter) + strings.Count(b.Table.Name(), "$")
+	if lenFilter != len(b.Args) {
+		//rm from counter filter without params
+		for _, name := range b.filter {
+			yes, hasTempl := b.isComplexCondition(name)
+			if yes && !hasTempl {
+				lenFilter--
+			}
+		}
+		if lenFilter != len(b.Args) {
+			return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
+		}
 	}
 
 	sql := "SELECT " + b.Select() + " FROM " + b.Table.Name() + b.Where()
@@ -298,9 +308,9 @@ func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
 	for _, name := range b.filter {
-		hasTempl := strings.Contains(name, "%s")
+		isComplexCondition, hasTempl := b.isComplexCondition(name)
 		// 'is null, 'is not null', 'CASE WHEN ..END' write as is when they not consist of '%s'
-		if strings.Index(name, " ") > 0 && !hasTempl {
+		if isComplexCondition && !hasTempl {
 			where += comma + name
 			comma = " AND "
 			continue
@@ -317,6 +327,11 @@ func (b *SQLBuilder) Where() string {
 	}
 
 	return ""
+}
+
+func (b *SQLBuilder) isComplexCondition(name string) (bool, bool) {
+	isComplexCondition := strings.Index(name, " ") > 0
+	return isComplexCondition, isComplexCondition && strings.Contains(name, "%s")
 }
 
 func (b *SQLBuilder) writeCondition(name string, hasTempl bool) string {
@@ -365,8 +380,8 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 
 	if strings.Contains(cond, "is ") {
 		// rm agr from slice
-		rmElem(b.Args, b.posFilter-1)
 		b.posFilter--
+		b.Args = rmElem(b.Args, b.posFilter)
 		// condition without psql params
 		return name + " " + cond
 	}
@@ -380,12 +395,12 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 	return fmt.Sprintf(cond, b.posFilter)
 }
 
-func rmElem(a []interface{}, i int) {
+func rmElem(a []interface{}, i int) []interface{} {
 	if i < len(a)-1 {
 		copy(a[i:], a[i+1:])
 	}
-	a[len(a)-1] = nil // or the zero value of T
-	a = a[:len(a)-1]
+	a[len(a)-1] = 0 // or the zero value of T
+	return a[:len(a)-1]
 }
 
 // OnConflict return sql-text for handling error on insert
@@ -477,19 +492,22 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 		b.filter = make([]string, len(columns))
 		if b.Table != nil {
 			for _, name := range columns {
-
-				switch pre := name[0]; {
-				case isOperator(pre):
+				if isOperator(name[0]) {
 					switch {
 					case isOperatorPre(name[1]):
-						// preStr += string(name[1])
 						name = name[2:]
 					default:
 						name = name[1:]
 					}
-				default:
-					if strings.Contains(name, " in (") {
-						name = strings.Split(name, " ")[0]
+				} else if tokens := strings.Split(name, " "); len(tokens) > 1 {
+					if tokens[1] == "in" || tokens[1] == "is" {
+						name = tokens[0]
+					} else if len(tokens) > 2 && isOperatorPre(tokens[1][0]) {
+						name = tokens[0]
+						secName := tokens[2]
+						if regFieldName.MatchString(secName) && b.Table.FindColumn(secName) == nil {
+							return NewErrNotFoundColumn(b.Table.Name(), secName)
+						}
 					}
 				}
 

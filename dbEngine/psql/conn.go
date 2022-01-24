@@ -244,10 +244,12 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 	return
 }
 
+// NewTable create new empty Table with name & type
 func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 	return &Table{conn: c, name: name, Type: typ}
 }
 
+//SelectAndPerformRaw  run sql with args & run each every row
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
 	conn, err := c.Acquire(ctx)
 	if err != nil {
@@ -287,6 +289,7 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 	return nil
 }
 
+// SelectAndScanEach run sql with args return every row into rowValues & run each
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
 	sql string, args ...interface{}) error {
 
@@ -333,6 +336,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	return nil
 }
 
+// SelectOneAndScan run sql with args return rows into rowValues
 func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) (err error) {
 	if rowValues == nil {
 		return dbEngine.ErrWrongType{
@@ -454,6 +458,8 @@ func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column)
 	}
 }
 
+// SelectToMap run sql with args return rows as map[{name_column}]
+// case of executed - gets one record
 func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
 
 	rows := make(map[string]interface{})
@@ -474,6 +480,7 @@ func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{})
 	return rows, nil
 }
 
+// SelectToMaps run sql with args return rows as slice of map[{name_column}]
 func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
 
 	maps := make([]map[string]interface{}, 0)
@@ -498,6 +505,7 @@ func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}
 	return maps, nil
 }
 
+// SelectToMultiDimension run sql with args and return rows (slice of record) and columns
 func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) (
 	rows [][]interface{}, cols []dbEngine.Column, err error) {
 
@@ -518,6 +526,7 @@ func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...i
 	return rows, cols, nil
 }
 
+// SelectAndRunEach run sql with args and performs each every row of query results
 func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
 
 	return c.selectAndRunEach(ctx, each, sql, args...)
@@ -588,6 +597,7 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 	return columns
 }
 
+// GetStat return stats of Pool
 func (c *Conn) GetStat() string {
 	// todo: implements marshal
 	s := c.Pool.Stat()
@@ -613,12 +623,14 @@ func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) err
 	return err
 }
 
+// StartChannels starts listeners of PSQL channels according to list of channels
 func (c *Conn) StartChannels() {
 	for _, ch := range c.channels {
 		go c.listen(ch)
 	}
 }
 
+// GetNotice return last notice of conn
 func (c *Conn) GetNotice(conn *pgxpool.Conn) (n *pgconn.Notice, ok bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
@@ -678,7 +690,7 @@ func (c *Conn) addNoticeToErrLog(conn *pgxpool.Conn, args ...interface{}) []inte
 	n, ok := c.GetNotice(conn)
 	if ok {
 		return append(args, n)
-	} else {
-		return args
 	}
+
+	return args
 }

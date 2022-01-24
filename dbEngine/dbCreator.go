@@ -265,7 +265,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				p.err = errors.New("bad table name! " + fields[i])
 				return false
 			}
-		case "fields":
+		case "builderOpts":
 
 			nameFields := strings.Split(fields[i], ",\n")
 			for _, name := range nameFields {

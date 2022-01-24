@@ -281,7 +281,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 	return err
 }
 
-var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
+var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
 
 //var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
@@ -289,7 +289,7 @@ func (db *DB) alterType(typeName, ddl string) error {
 	fields := regTypeAttr.FindStringSubmatch(ddl)
 
 	for i, name := range regTypeAttr.SubexpNames() {
-		if name == "fields" && (i < len(fields)) {
+		if name == "builderOpts" && (i < len(fields)) {
 
 			nameFields := strings.Split(fields[i], ",")
 			for _, name := range nameFields {
