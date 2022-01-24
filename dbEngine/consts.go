@@ -26,6 +26,7 @@ var (
 	regDoesNotExist = regexp.MustCompile(`relation\s+"(\w+)" does not exist`)
 )
 
+// DB_SETTING is name of value for setting to context
 const (
 	DB_SETTING = TypeCfgDB("set of CfgDB")
 )

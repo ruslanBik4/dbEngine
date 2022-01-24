@@ -18,10 +18,12 @@ type Routine struct {
 	Test              assert.TestingT
 }
 
+// Name of mock routine
 func (r Routine) Name() string {
 	return "mock DB  routine"
 }
 
+// BuildSql create sql query & arg for call conn.Select...
 func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args []interface{}, err error) {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
@@ -31,10 +33,12 @@ func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args
 	return b.Select(), b.Args, nil
 }
 
+// Select run sql with Options (deprecated)
 func (r Routine) Select(ctx context.Context, args ...interface{}) error {
 	panic("implement me")
 }
 
+// Call procedure
 func (r Routine) Call(ctx context.Context, args ...interface{}) error {
 	return r.checkParams(args)
 }
@@ -49,18 +53,22 @@ func (r Routine) checkParams(args []interface{}) error {
 	return nil
 }
 
+// Overlay return routine with some name if exists
 func (r Routine) Overlay() dbEngine.Routine {
 	return nil
 }
 
+// Params of Routine
 func (r Routine) Params() []dbEngine.Column {
 	return nil
 }
 
+// ReturnType of Routine
 func (r Routine) ReturnType() string {
 	panic("implement me")
 }
 
+// SelectAndScanEach run sql  with Options & return every row into rowValues & run each
 func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
@@ -70,6 +78,7 @@ func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowVa
 	return r.checkParams(b.Args)
 }
 
+// SelectOneAndScan run sql with Options & return rows into rowValues
 func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
@@ -79,6 +88,7 @@ func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options 
 	return r.checkParams(b.Args)
 }
 
+// SelectAndRunEach run sql of table with Options & performs each every row of query results
 func (r Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {

@@ -16,12 +16,14 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// PgxRoutineParams consist data of DB routines param
 type PgxRoutineParams struct {
 	Column
 	Fnc      *Routine `json:"-"`
 	Position int32
 }
 
+// Type of routines param
 func (p *PgxRoutineParams) Type() string {
 	if p.DataType == "ARRAY" {
 		return p.UdtName[1:] + "[]"
@@ -32,20 +34,20 @@ func (p *PgxRoutineParams) Type() string {
 
 // Routine consist data of DB routine and operation for readint it and perform query
 type Routine struct {
-	conn       *Conn
-	name       string
-	ID         int
-	Comment    string
-	columns    []*PgxRoutineParams
-	params     []*PgxRoutineParams
-	temp_param *PgxRoutineParams
-	paramMode  string
-	overlay    *Routine
-	Type       string
-	lock       *sync.RWMutex
-	sName      string
-	DataType   string
-	UdtName    string
+	conn      *Conn
+	name      string
+	ID        int
+	Comment   string
+	columns   []*PgxRoutineParams
+	params    []*PgxRoutineParams
+	tempParam *PgxRoutineParams
+	paramMode string
+	overlay   *Routine
+	Type      string
+	lock      *sync.RWMutex
+	sName     string
+	DataType  string
+	UdtName   string
 }
 
 // ReturnType get type of routine result
@@ -53,10 +55,12 @@ func (r *Routine) ReturnType() string {
 	return r.DataType
 }
 
+// Name of Routine
 func (r *Routine) Name() string {
 	return r.name
 }
 
+// Overlay return routine with some name if exists
 func (r *Routine) Overlay() dbEngine.Routine {
 	if r.overlay == nil {
 		return nil
@@ -65,6 +69,7 @@ func (r *Routine) Overlay() dbEngine.Routine {
 	return r.overlay
 }
 
+// Columns of Routine
 func (r *Routine) Columns() []dbEngine.Column {
 	res := make([]dbEngine.Column, len(r.columns))
 	for i, col := range r.columns {
@@ -74,6 +79,7 @@ func (r *Routine) Columns() []dbEngine.Column {
 	return res
 }
 
+// Select run sql with Options (deprecated)
 func (r *Routine) Select(ctx context.Context, args ...interface{}) error {
 	logs.DebugLog(ctx, args)
 	panic("implement me")
@@ -118,6 +124,7 @@ func (r *Routine) Call(ctx context.Context, args ...interface{}) error {
 	return nil
 }
 
+// Params of routine
 func (r *Routine) Params() []dbEngine.Column {
 	res := make([]dbEngine.Column, len(r.params))
 	for i, col := range r.params {
@@ -127,6 +134,7 @@ func (r *Routine) Params() []dbEngine.Column {
 	return res
 }
 
+// GetFields implements interface RowScanner
 func (r *Routine) GetFields(columns []dbEngine.Column) []interface{} {
 	row := &PgxRoutineParams{
 		Fnc: r,
@@ -159,7 +167,7 @@ func (r *Routine) GetFields(columns []dbEngine.Column) []interface{} {
 		}
 	}
 
-	r.temp_param = row
+	r.tempParam = row
 
 	return fields
 }
@@ -171,11 +179,11 @@ func (r *Routine) GetParams(ctx context.Context) error {
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
 			if strings.HasPrefix(r.paramMode, "IN") {
-				r.params = append(r.params, r.temp_param)
+				r.params = append(r.params, r.tempParam)
 			}
 
 			if strings.HasSuffix(r.paramMode, "OUT") {
-				r.columns = append(r.columns, r.temp_param)
+				r.columns = append(r.columns, r.tempParam)
 			}
 
 			return nil
@@ -184,6 +192,7 @@ func (r *Routine) GetParams(ctx context.Context) error {
 		sqlGetFuncParams+" ORDER BY ordinal_position", r.sName)
 }
 
+// SelectAndScanEach run sql of table with Options & return every row into rowValues & run each
 func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 
 	sql, args, err := r.BuildSql(Options...)
@@ -194,6 +203,7 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 	return r.conn.SelectAndScanEach(ctx, each, row, sql, args...)
 }
 
+// BuildSql create sql query & arg for call conn.Select...
 func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []interface{}, error) {
 	b, err := dbEngine.NewSQLBuilder(r.newTableForSQLBuilder(), Options...)
 	if err != nil {
@@ -243,6 +253,7 @@ func (r *Routine) checkArgs(tableName string, args []interface{}) error {
 	return nil
 }
 
+// SelectAndRunEach run sql of table with Options & performs each every row of query results
 func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
 	sql, args, err := r.BuildSql(Options...)
 	if err != nil {
@@ -256,6 +267,7 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 		args...)
 }
 
+// SelectOneAndScan run sqlof table  with Options & return rows into rowValues
 func (r *Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
 	sql, args, err := r.BuildSql(Options...)
 	if err != nil {

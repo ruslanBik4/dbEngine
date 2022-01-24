@@ -15,6 +15,7 @@ import (
 	"github.com/ruslanBik4/logs"
 )
 
+// ErrDBNotFound error about wrong DB
 var ErrDBNotFound = errors.New("DB not found")
 
 // ErrNotFoundTable if not found table by name {Table}
@@ -22,20 +23,23 @@ type ErrNotFoundTable struct {
 	Table string
 }
 
+// NewErrNotFoundTable create new error
 func NewErrNotFoundTable(table string) *ErrNotFoundTable {
 	return &ErrNotFoundTable{Table: table}
 }
 
+// Error implement error interface
 func (err ErrNotFoundTable) Error() string {
 
 	return fmt.Sprintf("Not table `%s` in schema ", err.Table)
 }
 
-// ErrNotFoundTable if not found table by name {Table}
+// ErrNotFoundRoutine if not found table by name {Table}
 type ErrNotFoundRoutine struct {
 	Name, SName string
 }
 
+// Error implement error interface
 func (err ErrNotFoundRoutine) Error() string {
 
 	return fmt.Sprintf("Not routine `%s`(%s) in schema ", err.Name, err.SName)
@@ -47,33 +51,36 @@ type ErrNotFoundColumn struct {
 	Column string
 }
 
+// NewErrNotFoundColumn create new error
 func NewErrNotFoundColumn(table string, column string) *ErrNotFoundColumn {
 	return &ErrNotFoundColumn{Table: table, Column: column}
 }
 
+// Error implement error interface
 func (err ErrNotFoundColumn) Error() string {
 
 	return fmt.Sprintf("Not field `%s` for table `%s` in schema ", err.Column, err.Table)
 
 }
 
-// ErrNotFoundColumn if not found in table {Table} field by name {Column}
+// ErrWrongArgsLen if not found in table {Table} field by name {Column}
 type ErrWrongArgsLen struct {
 	Table  string
 	Filter []string
 	Args   []interface{}
 }
 
+// NewErrWrongArgsLen create new error
 func NewErrWrongArgsLen(table string, column []string, args []interface{}) *ErrWrongArgsLen {
 	return &ErrWrongArgsLen{Table: table, Filter: column, Args: args}
 }
 
+// Error implement error interface
 func (err ErrWrongArgsLen) Error() string {
-
 	return fmt.Sprintf("Wrong argument len %d (expect %d) for table `%s` ", len(err.Args), len(err.Filter), err.Table)
-
 }
 
+// IsErrorAlreadyExists indicates about errors duplicated
 func IsErrorAlreadyExists(err error) bool {
 	ignoreErrors := []string{
 		"already exists",
@@ -88,6 +95,7 @@ func IsErrorAlreadyExists(err error) bool {
 	return false
 }
 
+// IsErrorDoesNotExists indicates about errors not exists
 func IsErrorDoesNotExists(err error) bool {
 	ignoreErrors := []string{
 		"does not exist",
@@ -102,6 +110,7 @@ func IsErrorDoesNotExists(err error) bool {
 	return false
 }
 
+// IsErrorForReplace indicates about errors 'cannot change or replace"
 func IsErrorForReplace(err error) bool {
 	ignoreErrors := []string{
 		"cannot change return type of existing function",
@@ -118,6 +127,7 @@ func IsErrorForReplace(err error) bool {
 	return false
 }
 
+// IsErrorCntChgView indicates about errors 'cannot change name of view column'
 func IsErrorCntChgView(err error) bool {
 	ignoreErrors := []string{
 		"cannot change name of view column",
@@ -137,7 +147,7 @@ var (
 	regDuplicated = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
 )
 
-// IsErrorDuplicated indicate about abort updating because there is a duplicated reroc
+// IsErrorDuplicated indicate about abort updating because there is a duplicated key found
 func IsErrorDuplicated(err error) (map[string]string, bool) {
 	logs.ErrorLog(err)
 	if err == pgx.ErrNoRows {
@@ -172,6 +182,7 @@ type ErrWrongType struct {
 	Attr     string
 }
 
+// NewErrWrongType create new error
 func NewErrWrongType(typeName, name, attr string) *ErrWrongType {
 	return &ErrWrongType{
 		Name:     name,
@@ -180,19 +191,21 @@ func NewErrWrongType(typeName, name, attr string) *ErrWrongType {
 	}
 }
 
+// Error implement error interface
 func (err ErrWrongType) Error() string {
 
 	return fmt.Sprintf("Wrong type `%s` name attr `%s` `%s` ", err.TypeName, err.Name, err.Attr)
 
 }
 
-// ErrWrongType if not found in field {Name} field by name {Column}
+// ErrUnknownSql if not found in field {Name} field by name {Column}
 type ErrUnknownSql struct {
 	sql  string
 	Line int
 	Msg  string
 }
 
+// NewErrUnknownSql create new error
 func NewErrUnknownSql(sql string, line int) *ErrUnknownSql {
 	return &ErrUnknownSql{
 		sql:  sql,
@@ -200,7 +213,7 @@ func NewErrUnknownSql(sql string, line int) *ErrUnknownSql {
 	}
 }
 
+// Error implement error interface
 func (err *ErrUnknownSql) Error() string {
-
 	return fmt.Sprintf("unknow sql `%s` for DB migration ", err.sql)
 }

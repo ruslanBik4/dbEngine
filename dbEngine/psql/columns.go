@@ -33,7 +33,7 @@ type Column struct {
 	IsHidden               bool
 }
 
-// NewColumnForTableBuf
+// NewColumnForTableBuf create Column for scanning operation of Table
 func NewColumnForTableBuf(table dbEngine.Table) *Column {
 	return &Column{
 		Table:       table,

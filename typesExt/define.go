@@ -16,6 +16,7 @@ var stringExtTypes = map[types.BasicKind]string{
 	TStruct: "struct",
 }
 
+// StringTypeKinds return describe of type
 func StringTypeKinds(typ types.BasicKind) string {
 	if typ < 0 {
 		return stringExtTypes[typ]
@@ -23,6 +24,7 @@ func StringTypeKinds(typ types.BasicKind) string {
 	return types.Typ[typ].String()
 }
 
+// Basic type of typ
 func Basic(typ types.BasicKind) *types.Basic {
 	if typ < 0 {
 		typ = types.UnsafePointer
@@ -31,6 +33,7 @@ func Basic(typ types.BasicKind) *types.Basic {
 	return types.Typ[typ]
 }
 
+// BasicInfo abount type
 func BasicInfo(typ types.BasicKind) types.BasicInfo {
 	if typ < 0 {
 		typ = types.UnsafePointer
@@ -39,6 +42,7 @@ func BasicInfo(typ types.BasicKind) types.BasicInfo {
 	return types.Typ[typ].Info()
 }
 
+// IsNumeric returns true for numeric types
 func IsNumeric(b types.BasicInfo) bool {
 
 	return (b & types.IsNumeric) != 0

@@ -21,6 +21,7 @@ type Conn struct {
 	mock.Call
 }
 
+//SelectAndPerformRaw  run sql with args & run each every row
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
 
 	if !regSQl.MatchString(sql) {
@@ -38,18 +39,22 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 	return nil
 }
 
+// InitConn create pool of connection
 func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	panic("implement me")
 }
 
+// GetRoutines get properties of DB routines & returns them as map
 func (c *Conn) GetRoutines(ctx context.Context) (map[string]dbEngine.Routine, error) {
 	panic("implement me")
 }
 
+// GetSchema read DB schema & store it
 func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	panic("implement me")
 }
 
+// GetStat return stats of Pool
 func (c *Conn) GetStat() string {
 	panic("implement me")
 }
@@ -65,38 +70,48 @@ func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error 
 	return errors.New(sql)
 }
 
+// ExecDDL execute sql
 func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
+// NewTable create new empty Table with name & type
 func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 	panic("implement me")
 }
 
+// LastRowAffected return number of insert/deleted/updated rows
 func (c *Conn) LastRowAffected() int64 {
 	panic("implement me")
 }
 
+// SelectOneAndScan run sql with Options & return rows into rowValues
 func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
+// SelectAndScanEach run sql with Options & return every row into rowValues & run each
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
+// SelectAndRunEach run sql with Options & performs each every row of query results
 func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
+// SelectToMap run sql with args return rows as map[{name_column}]
+// case of executed - gets one record
 func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
 	panic("implement me")
 }
 
+// SelectToMaps run sql with args return rows as slice of map[{name_column}]
 func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
 	panic("implement me")
 }
 
+// SelectToMultiDimension run sql with args and return rows (slice of record) and columns
 func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
 	panic("implement me")
 }

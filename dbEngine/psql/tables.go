@@ -72,7 +72,6 @@ func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
 	}
 
 	return v
-
 }
 
 // Columns of Table

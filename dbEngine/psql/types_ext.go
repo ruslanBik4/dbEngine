@@ -84,6 +84,7 @@ func (src *Numeric) AssignTo(dst interface{}) error {
 	return nil
 }
 
+// EncodeText expand pgtype.Numeric.EncodeText()
 func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	switch src.Status {
 	case pgtype.Null:
@@ -103,7 +104,7 @@ func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-// DecodeText expand pgtype.Numeric.DecodeText
+// DecodeText expand pgtype.Numeric.DecodeText()
 func (dst *Numeric) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if dst.Numeric == nil {
 		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}

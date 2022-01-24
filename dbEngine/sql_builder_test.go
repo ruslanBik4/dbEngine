@@ -783,19 +783,6 @@ func TestSQLBuilder_values(t *testing.T) {
 	}
 }
 
-func TestWhere(t *testing.T) {
-	opt := testFields["borrowed > repaid"]
-	b := &SQLBuilder{
-		Args:      opt.Args,
-		columns:   opt.columns,
-		filter:    opt.filter,
-		posFilter: opt.posFilter,
-		Table:     opt.Table,
-	}
-	t.Log(b.Table.Columns())
-	err := WhereForSelect("closed_at", "<last_interest_at", "borrowed > repaid")(b)
-	assert.Nil(t, err, "%+v", err)
-}
 func TestWhereForSelect(t *testing.T) {
 	tests := []struct {
 		name string

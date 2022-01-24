@@ -29,6 +29,7 @@ type CfgDB struct {
 	TestInit  *string
 }
 
+// TypeCfgDB is type for context values
 type TypeCfgDB string
 
 // DB name & schema
@@ -139,7 +140,7 @@ func (db *DB) runTestInitScript(name string) {
 	}
 }
 
-// ReadTableSQL perform ddl script for tables
+// ReadTableSQL performs ddl script for tables
 func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -157,20 +158,19 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			ctx := context.TODO()
+			err = db.Conn.ExecDDL(ctx, string(ddl))
 			switch {
 			case err == nil:
 				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(context.TODO())
+				err = table.GetColumns(ctx)
 				if err == nil {
 					db.Tables[tableName] = table
 					logs.StatusLog("New table add to DB", tableName)
 				}
-				rel, ok := db.readTables[tableName]
-				if ok {
+
+				if rel, ok := db.readTables[tableName]; ok {
 					return db.ReadTableSQL(rel, info, err)
-				} else {
-					logs.StatusLog("no relation")
 				}
 
 			case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
@@ -196,6 +196,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	}
 }
 
+// ReadViewSQL performs ddl script for view
 func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
