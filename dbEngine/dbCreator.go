@@ -479,7 +479,6 @@ func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
 				return nil, errors.New("bad table name! " + value)
 			}
 		case "index":
-			// todo implement
 			ind.Name = value
 		case "columns":
 			for _, colDdl := range strings.Split(value, ",") {
@@ -504,7 +503,6 @@ func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
 
 	}
 
-	// todo: chg after implement method
 	return &ind, nil
 }
 

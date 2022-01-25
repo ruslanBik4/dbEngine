@@ -61,12 +61,11 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 
 		if cfg.GetSchema != nil {
-			logs.StatusLog(cfg.GetSchema)
 			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}
-			logs.StatusLog(db.Routines)
+
 			db.Name = *db.DbSet["db_name"]
 			db.Schema = *db.DbSet["db_schema"]
 		}
@@ -158,7 +157,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			ctx := context.TODO()
+			ctx := context.Background()
 			err = db.Conn.ExecDDL(ctx, string(ddl))
 			switch {
 			case err == nil:
@@ -214,7 +213,7 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			err = db.Conn.ExecDDL(context.Background(), string(ddl))
 			if err == nil {
 				table = db.Conn.NewTable(tableName, "table")
 				err = table.GetColumns(context.TODO())
@@ -229,7 +228,6 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 				logs.ErrorLog(err, "table - "+tableName)
 				return err
 			}
-			// 	todo: add table new
 		}
 
 		return NewParserTableDDL(table, db).Parse(string(ddl))

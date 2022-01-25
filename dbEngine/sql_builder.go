@@ -485,7 +485,7 @@ func Values(values ...interface{}) BuildSqlOptions {
 // that will replace equals condition, instead:
 //  field_name = $1
 //  write:
-//  field_name > $1, field_name < $1, ect
+//  field_name > $1, field_name < $1, etc
 func WhereForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 

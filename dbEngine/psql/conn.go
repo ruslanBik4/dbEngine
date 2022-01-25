@@ -599,7 +599,6 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 
 // GetStat return stats of Pool
 func (c *Conn) GetStat() string {
-	// todo: implements marshal
 	s := c.Pool.Stat()
 	return fmt.Sprintf("Acquired: %d/%d %v idle: %d, total: %d, max: %d",
 		s.AcquiredConns(),

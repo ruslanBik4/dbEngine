@@ -34,7 +34,6 @@ func TestCreator_MakeStruct(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			"first",
 			fields{
