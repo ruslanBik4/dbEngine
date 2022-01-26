@@ -32,7 +32,7 @@ func (p *PgxRoutineParams) Type() string {
 	return p.UdtName
 }
 
-// Routine consist data of DB routine and operation for readint it and perform query
+// Routine consist data of DB routine and operation for reading it and perform query
 type Routine struct {
 	conn      *Conn
 	name      string
@@ -87,7 +87,7 @@ func (r *Routine) Select(ctx context.Context, args ...interface{}) error {
 
 // Call procedure
 func (r *Routine) Call(ctx context.Context, args ...interface{}) error {
-	if r.Type != "PROCEDURE" {
+	if r.Type != ROUTINE_TYPE_PROC {
 		return dbEngine.ErrWrongType{Name: r.sName, TypeName: r.Type}
 	}
 
@@ -217,12 +217,24 @@ func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []inter
 
 	(b.Table).(*Table).name = r.correctName(r.name, b.Args)
 
-	sql, err := b.SelectSql()
-	if err != nil {
-		return "", nil, err
-	}
+	switch r.Type {
+	case ROUTINE_TYPE_PROC:
+		return "CALL " + (b.Table).(*Table).name, b.Args, nil
 
-	return sql, b.Args, nil
+	case ROUTINE_TYPE_FUNC:
+		sql, err := b.SelectSql()
+		if err != nil {
+			return "", nil, err
+		}
+
+		return sql, b.Args, nil
+	default:
+		return "", nil, dbEngine.ErrWrongType{
+			Name:     r.name,
+			TypeName: r.Type,
+			Attr:     "",
+		}
+	}
 }
 
 func (r *Routine) correctName(name string, args []interface{}) string {

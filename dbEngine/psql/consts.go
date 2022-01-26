@@ -4,6 +4,9 @@
 
 package psql
 
+const ROUTINE_TYPE_PROC = "PROCEDURE"
+const ROUTINE_TYPE_FUNC = "FUNCTION"
+
 const (
 	sqlTableList = `SELECT table_name, table_type,
 						COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
@@ -15,8 +18,10 @@ const (
 						FROM pg_catalog.pg_class c
 						WHERE c.relkind = 'm'
 					order by 1`
-	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name
-					FROM INFORMATION_SCHEMA.routines
+	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name, d.description
+					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
+						 LEFT JOIN pg_description d
+								   ON d.objoid = p.oid
 					WHERE specific_schema = 'public'`
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default, 
 		is_nullable='YES' is_nullable, 
@@ -41,7 +46,7 @@ WHERE c.table_schema='public' AND c.table_name=$1`
 								COALESCE(character_maximum_length, -1) as character_maximum_length, 
 								COALESCE(parameter_default, '') as parameter_default,
 								ordinal_position, parameter_mode
-								FROM INFORMATION_SCHEMA.parameters
+						FROM INFORMATION_SCHEMA.parameters
 						WHERE specific_schema='public' AND specific_name=$1`
 	sqlGetColumnAttr = `SELECT data_type, 
 							column_default,

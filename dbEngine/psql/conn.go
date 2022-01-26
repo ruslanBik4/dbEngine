@@ -81,7 +81,9 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 	poolCfg.BeforeAcquire = c.BeforeAcquire
 	poolCfg.ConnConfig.OnNotice = func(conn *pgconn.PgConn, notice *pgconn.Notice) {
 		c.addNotice(conn.PID(), notice)
-		c.NoticeHandler(conn, notice)
+		if c.NoticeHandler != nil {
+			c.NoticeHandler(conn, notice)
+		}
 	}
 	// clear notice
 	poolCfg.AfterRelease = func(conn *pgx.Conn) bool {
@@ -225,6 +227,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 				return nil
 			}
 
+			row.Comment, _ = values[5].(string)
 			name := values[1].(string)
 
 			fnc, ok := RoutinesCache[name].(*Routine)

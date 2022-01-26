@@ -28,6 +28,23 @@ import (
 )
 
 `
+	DBformat = `// Database is root interface for operation for %s.%s
+type Database struct {
+	*dbEngine.DB
+}
+`
+	callProcFormat = `// %s performs query & return result '%[7]s'
+func (d *Database) %[1]s(ctx context.Context%s) error {
+	return d.Conn.ExecDDL(ctx, "%s"%s)
+}
+`
+	newFuncFormat = `// %s performs query & return result '%[7]s'
+func (d *Database) %[1]s(ctx context.Context%s) (%serr error) {
+	err = d.Conn.SelectOneAndScan(ctx, %s "%s"%s)
+	
+	return
+}
+`
 	typeTitle = `// %s object for database operations
 type %[1]s struct {
 	*psql.Table

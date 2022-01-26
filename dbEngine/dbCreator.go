@@ -196,7 +196,7 @@ func (p *ParserTableDDL) runDDL(ddl string) {
 			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
 		}
 	} else if IsErrorAlreadyExists(err) {
-		err = nil
+		p.err = nil
 		//logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
 	} else if err != nil {
 		logError(err, ddl, p.filename)

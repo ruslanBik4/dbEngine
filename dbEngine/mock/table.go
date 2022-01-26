@@ -62,10 +62,12 @@ func (t *Table) InitConn(ctx context.Context, dbURL string) error {
 	return nil
 }
 
+// GetRoutines get properties of DB routines & returns them as map
 func (t *Table) GetRoutines(ctx context.Context) (map[string]dbEngine.Routine, error) {
 	panic("implement me")
 }
 
+// GetSchema read DB schema & store it
 func (t *Table) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	panic("implement me")
 }
@@ -80,18 +82,22 @@ func (t *Table) ExecDDL(ctx context.Context, sql string, args ...interface{}) er
 	panic("implement me")
 }
 
+// NewTable create new empty Table with name & type
 func (t *Table) NewTable(name, typ string) dbEngine.Table {
 	panic("implement me")
 }
 
+// SelectToMap run sql with args return rows as map[{name_column}]
 func (t *Table) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
 	panic("implement me")
 }
 
+// SelectToMaps run sql with args return rows as slice of map[{name_column}]
 func (t *Table) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
 	panic("implement me")
 }
 
+// SelectToMultiDimension run sql with args and return rows (slice of record) and columns
 func (t *Table) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
 	panic("implement me")
 }
@@ -138,11 +144,6 @@ func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 
 // Upsert preforms INSERT sql or UPDATE if record with primary keys exists
 func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
-	panic("implement me")
-}
-
-// ReReadColumn renew properties of column 'name'
-func (t *Table) RereadColumn(name string) dbEngine.Column {
 	panic("implement me")
 }
 

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -34,17 +35,18 @@ type TypeCfgDB string
 
 // DB name & schema
 type DB struct {
-	Cfg        map[string]interface{}
-	Conn       Connection
-	Name       string
-	Schema     string
-	Tables     map[string]Table
-	Types      map[string]Types
-	Routines   map[string]Routine
-	modFuncs   []string
-	newFuncs   []string
-	readTables map[string]string
-	DbSet      map[string]*string
+	sync.RWMutex
+	Cfg           map[string]interface{}
+	Conn          Connection
+	Name          string
+	Schema        string
+	Tables        map[string]Table
+	Types         map[string]Types
+	Routines      map[string]Routine
+	FuncsReplaced []string
+	FuncsAdded    []string
+	readTables    map[string]string
+	DbSet         map[string]*string
 }
 
 // NewDB create new DB instance & performs something migrations
@@ -108,9 +110,9 @@ func (db *DB) readCfg(ctx context.Context, path string) error {
 		}
 	}
 
-	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
-	if len(db.modFuncs) > 0 {
-		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
+	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.FuncsAdded, "', '"))
+	if len(db.FuncsReplaced) > 0 {
+		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.FuncsReplaced, "', '"))
 	}
 
 	var err error
@@ -353,7 +355,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 		// this local err - not return for parent method
 		err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
 		if err == nil {
-			db.newFuncs = append(db.newFuncs, funcName)
+			db.FuncsAdded = append(db.FuncsAdded, funcName)
 		} else if IsErrorAlreadyExists(err) {
 			err = nil
 		} else if IsErrorForReplace(err) {
@@ -370,7 +372,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 			if err == nil {
 				err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
 				if err == nil {
-					db.modFuncs = append(db.modFuncs, funcName)
+					db.FuncsReplaced = append(db.FuncsReplaced, funcName)
 				}
 			}
 		}
@@ -380,11 +382,11 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 			err = nil
 		}
 
+		return err
+
 	default:
 		return nil
 	}
-
-	return err
 }
 
 func logError(err error, ddlSQL string, fileName string) {

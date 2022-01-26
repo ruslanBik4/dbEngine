@@ -694,14 +694,14 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 		isCreateDone bool
 	}
 	testDB := DB{
-		Cfg:      nil,
-		Conn:     nil,
-		Tables:   nil,
-		Types:    nil,
-		Routines: nil,
-		modFuncs: nil,
-		newFuncs: nil,
-		Name:     "DB_GET_SCHEMA",
+		Cfg:           nil,
+		Conn:          nil,
+		Tables:        nil,
+		Types:         nil,
+		Routines:      nil,
+		FuncsReplaced: nil,
+		FuncsAdded:    nil,
+		Name:          "DB_GET_SCHEMA",
 	}
 	tests := []struct {
 		name   string

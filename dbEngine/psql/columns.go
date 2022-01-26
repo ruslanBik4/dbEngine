@@ -146,11 +146,11 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
-	return toType(c.UdtName)
+	return UdtNameToType(c.UdtName)
 }
 
-func toType(dtName string) types.BasicKind {
-	switch dtName {
+func UdtNameToType(udtName string) types.BasicKind {
+	switch udtName {
 	case "bool":
 		return types.Bool
 	case "int2", "_int2":
@@ -161,7 +161,7 @@ func toType(dtName string) types.BasicKind {
 		return types.Int64
 	case "float4", "_float4":
 		return types.Float32
-	case "float8", "_float8", "money", "_money":
+	case "float8", "_float8", "money", "_money", "double precision":
 		return types.Float64
 	case "numeric", "decimal":
 		// todo add check field length
@@ -181,7 +181,11 @@ func toType(dtName string) types.BasicKind {
 	case "inet":
 		return typesExt.TMap
 	default:
-		logs.DebugLog("unknown type ", dtName)
+		logs.ErrorLog(dbEngine.ErrWrongType{
+			Name:     "udtName",
+			TypeName: udtName,
+			Attr:     "",
+		})
 		return types.Invalid
 	}
 }
