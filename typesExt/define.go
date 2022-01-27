@@ -4,6 +4,7 @@ import (
 	"go/types"
 )
 
+// TArray, TMap, TStruct are extented types for gotypes
 const (
 	TArray  types.BasicKind = -1
 	TMap    types.BasicKind = -2

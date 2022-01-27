@@ -386,6 +386,21 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	return row.Scan(dest...)
 }
 
+func (c *Conn) mapForScan(r map[string]*string, columns []dbEngine.Column) []interface{} {
+	if len(r) == 0 {
+		for _, col := range columns {
+			r[col.Name()] = new(string)
+		}
+	}
+
+	v := make([]interface{}, len(r))
+	for i, col := range columns {
+		v[i] = r[col.Name()]
+	}
+
+	return v
+}
+
 func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column) []interface{} {
 	switch r := rowValues.(type) {
 	case []interface{}:
@@ -395,26 +410,10 @@ func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column)
 		return r.GetFields(columns)
 
 	case map[string]*string:
-		if len(r) == 0 {
-			for _, col := range columns {
-				r[col.Name()] = new(string)
-			}
-		}
-
-		v := make([]interface{}, len(r))
-		for i, col := range columns {
-			v[i] = r[col.Name()]
-		}
-
-		return v
+		return c.mapForScan(r, columns)
 
 	case []string:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
-
-		return v
+		return c.stringsForScan(r)
 
 	case []int32:
 		v := make([]interface{}, len(r))
@@ -459,6 +458,15 @@ func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column)
 	default:
 		return nil
 	}
+}
+
+func (c *Conn) stringsForScan(r []string) []interface{} {
+	v := make([]interface{}, len(r))
+	for i := range r {
+		v[i] = &(r[i])
+	}
+
+	return v
 }
 
 // SelectToMap run sql with args return rows as map[{name_column}]

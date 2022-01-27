@@ -4,8 +4,11 @@
 
 package psql
 
-const ROUTINE_TYPE_PROC = "PROCEDURE"
-const ROUTINE_TYPE_FUNC = "FUNCTION"
+// ROUTINE_TYPE_PROC & ROUTINE_TYPE_FUNC are named POsqgreSQL routine
+const (
+	ROUTINE_TYPE_PROC = "PROCEDURE"
+	ROUTINE_TYPE_FUNC = "FUNCTION"
+)
 
 const (
 	sqlTableList = `SELECT table_name, table_type,

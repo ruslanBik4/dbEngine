@@ -16,6 +16,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// Conn for mock connection
 type Conn struct {
 	pgxtype.Querier
 	mock.Call
@@ -61,6 +62,7 @@ func (c *Conn) GetStat() string {
 
 var regSQl = regexp.MustCompile(`select\s+(\.+)\s+from\s+`)
 
+// Exec mock exec command
 func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error {
 	logs.StatusLog(sql)
 	if regSQl.MatchString(sql) {

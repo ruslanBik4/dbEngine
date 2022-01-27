@@ -493,7 +493,7 @@ type builderOpts struct {
 
 var (
 	testFields = map[string]builderOpts{
-		"simple where with id": builderOpts{
+		"simple where with id": {
 			[]interface{}{1},
 			nil,
 			[]string{"id"},
@@ -501,7 +501,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"simple where with <id": builderOpts{
+		"simple where with <id": {
 			[]interface{}{1},
 			nil,
 			[]string{"<id"},
@@ -509,7 +509,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"case": builderOpts{
+		"case": {
 			[]interface{}{1},
 			nil,
 			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END"},
@@ -517,7 +517,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"case with included param": builderOpts{
+		"case with included param": {
 			[]interface{}{1},
 			nil,
 			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = %s ELSE true END"},
@@ -525,7 +525,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"some params with OR condition one of them included param": builderOpts{
+		"some params with OR condition one of them included param": {
 			[]interface{}{"name", 1, 3},
 			nil,
 			[]string{
@@ -537,7 +537,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"null": builderOpts{
+		"null": {
 			[]interface{}{nil, "is not null", "is null"},
 			nil,
 			[]string{"id_parent", "id", "name"},
@@ -545,7 +545,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"null with other simples arguments": builderOpts{
+		"null with other simples arguments": {
 			[]interface{}{nil, 0, "is not null", 4, "is null"},
 			nil,
 			[]string{"id_parent", "id", "temp is null", "name", "id_user", "comment"},
@@ -553,7 +553,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"borrowed > repaid": builderOpts{
+		"borrowed > repaid": {
 			[]interface{}{1},
 			[]string{
 				"borrowed > repaid",
@@ -603,7 +603,7 @@ var (
 			},
 			nil,
 		},
-		"or": builderOpts{
+		"or": {
 			[]interface{}{1},
 			nil,
 			[]string{"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)"},
@@ -611,7 +611,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"one columns & one filter select": builderOpts{
+		"one columns & one filter select": {
 			[]interface{}{1},
 			[]string{"last_login"},
 			[]string{">id"},
@@ -619,7 +619,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"two columns": builderOpts{
+		"two columns": {
 			[]interface{}{1},
 			[]string{"last_login", "name"},
 			[]string{"id", "$name"},
@@ -627,7 +627,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"two column with <, >": builderOpts{
+		"two column with <, >": {
 			[]interface{}{1, 2},
 			[]string{"last_login", "name"},
 			[]string{"<id", ">id_roles"},
@@ -635,7 +635,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"two column with array": builderOpts{
+		"two column with array": {
 			[]interface{}{[]int8{1, 3}, 2},
 			[]string{"last_login", "name"},
 			[]string{"id", ">id_roles"},
@@ -643,7 +643,7 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
-		"two column with wrong args": builderOpts{
+		"two column with wrong args": {
 			[]interface{}{1, 3},
 			[]string{"last_login", "name"},
 			[]string{"~name", "^name"},

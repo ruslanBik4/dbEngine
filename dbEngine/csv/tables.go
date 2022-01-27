@@ -64,6 +64,7 @@ func (t *Table) InitConn(ctx context.Context, filePath string) error {
 	return t.GetColumns(ctx)
 }
 
+// GetSchema read DB schema & store it
 func (t *Table) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, error) {
 	return map[string]dbEngine.Table{t.fileName: t}, nil, nil
 }
@@ -99,6 +100,7 @@ func (t *Table) FindColumn(name string) dbEngine.Column {
 	return nil
 }
 
+// FindIndex get index according to name
 func (t *Table) FindIndex(name string) *dbEngine.Index {
 	return nil
 }

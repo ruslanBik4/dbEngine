@@ -17,8 +17,8 @@ const (
 package db
 
 import (
-	"sync"
 	"time"
+
 	%s
 	"github.com/ruslanBik4/logs"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -32,19 +32,73 @@ import (
 type Database struct {
 	*dbEngine.DB
 }
+
+// NewDatabase create new Database with minimal necessary handlers
+func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
+	if noticeHandler == nil {
+		noticeHandler = printNotice
+	}
+	conn := psql.NewConn(nil, nil, noticeHandler, channels...)
+	if channelHandler != nil {
+		conn.ChannelHandler = channelHandler
+	}
+
+	DB, err := dbEngine.NewDB(ctx, conn)
+	if err != nil {
+		logs.ErrorLog(err, "")
+		return nil, err
+	}
+
+	return &Database{DB}, nil
+}
 `
 	callProcFormat = `// %s performs query & return result '%[7]s'
 func (d *Database) %[1]s(ctx context.Context%s) error {
-	return d.Conn.ExecDDL(ctx, "%s"%s)
+	return d.Conn.ExecDDL(ctx, 
+				"%s",
+				%s)
 }
 `
 	newFuncFormat = `// %s performs query & return result '%[7]s'
 func (d *Database) %[1]s(ctx context.Context%s) (%serr error) {
-	err = d.Conn.SelectOneAndScan(ctx, %s "%s"%s)
+	err = d.Conn.SelectOneAndScan(ctx, %s 
+				"%s",
+				%s)
 	
 	return
 }
 `
+	colFormat    = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
+	initFormat   = "\n\t\t%-21s:\t%s,"
+	paramsFormat = `
+				[]interface{}{
+					%s
+				},`
+	caseRefFormat = `
+	case "%s":
+		return &r.%s
+`
+	caseColFormat = `
+	case "%s":
+		return r.%s
+`
+	formatDBprivate = `// printNotice logging some psql messages (invoked command 'RAISE ')
+func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
+
+	switch {
+    case n.Code == "42P07" || strings.Contains(n.Message, "skipping") :
+		logs.DebugLog("skip operation: %s", n.Message)
+	case n.Severity == "INFO" :
+		logs.StatusLog(n.Message)
+	case n.Code > "00000" :
+		err := (*pgconn.PgError)(n)
+		logs.ErrorLog(err, n.Hint, err.SQLState(), err.File, err.Line, err.Routine)
+	case strings.HasPrefix(n.Message, "[[ERROR]]") :
+		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
+	default: // DEBUG
+		logs.DebugLog("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
+	}
+}`
 	typeTitle = `// %s object for database operations
 type %[1]s struct {
 	*psql.Table
@@ -165,16 +219,6 @@ func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
 type %[1]sFields struct {
 	// columns of table %s
 }`
-	colFormat     = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
-	initFormat    = "\n\t\t%-21s:\t%s,"
-	caseRefFormat = `
-	case "%s":
-		return &r.%s
-`
-	caseColFormat = `
-	case "%s":
-		return r.%s
-`
 	footer = `
 // New%sFields create new instance & fill struct fill for avoid panic
 func New%[1]sFields() *%[1]sFields{

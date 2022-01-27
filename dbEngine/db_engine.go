@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// FncEachRow, FncRawRow are types of function which use as callback for select methods
+// FncEachRow & FncRawRow are types of function which use as callback for select methods
 type (
 	FncEachRow func(values []interface{}, columns []Column) error
 	FncRawRow  func(values [][]byte, columns []Column) error

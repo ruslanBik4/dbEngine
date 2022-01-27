@@ -36,8 +36,8 @@ func (c *NumberColumn) Default() interface{} {
 }
 
 // SetDefault set default value into column
-func (s *NumberColumn) SetDefault(str interface{}) {
-	s.colDefault = str
+func (c *NumberColumn) SetDefault(str interface{}) {
+	c.colDefault = str
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
@@ -75,11 +75,12 @@ func (c *NumberColumn) CharacterMaximumLength() int {
 	return 0
 }
 
-// BasicType return golangs type of column
+// BasicType return GoLangs type of column
 func (c *NumberColumn) BasicType() types.BasicKind {
 	return types.Int
 }
 
+// BasicTypeInfo return types.BasicInfo of column
 func (c *NumberColumn) BasicTypeInfo() types.BasicInfo {
 	return types.IsInteger
 }

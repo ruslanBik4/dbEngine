@@ -9,7 +9,6 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
 	"github.com/ruslanBik4/dbEngine/typesExt"
 	"go/types"
-	"golang.org/x/net/context"
 	"os"
 	"path"
 	"strings"
@@ -21,12 +20,14 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// Creator is interface for generate go-interface according to DB structires (tavles & routibes)
 type Creator struct {
 	dst        string
 	packages   string
 	initValues string
 }
 
+// NewCreator create with destination directory 'dst'
 func NewCreator(dst string) (*Creator, error) {
 	err := os.Mkdir(dst, os.ModePerm)
 
@@ -37,16 +38,6 @@ func NewCreator(dst string) (*Creator, error) {
 	return &Creator{dst: dst}, nil
 }
 
-func Go_get_corom(ctx context.Context, DB *dbEngine.DB) (int64, error) {
-	var res int64
-	err := DB.Conn.SelectOneAndScan(ctx, &res, "")
-	if err != nil {
-		return res, err
-	}
-
-	return res, nil
-}
-
 // MakeInterfaceDB create interface of DB
 func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 	f, err := os.Create(path.Join(c.dst, "database") + ".go")
@@ -55,6 +46,11 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		return errors.Wrap(err, "creator")
 	}
 
+	c.packages = `"github.com/jackc/pgconn"
+	"github.com/pkg/errors"
+	"strings"
+`
+	sql := ""
 	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
@@ -67,66 +63,85 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 
 	for _, name := range append(DB.FuncsAdded, DB.FuncsReplaced...) {
 		r := DB.Routines[name].(*psql.Routine)
-		if r.ReturnType() != "trigger" {
-			logs.StatusLog(name, r.ReturnType())
-			name := strcase.ToCamel(name)
-			sParams, sParamsTitle := "", ""
-			args := make([]interface{}, len(r.Params()))
-			for i, param := range r.Params() {
-				typeCol, _ := c.chkTypes(param, name)
-				s := strcase.ToCamel(param.Name())
-				sParamsTitle += ", " + s + " " + typeCol
-				sParams += ", " + s
-				args[i] = param
+		if r.ReturnType() == "trigger" {
+			continue
+		}
+		logs.StatusLog(name, r.ReturnType())
+		name := strcase.ToCamel(name)
+		sParams, sParamsTitle, args := c.prepareParams(r, name)
+		if r.Type == psql.ROUTINE_TYPE_PROC {
+			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
+			if err == nil {
+				_, err = fmt.Fprintf(f, callProcFormat, name, sParamsTitle,
+					sql, sParams, r.Comment)
 			}
-			if r.Type == psql.ROUTINE_TYPE_PROC {
-				sql, _, err := r.BuildSql(dbEngine.ArgsForSelect(args...))
-				if err == nil {
-					_, err = fmt.Fprintf(f, callProcFormat, name, sParamsTitle,
-						sql, sParams, r.Comment)
-				}
 
-			} else {
-				sReturn, sResult := "", ""
-				for _, col := range r.Columns() {
-					typeCol, _ := c.chkTypes(col, name)
-					if typeCol == "" {
-						logs.StatusLog(col.BasicType())
-					}
-					s := strings.Trim(col.Name(), "_")
-					if s == "type" {
-						s += "_"
-					}
-					sReturn += s + " " + typeCol + ", "
-					sResult += "&" + s + ", "
-				}
-				if len(r.Columns()) > 1 {
-					sResult = `
-			[]interface{}{
-					` + sResult + "\n},\n"
-				} else if len(r.Columns()) == 0 {
-
-					toType := psql.UdtNameToType(r.UdtName)
-					sType := typesExt.Basic(toType).String()
-					if toType == types.Invalid {
-						sType = "*" + strcase.ToCamel(r.UdtName)
-					}
-					sReturn = "res " + sType + ", "
-					sResult = "&res,"
-				}
-				sql, _, err := r.BuildSql(dbEngine.ArgsForSelect(args...))
-				if err == nil {
-					_, err = fmt.Fprintf(f, newFuncFormat, name, sParamsTitle, sReturn, sResult,
-						sql, sParams, r.Comment)
-				}
+		} else {
+			sReturn, sResult := c.prepareReturns(r, name)
+			if len(r.Columns()) > 1 {
+				sResult = fmt.Sprintf(paramsFormat, sResult)
+			} else if len(r.Columns()) == 0 {
+				sReturn, sResult = c.prepareReturn(r)
 			}
-			if err != nil {
-				return errors.Wrap(err, "WriteString Database")
+
+			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
+			if err == nil {
+				_, err = fmt.Fprintf(f, newFuncFormat, name, sParamsTitle, sReturn, sResult,
+					sql, sParams, r.Comment)
 			}
 		}
-
+		if err != nil {
+			return errors.Wrap(err, "WriteString Function")
+		}
 	}
+
+	_, err = fmt.Fprintf(f, formatDBprivate, DB.Name, DB.Schema)
+
 	return err
+}
+
+func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
+	toType := psql.UdtNameToType(r.UdtName)
+	sType := typesExt.Basic(toType).String()
+	if toType == types.Invalid {
+		sType = "*" + strcase.ToCamel(r.UdtName)
+	}
+
+	return "res " + sType + ", ", "&res,"
+}
+
+func (c *Creator) prepareReturns(r *psql.Routine, name string) (string, string) {
+	sReturn, sResult := "", ""
+	for _, col := range r.Columns() {
+		typeCol, _ := c.chkTypes(col, name)
+		if typeCol == "" {
+			logs.StatusLog(col.BasicType())
+		}
+		s := strings.Trim(col.Name(), "_")
+		if s == "type" {
+			s += "_"
+		}
+		sReturn += s + " " + typeCol + ", "
+		sResult += "&" + s + ", "
+	}
+
+	return sReturn, sResult
+}
+
+func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string, args []interface{}) {
+	args = make([]interface{}, len(r.Params()))
+	for i, param := range r.Params() {
+		typeCol, _ := c.chkTypes(param, name)
+		s := strcase.ToLowerCamel(param.Name())
+		sParamsTitle += ", " + s + " " + typeCol
+		sParams += s + `, `
+		args[i] = param
+	}
+
+	if sParams > "" {
+		sParams += "\n"
+	}
+	return
 }
 
 // MakeStruct create table interface with Columns operations
@@ -139,16 +154,13 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "creator")
 	}
 
-	c.packages, c.initValues = "", ""
+	c.packages, c.initValues = `"sync"
+`, ""
 	fields, caseRefFields, caseColFields := "", "", ""
 	for _, col := range table.Columns() {
 		propName := strcase.ToCamel(col.Name())
 
 		typeCol, defValue := c.chkTypes(col, propName)
-
-		if strings.HasPrefix(col.Type(), "_") {
-			typeCol = "[]" + typeCol
-		}
 
 		if !col.AutoIncrement() && defValue != nil {
 			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
@@ -229,14 +241,19 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		}
 	}
 
+	if strings.HasPrefix(col.Type(), "_") ||
+		strings.HasSuffix(col.Type(), "[]") {
+		typeCol = "[]" + typeCol
+	}
+
 	return typeCol, defValue
 }
 
 func (c *Creator) addImport(moduloName string) string {
-	if !strings.Contains(c.packages, moduloName) {
-		return `"` + moduloName + `"
-	`
+	if strings.Contains(c.packages, moduloName) {
+		return ""
 	}
 
-	return ""
+	return `"` + moduloName + `"
+	`
 }
