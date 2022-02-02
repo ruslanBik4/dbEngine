@@ -6,6 +6,7 @@ package psql
 
 import "github.com/pkg/errors"
 
+// ErrUnknownRoutineType, ErrFunctionWithoutResultType are some errors
 var (
 	ErrUnknownRoutineType        = errors.New("Can't add routine unknown type!")
 	ErrFunctionWithoutResultType = errors.New("Can't add function without results type!")

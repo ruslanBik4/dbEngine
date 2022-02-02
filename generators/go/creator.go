@@ -56,28 +56,37 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, DBformat, DB.Name, DB.Schema)
+	_, err = fmt.Fprintf(f, formatDatabase, DB.Name, DB.Schema)
 	if err != nil {
 		return errors.Wrap(err, "WriteString Database")
 	}
 
 	for _, name := range append(DB.FuncsAdded, DB.FuncsReplaced...) {
-		r := DB.Routines[name].(*psql.Routine)
+		r, ok := DB.Routines[name].(*psql.Routine)
+		if !ok {
+			logs.ErrorLog(dbEngine.ErrNotFoundRoutine{
+				Name:  name,
+				SName: "",
+			})
+			continue
+		}
+
 		if r.ReturnType() == "trigger" {
 			continue
 		}
-		logs.StatusLog(name, r.ReturnType())
-		name := strcase.ToCamel(name)
-		sParams, sParamsTitle, args := c.prepareParams(r, name)
+
+		logs.StatusLog(r.Type, name, r.ReturnType())
+		camelName := strcase.ToCamel(name)
+		sParams, sParamsTitle, args := c.prepareParams(r, camelName)
 		if r.Type == psql.ROUTINE_TYPE_PROC {
 			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
 			if err == nil {
-				_, err = fmt.Fprintf(f, callProcFormat, name, sParamsTitle,
-					sql, sParams, r.Comment)
+				_, err = fmt.Fprintf(f, callProcFormat, camelName, sParamsTitle,
+					sql, sParams, name, r.Comment)
 			}
 
 		} else {
-			sReturn, sResult := c.prepareReturns(r, name)
+			sReturn, sResult := c.prepareReturns(r, camelName)
 			if len(r.Columns()) > 1 {
 				sResult = fmt.Sprintf(paramsFormat, sResult)
 			} else if len(r.Columns()) == 0 {
@@ -86,8 +95,8 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 
 			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
 			if err == nil {
-				_, err = fmt.Fprintf(f, newFuncFormat, name, sParamsTitle, sReturn, sResult,
-					sql, sParams, r.Comment)
+				_, err = fmt.Fprintf(f, newFuncFormat, camelName, sParamsTitle, sReturn, sResult,
+					sql, sParams, name, r.Comment)
 			}
 		}
 		if err != nil {
@@ -176,7 +185,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, typeTitle, name, fields, table.Name())
+	_, err = fmt.Fprintf(f, typeTitle, name, fields, table.Name(), table.Comment())
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -218,7 +227,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		case "json":
 			typeCol = "interface{}"
 
-		case "date", "timestampt", "timestamptz", "time":
+		case "date", "timestamp", "timestamptz", "time":
 			if col.IsNullable() {
 				typeCol = "*time.Time"
 				c.initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
@@ -226,7 +235,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 				typeCol = "time.Time"
 			}
 
-		case "timerange", "tsrange", "_date", "daterange", "_timestampt", "_timestamptz", "_time":
+		case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
 			typeCol = "[]time.Time"
 		default:
 			typeCol = "interface{}"

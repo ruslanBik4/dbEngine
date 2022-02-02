@@ -663,7 +663,7 @@ func (c *Conn) listen(ch string) {
 		return
 	}
 
-	logs.StatusLog("listen chan %+v", cTag)
+	logs.StatusLog("%s chan %s", cTag, ch)
 	defer func() {
 		err := recover()
 		if err != nil {

@@ -28,7 +28,7 @@ import (
 )
 
 `
-	DBformat = `// Database is root interface for operation for %s.%s
+	formatDatabase = `// Database is root interface for operation for %s.%s
 type Database struct {
 	*dbEngine.DB
 }
@@ -52,17 +52,20 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 	return &Database{DB}, nil
 }
 `
-	callProcFormat = `// %s performs query & return result '%[7]s'
+	callProcFormat = `// %s call procedure '%[5]s' 
+// DB comment: '%s'
 func (d *Database) %[1]s(ctx context.Context%s) error {
 	return d.Conn.ExecDDL(ctx, 
 				"%s",
 				%s)
 }
 `
-	newFuncFormat = `// %s performs query & return result '%[7]s'
+	newFuncFormat = `// %s run query with select DB function '%[7]s'
+// DB comment: '%s'
+// ATTENTION! Now returns only 1 row
 func (d *Database) %[1]s(ctx context.Context%s) (%serr error) {
 	err = d.Conn.SelectOneAndScan(ctx, %s 
-				"%s",
+				"%s FETCH FIRST 1 ROW ONLY",
 				%s)
 	
 	return
@@ -100,6 +103,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	}
 }`
 	typeTitle = `// %s object for database operations
+// DB comment: '%[4]s'
 type %[1]s struct {
 	*psql.Table
 	Record 				*%[1]sFields

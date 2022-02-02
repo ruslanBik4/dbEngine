@@ -23,6 +23,7 @@ func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	panic("implement me")
 }
 
+// Indexes get indexex according to table
 func (t *Table) Indexes() dbEngine.Indexes {
 	//TODO implement me
 	panic("implement me")

@@ -16,6 +16,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// Conn i empty structure
 type Conn struct {
 }
 

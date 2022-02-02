@@ -149,7 +149,7 @@ func (c *Column) BasicType() types.BasicKind {
 	return UdtNameToType(c.UdtName)
 }
 
-// UdtNameToType return types.BasicKind according to psql edtName
+// UdtNameToType return types.BasicKind according to psql udtName
 func UdtNameToType(udtName string) types.BasicKind {
 	switch udtName {
 	case "bool":
