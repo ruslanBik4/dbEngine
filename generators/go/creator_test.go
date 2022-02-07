@@ -47,7 +47,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Creator{tt.fields.dst}
+			c := &Creator{dst: tt.fields.dst}
 			// if assert.NotNil(t, err) {
 			// 	t.Error(err)
 			// 	return

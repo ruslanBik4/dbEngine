@@ -47,7 +47,6 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 	}
 
 	c.packages = `"github.com/jackc/pgconn"
-	"github.com/pkg/errors"
 	"strings"
 `
 	sql := ""
@@ -104,7 +103,7 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		}
 	}
 
-	_, err = fmt.Fprintf(f, formatDBprivate, DB.Name, DB.Schema)
+	_, err = fmt.Fprintf(f, formatDBprivate)
 
 	return err
 }
@@ -148,7 +147,8 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 	}
 
 	if sParams > "" {
-		sParams += "\n"
+		sParams += `
+			`
 	}
 	return
 }
@@ -163,10 +163,27 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "creator")
 	}
 
+	defer f.Close()
+
+	//fileType, err := os.Create(path.Join(c.dst, table.Name()) + "_types.go")
+	//if err != nil && !os.IsExist(err) {
+	//	// err.(*os.PathError).Err
+	//	return errors.Wrap(err, "creator")
+	//}
+	//
+	//defer fileType.Close()
+	//
+	//_, err = fmt.Fprintf(fileType, title, DB.Name, DB.Schema, c.packages)
+	//if err != nil {
+	//	return errors.Wrap(err, "WriteString title")
+	//}
+
 	c.packages, c.initValues = `"sync"
 `, ""
-	fields, caseRefFields, caseColFields := "", "", ""
-	for _, col := range table.Columns() {
+	c.packages += c.addImport(moduloPgType)
+	c.packages += c.addImport("bytes")
+	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
+	for ind, col := range table.Columns() {
 		propName := strcase.ToCamel(col.Name())
 
 		typeCol, defValue := c.chkTypes(col, propName)
@@ -174,6 +191,8 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		if !col.AutoIncrement() && defValue != nil {
 			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
 		}
+
+		sTypeField += fmt.Sprintf(initFormat, propName, c.getReadFunc(col, propName, ind))
 
 		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
@@ -185,12 +204,28 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, typeTitle, name, fields, table.Name(), table.Comment())
+	//todo: add TYpe to interface Table
+	_, err = fmt.Fprintf(f, formatTable, name, fields, table.Name(), table.Comment(), table.(*psql.Table).Type)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
 
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
+
+	_, err = fmt.Fprintf(f, formatType, name)
+	if err != nil {
+		return errors.Wrap(err, "WriteString title")
+	}
+
+	_, err = fmt.Fprint(f, sTypeField)
+	if err != nil {
+		return errors.Wrap(err, "WriteString title")
+	}
+
+	_, err = fmt.Fprintf(f, formatEnd, name)
+	if err != nil {
+		return errors.Wrap(err, "WriteString title")
+	}
 
 	return err
 }
@@ -256,6 +291,68 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 	}
 
 	return typeCol, defValue
+}
+
+func (c *Creator) getReadFunc(col dbEngine.Column, propName string, ind int) string {
+	const title = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
+	bTypeCol := col.BasicType()
+	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+
+	switch {
+	case bTypeCol == types.Invalid:
+		return fmt.Sprintf(title, "RawBytes", ind, propName)
+
+	case bTypeCol == types.UntypedFloat:
+		switch col.Type() {
+		case "numeric", "decimal":
+			return fmt.Sprintf(title, "Numeric", ind, propName)
+		default:
+			return fmt.Sprintf(title, col.Type(), ind, propName)
+		}
+
+	case bTypeCol < 0:
+		switch col.Type() {
+		case "inet":
+			typeCol = "Inet"
+			c.packages += c.addImport(moduloPgType)
+
+		case "json", "jsonb":
+			typeCol = "Json"
+
+		case "date", "timestamp", "timestamptz", "time":
+			if col.IsNullable() {
+				typeCol = "RefTime"
+			} else {
+				typeCol = "Time"
+			}
+
+		case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
+			typeCol = "ArrayTime"
+		default:
+			typeCol = "Interface"
+		}
+
+		return fmt.Sprintf(title, typeCol, ind, propName)
+
+	//case col.IsNullable():
+	//	if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
+	//		typeCol = "interface{}"
+	//	} else {
+	//		typeCol = "sql.Null" + strings.Title(typeCol)
+	//		c.packages += c.addImport(moduloSql)
+	//	}
+	default:
+
+		if col.IsNullable() {
+			titleType := strings.Title(typeCol)
+			return "sql.Null" + titleType + `{
+` + titleType + ":" + fmt.Sprintf(title, strcase.ToCamel(typeCol), ind, propName) + `,
+}`
+
+		}
+
+		return fmt.Sprintf(title, strcase.ToCamel(typeCol), ind, propName)
+	}
 }
 
 func (c *Creator) addImport(moduloName string) string {

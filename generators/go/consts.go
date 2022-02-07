@@ -25,6 +25,7 @@ import (
     "github.com/ruslanBik4/dbEngine/dbEngine/psql"
 
 	"golang.org/x/net/context"
+	"github.com/pkg/errors"
 )
 
 `
@@ -50,6 +51,13 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 	}
 
 	return &Database{DB}, nil
+}
+// PsqlConn return connection as *psql.Conn
+// need for some low-level operation, 
+// invoke Conn.Select...(custom sql),
+//        New{table_name}FromConn, etc.
+func (d *Database) PsqlConn() *psql.Conn {
+	return (d.Conn).(*psql.Conn)
 }
 `
 	callProcFormat = `// %s call procedure '%[5]s' 
@@ -90,7 +98,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 
 	switch {
     case n.Code == "42P07" || strings.Contains(n.Message, "skipping") :
-		logs.DebugLog("skip operation: %s", n.Message)
+		logs.DebugLog("skip operation: %%s", n.Message)
 	case n.Severity == "INFO" :
 		logs.StatusLog(n.Message)
 	case n.Code > "00000" :
@@ -99,10 +107,10 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	case strings.HasPrefix(n.Message, "[[ERROR]]") :
 		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
 	default: // DEBUG
-		logs.DebugLog("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
+		logs.DebugLog("%%+v %%s (PID:%%d)", n.Severity, n.Message, c.PID())
 	}
 }`
-	typeTitle = `// %s object for database operations
+	formatTable = `// %s object for database operations
 // DB comment: '%[4]s'
 type %[1]s struct {
 	*psql.Table
@@ -124,6 +132,21 @@ func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
 
     return &%[1]s{
 		Table: table.(*psql.Table),
+    }, nil
+}
+// New%[1]s create new instance of table object from Connection 
+// it's necessary if Database create without reading schema of DB
+func New%[1]sFromConn(ctx context.Context, conn *psql.Conn) (*%[1]s, error) {
+
+	t := conn.NewTable("%[3]s", "%[5]s").(*psql.Table)
+	err := t.GetColumns(ctx)
+	if err != nil {
+		logs.ErrorLog(err, "during GetColumns")
+		return nil, err
+	}
+
+    return &%[1]s{
+		Table: t,
     }, nil
 }
 // implementation pgx.CopyFromSource
