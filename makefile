@@ -15,7 +15,7 @@ all : git patch
 release: dep proto-generate git patch
 
 tests:
-	go test ./...
+	go test -v ./...
 
 test_cover:
 	go test ./... -cover

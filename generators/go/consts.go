@@ -70,10 +70,36 @@ func (d *Database) %[1]s(ctx context.Context%s) error {
 `
 	newFuncFormat = `// %s run query with select DB function '%[7]s'
 // DB comment: '%s'
-// ATTENTION! Now returns only 1 row
+// ATTENTION! It returns only 1 row
 func (d *Database) %[1]s(ctx context.Context%s) (%serr error) {
 	err = d.Conn.SelectOneAndScan(ctx, %s 
 				"%s FETCH FIRST 1 ROW ONLY",
+				%s)
+	
+	return
+}
+`
+	newFuncRecordFormat = `// %sRowScanner run query with select
+type %[1]sRowScanner struct {
+		 %s
+}
+// GetFields implement dbEngine.RowScanner interface
+func (r *%[1]sRowScanner) GetFields(columns []dbEngine.Column) []interface{} {
+	return []interface{}{ 
+			 %[4]s 
+			}
+}
+// %[1]s run query with select DB function '%[7]s'
+// DB comment: '%s'
+// each will get every row from %[1]sRowScanner
+func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScanner) error%[3]s) (err error) {
+	res := &%[1]sRowScanner{}
+	err = d.Conn.SelectAndScanEach(ctx,
+				func () error {
+					return each(res)
+				},
+				res,
+				"%[5]s",
 				%s)
 	
 	return

@@ -85,8 +85,10 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 			}
 
 		} else {
+			sRecord := ""
 			sReturn, sResult := c.prepareReturns(r, camelName)
 			if len(r.Columns()) > 1 {
+				sRecord = strings.ReplaceAll(strings.TrimSuffix(sResult, ","), "&", "&r.")
 				sResult = fmt.Sprintf(paramsFormat, sResult)
 			} else if len(r.Columns()) == 0 {
 				sReturn, sResult = c.prepareReturn(r)
@@ -96,6 +98,13 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 			if err == nil {
 				_, err = fmt.Fprintf(f, newFuncFormat, camelName, sParamsTitle, sReturn, sResult,
 					sql, sParams, name, r.Comment)
+				if r.ReturnType() == "record" {
+					_, err = fmt.Fprintf(f, newFuncRecordFormat, camelName,
+						strings.ReplaceAll(sReturn, ",", "\n\t\t"),
+						sParamsTitle,
+						sRecord,
+						sql, sParams, name, r.Comment)
+				}
 			}
 		}
 		if err != nil {
@@ -141,6 +150,9 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 	for i, param := range r.Params() {
 		typeCol, _ := c.chkTypes(param, name)
 		s := strcase.ToLowerCamel(param.Name())
+		if param.Default() == nil {
+			typeCol = "*" + typeCol
+		}
 		sParamsTitle += ", " + s + " " + typeCol
 		sParams += s + `, `
 		args[i] = param
@@ -163,7 +175,12 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "creator")
 	}
 
-	defer f.Close()
+	defer func() {
+		err := f.Close()
+		if err != nil {
+			logs.ErrorLog(err)
+		}
+	}()
 
 	//fileType, err := os.Create(path.Join(c.dst, table.Name()) + "_types.go")
 	//if err != nil && !os.IsExist(err) {

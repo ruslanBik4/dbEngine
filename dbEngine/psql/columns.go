@@ -182,11 +182,9 @@ func UdtNameToType(udtName string) types.BasicKind {
 	case "inet":
 		return typesExt.TMap
 	default:
-		logs.ErrorLog(dbEngine.ErrWrongType{
-			Name:     "udtName",
-			TypeName: udtName,
-			Attr:     "",
-		})
+
+		logs.DebugLog("unknown type: %s", udtName)
+
 		return types.Invalid
 	}
 }
