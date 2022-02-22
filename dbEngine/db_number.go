@@ -4,9 +4,7 @@
 
 package dbEngine
 
-import (
-	"go/types"
-)
+import "go/types"
 
 // NumberColumn implement store data of column for test tables
 type NumberColumn struct {
@@ -18,6 +16,36 @@ type NumberColumn struct {
 // NewNumberColumn create new NumberColumn
 func NewNumberColumn(name, comment string, req bool) *NumberColumn {
 	return &NumberColumn{comment: comment, name: name, req: req}
+}
+
+// BasicType return GoLangs type of column
+func (c *NumberColumn) BasicType() types.BasicKind {
+	return types.Int
+}
+
+// BasicTypeInfo return types.BasicInfo of column
+func (c *NumberColumn) BasicTypeInfo() types.BasicInfo {
+	return types.IsInteger
+}
+
+// CheckAttr check attributes of column on DB schema according to ddl-file
+func (c *NumberColumn) CheckAttr(fieldDefine string) string {
+	return ""
+}
+
+// CharacterMaximumLength return max of length text columns
+func (c *NumberColumn) CharacterMaximumLength() int {
+	return 0
+}
+
+// Comment of column
+func (c *NumberColumn) Comment() string {
+	return c.comment
+}
+
+// Name of column
+func (c *NumberColumn) Name() string {
+	return c.name
 }
 
 // AutoIncrement return true if column is autoincrement
@@ -40,14 +68,8 @@ func (c *NumberColumn) SetDefault(str interface{}) {
 	c.colDefault = str
 }
 
-// CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *NumberColumn) CheckAttr(fieldDefine string) string {
-	return ""
-}
-
-// Comment of column
-func (c *NumberColumn) Comment() string {
-	return c.comment
+func (c *NumberColumn) Foreign() *ForeignKey {
+	return nil
 }
 
 // Primary return true if column is primary key
@@ -63,26 +85,6 @@ func (c *NumberColumn) Type() string {
 // Required return true if column need a value
 func (c *NumberColumn) Required() bool {
 	return c.req
-}
-
-// Name of column
-func (c *NumberColumn) Name() string {
-	return c.name
-}
-
-// CharacterMaximumLength return max of length text columns
-func (c *NumberColumn) CharacterMaximumLength() int {
-	return 0
-}
-
-// BasicType return GoLangs type of column
-func (c *NumberColumn) BasicType() types.BasicKind {
-	return types.Int
-}
-
-// BasicTypeInfo return types.BasicInfo of column
-func (c *NumberColumn) BasicTypeInfo() types.BasicInfo {
-	return types.IsInteger
 }
 
 // SetNullable set nullable flag of column

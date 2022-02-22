@@ -82,21 +82,21 @@ type ForeignKey struct {
 
 // Column describes methods for table/view/function builderOpts
 type Column interface {
-	BasicType() types.BasicKind
-	BasicTypeInfo() types.BasicInfo
-	CheckAttr(fieldDefine string) string
-	CharacterMaximumLength() int
-	Comment() string
-	Name() string
-	AutoIncrement() bool
-	IsNullable() bool
-	Default() interface{}
-	SetDefault(interface{})
+	BasicType() types.BasicKind          //+
+	BasicTypeInfo() types.BasicInfo      //+
+	CheckAttr(fieldDefine string) string //+
+	CharacterMaximumLength() int         //+
+	Comment() string                     //+
+	Name() string                        //+
+	AutoIncrement() bool                 //+
+	IsNullable() bool                    //+
+	Default() interface{}                //+
+	SetDefault(interface{})              //+
 	Foreign() *ForeignKey
-	Primary() bool
-	Type() string
-	Required() bool
-	SetNullable(bool)
+	Primary() bool    //+
+	Type() string     //+
+	Required() bool   //+
+	SetNullable(bool) //+
 }
 
 // Index consists of index properties
