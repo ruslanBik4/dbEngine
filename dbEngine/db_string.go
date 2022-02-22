@@ -51,8 +51,8 @@ func (s *StringColumn) AutoIncrement() bool {
 	return false
 }
 
-func (c *StringColumn) IsNullable() bool {
-	return c.isNullable
+func (s *StringColumn) IsNullable() bool {
+	return s.isNullable
 }
 
 func (s *StringColumn) Default() interface{} {
@@ -63,7 +63,7 @@ func (s *StringColumn) SetDefault(str interface{}) {
 	s.colDefault = str.(string)
 }
 
-func (c *StringColumn) Foreign() *ForeignKey {
+func (s *StringColumn) Foreign() *ForeignKey {
 	return nil
 }
 
@@ -79,8 +79,8 @@ func (s *StringColumn) Required() bool {
 	return s.req
 }
 
-func (c *StringColumn) SetNullable(f bool) {
-	c.isNullable = f
+func (s *StringColumn) SetNullable(f bool) {
+	s.isNullable = f
 }
 
 func SimpleColumns(names ...string) []Column {
