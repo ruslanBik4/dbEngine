@@ -185,12 +185,10 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 			case IsErrorDoesNotExists(err):
 				errParts := regDoesNotExist.FindStringSubmatch(err.Error())
-				for _, part := range errParts {
-					if val, ok := db.readTables[part]; ok {
-						db.readTables[part] = append(val, path)
-					} else {
-						db.readTables[part] = []string{path}
-					}
+				if val, ok := db.readTables[errParts[1]]; ok {
+					db.readTables[errParts[1]] = append(val, path)
+				} else {
+					db.readTables[errParts[1]] = []string{path}
 				}
 
 			default:
