@@ -167,7 +167,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 				err = table.GetColumns(ctx)
 				if err == nil {
 					db.Tables[tableName] = table
-					logs.StatusLog("New table add to DB", tableName)
+					logs.StatusLog("New table added to DB", tableName)
 				}
 
 				if rel, ok := db.readTables[tableName]; ok {
@@ -229,7 +229,7 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 				err = table.GetColumns(context.TODO())
 				if err == nil {
 					db.Tables[tableName] = table
-					logs.StatusLog("New table add to DB", tableName)
+					logs.StatusLog("New view added to DB", tableName)
 				}
 
 				return err
@@ -267,7 +267,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 			// this local err - not return for parent method
 			err := db.Conn.ExecDDL(context.TODO(), ddlType)
 			if err == nil {
-				logs.StatusLog("New types add to DB", typeName)
+				logs.StatusLog("New types added to DB", typeName)
 				return nil
 			}
 
