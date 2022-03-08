@@ -45,7 +45,7 @@ type DB struct {
 	Routines      map[string]Routine
 	FuncsReplaced []string
 	FuncsAdded    []string
-	readTables    map[string]string
+	readTables    map[string][]string
 	DbSet         map[string]*string
 }
 
@@ -53,7 +53,7 @@ type DB struct {
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
 		Conn:       conn,
-		readTables: map[string]string{},
+		readTables: map[string][]string{},
 	}
 
 	if cfg, ok := ctx.Value(DB_SETTING).(CfgDB); ok {
@@ -171,7 +171,13 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 				}
 
 				if rel, ok := db.readTables[tableName]; ok {
-					return db.ReadTableSQL(rel, info, err)
+					for _, each := range rel {
+						err := db.ReadTableSQL(each, info, err)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
 				}
 
 			case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
@@ -179,8 +185,12 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 			case IsErrorDoesNotExists(err):
 				errParts := regDoesNotExist.FindStringSubmatch(err.Error())
-				if len(errParts) > 1 {
-					db.readTables[errParts[1]] = path
+				for _, part := range errParts {
+					if val, ok := db.readTables[tableName]; ok {
+						db.readTables[part] = append(val, path)
+					} else {
+						db.readTables[tableName] = []string{path}
+					}
 				}
 
 			default:
