@@ -189,7 +189,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 					if val, ok := db.readTables[tableName]; ok {
 						db.readTables[part] = append(val, path)
 					} else {
-						db.readTables[tableName] = []string{path}
+						db.readTables[part] = []string{path}
 					}
 				}
 
