@@ -172,7 +172,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 				if rel, ok := db.readTables[tableName]; ok {
 					for _, each := range rel {
-						err := db.ReadTableSQL(each, info, err)
+						err = db.ReadTableSQL(each, info, err)
 						if err != nil {
 							return err
 						}
