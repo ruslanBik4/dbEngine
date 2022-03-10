@@ -163,7 +163,6 @@ func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
 // New%[1]s create new instance of table object from Connection 
 // it's necessary if Database create without reading schema of DB
 func New%[1]sFromConn(ctx context.Context, conn *psql.Conn) (*%[1]s, error) {
-
 	t, err := conn.NewTableWithCheck(ctx, "%[3]s")
 	if err != nil {
 		logs.ErrorLog(err, "during NewTableWithCheck")
