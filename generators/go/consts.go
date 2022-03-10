@@ -170,7 +170,7 @@ func New%[1]sFromConn(ctx context.Context, conn *psql.Conn) (*%[1]s, error) {
 	}
 
     return &%[1]s{
-		Table: t.(*psql.Table),
+		Table: t,
     }, nil
 }
 // implementation pgx.CopyFromSource

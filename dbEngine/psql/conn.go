@@ -253,7 +253,7 @@ func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 }
 
 // NewTableWithCheck create new Table with name, check the table from schema, populate columns and indexes
-func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (dbEngine.Table, error) {
+func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, error) {
 	table := &Table{
 		conn: c,
 	}
