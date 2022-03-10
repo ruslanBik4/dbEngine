@@ -164,10 +164,9 @@ func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
 // it's necessary if Database create without reading schema of DB
 func New%[1]sFromConn(ctx context.Context, conn *psql.Conn) (*%[1]s, error) {
 
-	t := conn.NewTable("%[3]s", "%[5]s").(*psql.Table)
-	err := t.GetColumns(ctx)
+	t := conn.NewTableWithCheck(ctx, "%[3]s").(*psql.Table)
 	if err != nil {
-		logs.ErrorLog(err, "during GetColumns")
+		logs.ErrorLog(err, "during NewTableWithCheck")
 		return nil, err
 	}
 

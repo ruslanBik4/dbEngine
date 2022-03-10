@@ -21,6 +21,16 @@ const (
 						FROM pg_catalog.pg_class c
 						WHERE c.relkind = 'm'
 					order by 1`
+	sqlGetTable = `SELECT table_name, table_type,
+						COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
+							AS comment
+						FROM INFORMATION_SCHEMA.tables
+						WHERE table_schema = 'public' AND table_name = $1
+					union
+						select c.relname, 'MATERIALIZED VIEW', COALESCE(pg_catalog.obj_description(c.oid, 'pg_class'), '')
+						FROM pg_catalog.pg_class c
+						WHERE c.relkind = 'm'
+					order by 1`
 	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name, d.description
 					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
 						 LEFT JOIN pg_description d

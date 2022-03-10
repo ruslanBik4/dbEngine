@@ -285,6 +285,10 @@ func (t *Table) GetColumns(ctx context.Context) error {
 		return err
 	}
 
+	if len(t.columns) == 0 {
+		return errors.New("no columns for table found")
+	}
+
 	return nil
 }
 

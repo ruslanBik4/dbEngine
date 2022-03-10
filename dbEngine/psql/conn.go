@@ -252,6 +252,44 @@ func (c *Conn) NewTable(name, typ string) dbEngine.Table {
 	return &Table{conn: c, name: name, Type: typ}
 }
 
+// NewTableWithCheck create new Table with name, check the table from schema, populate columns and indexes
+func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (dbEngine.Table, error) {
+	table := &Table{
+		conn: c,
+	}
+
+	err := c.SelectAndScanEach(
+		ctx,
+		func() error {
+
+			t := &Table{
+				conn:    c,
+				name:    table.Name(),
+				Type:    table.Type,
+				comment: table.comment,
+			}
+
+			err := t.GetColumns(ctx)
+			if err != nil {
+				return errors.Wrap(err, "during get columns")
+			}
+
+			err = t.GetIndexes(ctx)
+			if err != nil {
+				return errors.Wrap(err, "during get indexes")
+			}
+
+			return nil
+		},
+		table, sqlGetTable, name)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return table, nil
+}
+
 //SelectAndPerformRaw  run sql with args & run each every row
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
 	conn, err := c.Acquire(ctx)
