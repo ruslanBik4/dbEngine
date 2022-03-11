@@ -262,19 +262,19 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 		ctx,
 		func() error {
 
-			t := &Table{
+			table = &Table{
 				conn:    c,
 				name:    table.Name(),
 				Type:    table.Type,
 				comment: table.comment,
 			}
 
-			err := t.GetColumns(ctx)
+			err := table.GetColumns(ctx)
 			if err != nil {
 				return errors.Wrap(err, "during get columns")
 			}
 
-			err = t.GetIndexes(ctx)
+			err = table.GetIndexes(ctx)
 			if err != nil {
 				return errors.Wrap(err, "during get indexes")
 			}
