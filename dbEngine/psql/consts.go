@@ -29,8 +29,7 @@ const (
 					union
 						select c.relname, 'MATERIALIZED VIEW', COALESCE(pg_catalog.obj_description(c.oid, 'pg_class'), '')
 						FROM pg_catalog.pg_class c
-						WHERE c.relkind = 'm'
-					order by 1`
+						WHERE c.relkind = 'm' AND c.relname = $1`
 	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name, d.description
 					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
 						 LEFT JOIN pg_description d

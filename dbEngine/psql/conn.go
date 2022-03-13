@@ -258,33 +258,31 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 		conn: c,
 	}
 
+	isFound := false
+
 	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
-
-			table = &Table{
-				conn:    c,
-				name:    table.Name(),
-				Type:    table.Type,
-				comment: table.comment,
-			}
-
-			err := table.GetColumns(ctx)
-			if err != nil {
-				return errors.Wrap(err, "during get columns")
-			}
-
-			err = table.GetIndexes(ctx)
-			if err != nil {
-				return errors.Wrap(err, "during get indexes")
-			}
-
+			isFound = false
 			return nil
 		},
 		table, sqlGetTable, name)
-
 	if err != nil {
 		return nil, err
+	}
+
+	if !isFound {
+		return nil, dbEngine.ErrNotFoundTable{Table: name}
+	}
+
+	err = table.GetColumns(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "during get columns")
+	}
+
+	err = table.GetIndexes(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "during get indexes")
 	}
 
 	return table, nil
