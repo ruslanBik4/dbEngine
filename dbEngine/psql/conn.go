@@ -263,7 +263,7 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
-			isFound = false
+			isFound = true
 			return nil
 		},
 		table, sqlGetTable, name)
