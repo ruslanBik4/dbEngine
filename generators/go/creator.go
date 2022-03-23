@@ -112,7 +112,7 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		}
 	}
 
-	_, err = fmt.Fprintf(f, formatDBprivate)
+	_, err = fmt.Fprint(f, formatDBprivate)
 
 	return err
 }
@@ -271,26 +271,9 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		}
 
 	case bTypeCol < 0:
-		switch col.Type() {
-		case "inet":
-			typeCol = "pgtype.Inet"
-			c.packages += c.addImport(moduloPgType)
-
-		case "json":
-			typeCol = "interface{}"
-
-		case "date", "timestamp", "timestamptz", "time":
-			if col.IsNullable() {
-				typeCol = "*time.Time"
-				c.initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
-			} else {
-				typeCol = "time.Time"
-			}
-
-		case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
-			typeCol = "[]time.Time"
-		default:
-			typeCol = "interface{}"
+		typeCol = mapTypes[c.getTypeCol(col)]
+		if typeCol == "*time.Time" {
+			c.initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
 		}
 
 	case col.IsNullable():
@@ -328,26 +311,7 @@ func (c *Creator) getReadFunc(col dbEngine.Column, propName string, ind int) str
 		}
 
 	case bTypeCol < 0:
-		switch col.Type() {
-		case "inet":
-			typeCol = "Inet"
-			c.packages += c.addImport(moduloPgType)
-
-		case "json", "jsonb":
-			typeCol = "Json"
-
-		case "date", "timestamp", "timestamptz", "time":
-			if col.IsNullable() {
-				typeCol = "RefTime"
-			} else {
-				typeCol = "Time"
-			}
-
-		case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
-			typeCol = "ArrayTime"
-		default:
-			typeCol = "Interface"
-		}
+		typeCol = c.getTypeCol(col)
 
 		return fmt.Sprintf(title, typeCol, ind, propName)
 
@@ -370,6 +334,40 @@ func (c *Creator) getReadFunc(col dbEngine.Column, propName string, ind int) str
 
 		return fmt.Sprintf(title, strcase.ToCamel(typeCol), ind, propName)
 	}
+}
+
+func (c *Creator) getTypeCol(col dbEngine.Column) string {
+	switch typeName := col.Type(); typeName {
+	case "inet", "interval":
+		c.packages += c.addImport(moduloPgType)
+		return strings.Title(typeName)
+
+	case "json", "jsonb":
+		return "Json"
+
+	case "date", "timestamp", "timestamptz", "time":
+		if col.IsNullable() {
+			return "RefTime"
+		} else {
+			return "Time"
+		}
+
+	case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
+		return "ArrayTime"
+	default:
+		return "Interface"
+	}
+}
+
+var mapTypes = map[string]string{
+	"Inet":      "pgtype.Inet",
+	"Interval":  "pgtype.Interval",
+	"Json":      "interface{}",
+	"jsonb":     "interface{}",
+	"RefTime":   "*time.Time",
+	"Time":      "time.Time",
+	"ArrayTime": "[]time.Time",
+	"Interface": "interface{}",
 }
 
 func (c *Creator) addImport(moduloName string) string {

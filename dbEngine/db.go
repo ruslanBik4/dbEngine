@@ -400,9 +400,9 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 func logError(err error, ddlSQL string, fileName string) {
 	pgErr, ok := err.(*pgconn.PgError)
 	if ok {
-		pos := pgErr.Position - 1
-		if pos < 0 {
-			pos = 0
+		pos := int(pgErr.Position - 1)
+		if pos <= 0 {
+			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1
 		}
 		line := strings.Count(ddlSQL[:pos], "\n") + 1
 		printError(fileName, line, pgErr.Message, pgErr)
@@ -414,16 +414,12 @@ func logError(err error, ddlSQL string, fileName string) {
 }
 
 func printError(fileName string, line int, msg string, err error) {
-	// todo mv to logs
-	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s %#v\n",
-		logs.LogPutColor,
-		33, "ERROR", logs.LogEndColor, timeLogFormat(), fileName, line, msg, err)
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line,
+		fmt.Sprintf("%s, %#v", msg, err), logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {
-	// todo mv to logs
-	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s\n",
-		logs.LogPutColor, 30, prefix, logs.LogEndColor, timeLogFormat(), fileName, line, msg)
+	logs.CustomLog(logs.NOTICE, prefix, fileName, line, msg, logs.FgInfo)
 }
 
 func timeLogFormat() string {

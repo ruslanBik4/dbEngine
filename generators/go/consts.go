@@ -125,13 +125,18 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	switch {
     case n.Code == "42P07" || strings.Contains(n.Message, "skipping") :
 		logs.DebugLog("skip operation: %%s", n.Message)
+
 	case n.Severity == "INFO" :
 		logs.StatusLog(n.Message)
+
 	case n.Code > "00000" :
 		err := (*pgconn.PgError)(n)
-		logs.ErrorLog(err, n.Hint, err.SQLState(), err.File, err.Line, err.Routine)
+		logs.CustomLog(logs.CRITICAL, "DB_EXEC",  err.File, int(err.Line),
+			fmt.Sprintf("%v, hint: %s, where: %s, %s %s", err, n.Hint, n.Where,  err.SQLState(), err.Routine), logs.FgErr)
+
 	case strings.HasPrefix(n.Message, "[[ERROR]]") :
 		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
+
 	default: // DEBUG
 		logs.DebugLog("%%+v %%s (PID:%%d)", n.Severity, n.Message, c.PID())
 	}

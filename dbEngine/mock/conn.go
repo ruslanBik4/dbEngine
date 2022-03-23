@@ -5,11 +5,9 @@
 package mock
 
 import (
-	"github.com/ruslanBik4/logs"
-	"regexp"
-
 	"github.com/jackc/pgtype/pgxtype"
 	"github.com/pkg/errors"
+	"github.com/ruslanBik4/logs"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
 
@@ -64,8 +62,6 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 func (c *Conn) GetStat() string {
 	panic("implement me")
 }
-
-var regSQl = regexp.MustCompile(`select\s+(\.+)\s+from\s+`)
 
 // Exec mock exec command
 func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error {

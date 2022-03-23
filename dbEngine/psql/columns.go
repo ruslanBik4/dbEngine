@@ -179,7 +179,7 @@ func UdtNameToType(udtName string) types.BasicKind {
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
-	case "inet":
+	case "inet", "interval":
 		return typesExt.TMap
 	default:
 

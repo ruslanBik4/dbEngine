@@ -229,3 +229,18 @@ func GetArrayTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.T
 
 	return res
 }
+
+// GetIntervalFromByte convert data from src into []time.Time
+func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgtype.Interval) {
+	if len(src) == 0 {
+		return
+	}
+
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return
+	}
+
+	return
+}
