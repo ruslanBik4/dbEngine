@@ -46,9 +46,10 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		return errors.Wrap(err, "creator")
 	}
 
-	c.packages = `"github.com/jackc/pgconn"
-	"strings"
-`
+	c.packages += c.addImport("github.com/jackc/pgconn")
+	c.packages += c.addImport("strings")
+	c.packages += c.addImport("fmt")
+
 	sql := ""
 	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
 	if err != nil {

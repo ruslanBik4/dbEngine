@@ -281,6 +281,11 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				fieldDefine := title[2]
 				if fs := p.FindColumn(fieldName); fs == nil {
 					p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
+					if IsErrorNullValues(p.err) {
+						logError(p.err, ddl, p.filename)
+						p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + strings.ReplaceAll(name, "not null", ""))
+						//	todo: add fill the field default value if this exists & add not null
+					}
 				} else if fs.Primary() {
 					p.checkPrimary(fs, fieldDefine)
 

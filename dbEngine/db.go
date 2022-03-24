@@ -405,7 +405,14 @@ func logError(err error, ddlSQL string, fileName string) {
 			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1
 		}
 		line := strings.Count(ddlSQL[:pos], "\n") + 1
-		printError(fileName, line, pgErr.Message, pgErr)
+		msg := fmt.Sprintf("%s: %s", pgErr.Message, pgErr.Detail)
+		if pgErr.Where > "" {
+			msg += "(" + pgErr.Where + ")"
+		}
+		if pgErr.Hint > "" {
+			msg += "'" + pgErr.Hint + "'"
+		}
+		printError(fileName, line, msg, pgErr)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
 		printError(fileName, e.Line, e.Msg, e)
 	} else {
@@ -414,8 +421,7 @@ func logError(err error, ddlSQL string, fileName string) {
 }
 
 func printError(fileName string, line int, msg string, err error) {
-	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line,
-		fmt.Sprintf("%s, %#v", msg, err), logs.FgErr)
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {
