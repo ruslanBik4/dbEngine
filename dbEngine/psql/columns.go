@@ -31,6 +31,7 @@ type Column struct {
 	PrimaryKey             bool
 	Constraints            map[string]*dbEngine.ForeignKey
 	IsHidden               bool
+	Position               int32
 }
 
 // NewColumnForTableBuf create Column for scanning operation of Table
@@ -208,13 +209,14 @@ var dataTypeAlias = map[string][]string{
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *Column) CheckAttr(fieldDefine string) (res string) {
+func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	fieldDefine = strings.ToLower(fieldDefine)
 	isNotNull := strings.Contains(fieldDefine, isNotNullable)
+	logs.StatusLog(c.name, fieldDefine, c.IsNullable(), isNotNull)
 	if c.isNullable && isNotNull {
-		res += " is nullable "
+		res = append(res, dbEngine.MustNotNull)
 	} else if !c.isNullable && !isNotNull {
-		res += " is not nullable "
+		res = append(res, dbEngine.Nullable)
 	}
 
 	// todo: add check arrays
@@ -238,10 +240,10 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 		if strings.HasPrefix(c.DataType, "character") &&
 			(lenCol > 0) &&
 			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", lenCol)) {
-			res += fmt.Sprintf(" has length %d symbols", lenCol)
+			res = append(res, dbEngine.ChangeLength)
 		}
 	} else {
-		res += " has type " + c.DataType
+		res = append(res, dbEngine.ChangeType)
 		logs.DebugLog(c.DataType, c.UdtName, lenCol)
 	}
 
@@ -329,6 +331,8 @@ func (c *Column) RefColValue(name string) interface{} {
 		return &c.comment
 	case "keys":
 		return &c.Constraints
+	case "ordinal_position":
+		return &c.Position
 	default:
 		panic("not implement scan for field " + name)
 	}

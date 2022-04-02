@@ -31,8 +31,8 @@ func (s *StringColumn) BasicTypeInfo() types.BasicInfo {
 	return types.IsString
 }
 
-func (s *StringColumn) CheckAttr(fieldDefine string) string {
-	return ""
+func (s *StringColumn) CheckAttr(fieldDefine string) []FlagColumn {
+	return nil
 }
 
 func (s *StringColumn) CharacterMaximumLength() int {

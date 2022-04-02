@@ -421,7 +421,7 @@ func logError(err error, ddlSQL string, fileName string) {
 }
 
 func printError(fileName string, line int, msg string, err error) {
-	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg+err.Error(), logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {

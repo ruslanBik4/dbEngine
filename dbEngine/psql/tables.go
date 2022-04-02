@@ -279,7 +279,7 @@ func (t *Table) GetColumns(ctx context.Context) error {
 	err := t.conn.SelectAndScanEach(ctx,
 		t.readColumnRow,
 		t,
-		sqlGetTablesColumns+" ORDER BY C.ordinal_position",
+		sqlGetTablesColumns,
 		t.name)
 	if err != nil {
 		return err

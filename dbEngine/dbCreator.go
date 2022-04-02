@@ -187,8 +187,8 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-func (p *ParserTableDDL) runDDL(ddl string) {
-	err := p.DB.Conn.ExecDDL(context.TODO(), ddl)
+func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
+	err := p.DB.Conn.ExecDDL(context.TODO(), ddl, args...)
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
@@ -280,20 +280,13 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				fieldName := title[1]
 				fieldDefine := title[2]
 				if fs := p.FindColumn(fieldName); fs == nil {
-					p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
-					if IsErrorNullValues(p.err) {
-						logError(p.err, ddl, p.filename)
-						p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + strings.ReplaceAll(name, "not null", ""))
-						//	todo: add fill the field default value if this exists & add not null
-					}
-				} else if fs.Primary() {
-					p.checkPrimary(fs, fieldDefine)
-
+					p.addColumn(ddl, name, fieldDefine, fieldName, fs)
+				} else if res := fs.CheckAttr(fieldDefine); fs.Primary() {
+					p.checkPrimary(fs, fieldDefine, res)
 				} else {
 					// don't chg primary column
-					p.err = p.checkColumn(fs, fieldDefine)
+					p.err = p.checkColumn(fs, fieldDefine, res)
 				}
-
 			}
 		}
 	}
@@ -301,68 +294,96 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 	return true
 }
 
-func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
-	res := fs.CheckAttr(fieldDefine)
-	fieldName := fs.Name()
-	// change type
-	if strings.Contains(res, "type") {
-		attr := strings.Split(fieldDefine, " ")
-		if attr[0] == "double" {
-			attr[0] += " " + attr[1]
-		} else if attr[0] == "serial" {
-			attr[0] = "integer"
+func (p *ParserTableDDL) addColumn(ddl string, name string, fieldDefine string, fieldName string, fs Column) {
+	p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
+	if p.err != nil && IsErrorNullValues(p.err) {
+		logError(p.err, ddl, p.filename)
+		p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + strings.ReplaceAll(name, "not null", ""))
+		if p.err != nil {
+			logError(p.err, ddl, p.filename)
+			return
 		}
 
-		sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
-		if attr[0] == "money" && fs.Type() == "double precision" {
-			sql = fmt.Sprintf(
-				" type %s using %s::numeric::%[1]s",
-				attr[0], fieldName)
-		}
+		defaults := regDefault.FindStringSubmatch(strings.ToLower(fieldDefine))
+		if len(defaults) > 1 && defaults[1] > "" {
+			p.runDDL(fmt.Sprintf("UPDATE TABLE %s SET %s=$1", p.Name(), fieldName), defaults[1])
+			if p.err != nil {
+				logError(p.err, ddl, p.filename)
+				return
+			}
 
-		p.err = p.alterColumn(sql, fieldName, fieldDefine, fs)
+			err := p.alterColumn(" set not null", fieldName, fieldDefine, fs)
+			if err != nil {
+				logError(err, ddl, p.filename)
+			}
+		}
 	}
 }
 
-func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
-	res := fs.CheckAttr(title)
+func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string, res []FlagColumn) {
+
+	fieldName := fs.Name()
+	for _, token := range res {
+
+		// change type
+		if token == ChangeType {
+			attr := strings.Split(fieldDefine, " ")
+			if attr[0] == "double" {
+				attr[0] += " " + attr[1]
+			} else if attr[0] == "serial" {
+				attr[0] = "integer"
+			}
+
+			sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
+			if attr[0] == "money" && fs.Type() == "double precision" {
+				sql = fmt.Sprintf(
+					" type %s using %s::numeric::%[1]s",
+					attr[0], fieldName)
+			}
+
+			p.err = p.alterColumn(sql, fieldName, fieldDefine, fs)
+		}
+	}
+}
+
+func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, ok := fs.Default().(string)
 	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
-			logs.DebugLog(defaults, title)
+			logs.ErrorLog(err, defaults, title, colDef)
 		}
+		fs.SetDefault(defaults[1])
 	}
 
-	if res > "" {
-		err = ErrNotFoundColumn{
-			Table:  p.Name(),
-			Column: fieldName,
-		}
+	//err = ErrNotFoundColumn{
+	//	Table:  p.Name(),
+	//	Column: fieldName,
+	//}
+	for _, token := range res {
+
+		switch token {
 		// change length
-		if strings.Contains(res, "has length") {
+		case ChangeLength:
 			err = p.alterColumnsLength(fs, title, fieldName)
-		}
 
 		// change type
-		if strings.Contains(res, "type") {
+		case ChangeType:
 			err = p.alterColumnsType(fs, title, fieldName)
-		}
 
 		// set not nullable
-		if strings.Contains(res, "is nullable") {
+		case MustNotNull:
 			err = p.alterColumn(" set not null", fieldName, title, fs)
 			if err != nil {
 				logs.ErrorLog(err)
 			} else {
 				fs.SetNullable(true)
 			}
-		}
 
 		// set nullable
-		if strings.Contains(res, "is not nullable") {
+		case Nullable:
 			err = p.alterColumn(" drop not null", fieldName, title, fs)
 			if err != nil {
 				logs.ErrorLog(err)

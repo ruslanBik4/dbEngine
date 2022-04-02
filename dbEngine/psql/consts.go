@@ -35,24 +35,56 @@ const (
 						 LEFT JOIN pg_description d
 								   ON d.objoid = p.oid
 					WHERE specific_schema = 'public'`
-	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default, 
-		is_nullable='YES' is_nullable, 
+	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,  is_nullable='YES' is_nullable, 
         COALESCE(character_set_name, '') character_set_name,
 		COALESCE(character_maximum_length, -1) character_maximum_length, 
         udt_name,
 		COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
 							   AS column_comment,
   		(select json_object_agg( k.constraint_name,
-			CASE WHEN kcu.table_name IS NULL THEN NULL
-               ELSE json_build_object('parent', kcu.table_name, 'column', kcu.column_name,
-               'update_rule', rc.update_rule, 'delete_rule', rc.delete_rule)
-           END)
-		FROM  INFORMATION_SCHEMA.key_column_usage k
-		    LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
-			LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
-		WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)) as keys
+								CASE WHEN kcu.table_name IS NULL THEN NULL
+								   ELSE json_build_object('parent', kcu.table_name, 'column', kcu.column_name,
+								   'update_rule', rc.update_rule, 'delete_rule', rc.delete_rule)
+							    END)
+			FROM  INFORMATION_SCHEMA.key_column_usage k
+				LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
+				LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
+			WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)
+		) as keys,
+		c.ordinal_position
 FROM INFORMATION_SCHEMA.COLUMNS c
-WHERE c.table_schema='public' AND c.table_name=$1`
+WHERE c.table_schema='public' AND c.table_name=$1
+UNION ALL
+    SELECT a.attname::information_schema.sql_identifier, 
+       CASE
+           WHEN t.typtype = 'd'::"char" THEN
+               CASE
+                   WHEN bt.typelem <> 0::oid AND bt.typlen = '-1'::integer THEN 'ARRAY'::text
+                   WHEN nbt.nspname = 'pg_catalog'::name THEN format_type(t.typbasetype, NULL::integer)
+                   ELSE 'USER-DEFINED'::text
+                   END
+           ELSE
+               CASE
+                   WHEN t.typelem <> 0::oid AND t.typlen = '-1'::integer THEN 'ARRAY'::text
+                   WHEN nt.nspname = 'pg_catalog'::name THEN format_type(a.atttypid, NULL::integer)
+                   ELSE 'USER-DEFINED'::text
+                   END
+           END::information_schema.character_data                                                                                      AS data_type,
+		NULL,  true,  '', -1, 
+        COALESCE(bt.typname, t.typname)::information_schema.sql_identifier,
+		COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), ordinal_position::int), ''),
+		NULL::json, ordinal_position
+	FROM pg_attribute a
+		JOIN LATERAL CAST(a.attnum as information_schema.cardinal_number) ordinal_position ON true
+         JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) ON a.attrelid = c.oid
+         JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
+		LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid) 
+				ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid
+	WHERE nc.nspname='public' AND c.relname=$1
+  			AND a.attnum > 0  AND NOT a.attisdropped
+			  AND (pg_has_role(c.relowner, 'USAGE'::text) OR
+				   has_column_privilege(c.oid, a.attnum, 'SELECT, INSERT, UPDATE, REFERENCES'::text))
+ORDER BY ordinal_position`
 	sqlGetFuncParams = `SELECT coalesce(parameter_name, 'noName') as parameter_name, data_type, udt_name,
 								COALESCE(character_set_name, '') as character_set_name,
 								COALESCE(character_maximum_length, -1) as character_maximum_length, 

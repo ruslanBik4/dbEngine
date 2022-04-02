@@ -177,7 +177,7 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 
 			err := t.GetColumns(ctx)
 			if err != nil {
-				return errors.Wrap(err, "during get columns")
+				return errors.Wrapf(err, "during get columns of table '%s'", table.Name())
 			}
 
 			err = t.GetIndexes(ctx)
