@@ -80,7 +80,7 @@ UNION ALL
          JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
 		LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid) 
 				ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid
-	WHERE nc.nspname='public' AND c.relname=$1
+	WHERE nc.nspname='public' AND c.relkind = 'm' AND c.relname=$1
   			AND a.attnum > 0  AND NOT a.attisdropped
 			  AND (pg_has_role(c.relowner, 'USAGE'::text) OR
 				   has_column_privilege(c.oid, a.attnum, 'SELECT, INSERT, UPDATE, REFERENCES'::text))
@@ -108,11 +108,23 @@ ORDER BY ordinal_position`
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,
-       array_agg(a.attname order by a.attnum) filter ( where a.attname > '' )  :: text[] as column_names
+       array_agg(a.attname order by array_positions(ix.indkey, a.attnum)) filter ( where a.attname > '' )  :: text[] as column_names
 FROM pg_index ix left join pg_class t on t.oid = ix.indrelid
      left join pg_class i on i.oid = ix.indexrelid
      left join  pg_attribute a on (a.attrelid = t.oid AND a.attnum = ANY(ix.indkey))
 where t.relname = $1
+group by 1,2,3
+UNION
+SELECT
+    tc.constraint_name, 
+    '',
+    false,
+    array_agg(kcu.column_name)
+FROM
+    information_schema.table_constraints AS tc
+        JOIN information_schema.key_column_usage AS kcu
+             USING (constraint_schema, constraint_name, table_name)
+WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=$1
 group by 1,2,3
 order by 1`
 )

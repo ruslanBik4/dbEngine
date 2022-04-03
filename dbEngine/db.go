@@ -412,16 +412,16 @@ func logError(err error, ddlSQL string, fileName string) {
 		if pgErr.Hint > "" {
 			msg += "'" + pgErr.Hint + "'"
 		}
-		printError(fileName, line, msg, pgErr)
+		printError(fileName, line, msg)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
-		printError(fileName, e.Line, e.Msg, e)
+		printError(fileName, e.Line, e.Msg+e.sql)
 	} else {
-		printError(fileName, 1, prefix, err)
+		printError(fileName, 1, err.Error())
 	}
 }
 
-func printError(fileName string, line int, msg string, err error) {
-	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg+err.Error(), logs.FgErr)
+func printError(fileName string, line int, msg string) {
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {

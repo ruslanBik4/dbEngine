@@ -212,7 +212,6 @@ var dataTypeAlias = map[string][]string{
 func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	fieldDefine = strings.ToLower(fieldDefine)
 	isNotNull := strings.Contains(fieldDefine, isNotNullable)
-	logs.StatusLog(c.name, fieldDefine, c.IsNullable(), isNotNull)
 	if c.isNullable && isNotNull {
 		res = append(res, dbEngine.MustNotNull)
 	} else if !c.isNullable && !isNotNull {

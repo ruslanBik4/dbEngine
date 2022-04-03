@@ -99,16 +99,18 @@ func (p *ParserTableDDL) alterTable(ddl string) bool {
 		return false
 	}
 
+	logs.StatusLog("alter")
 	p.runDDL(ddl)
 
 	return true
 }
 
 func (p *ParserTableDDL) alterMaterializedView(ddl string) bool {
-	if !strings.Contains(strings.ToLower(ddl), "materialized view") {
+	if !strings.HasPrefix(strings.ToLower(ddl), "create materialized view") {
 		return false
 	}
 
+	p.runDDL("DROP materialized view " + p.Table.Name())
 	p.runDDL(ddl)
 
 	return true
@@ -197,7 +199,7 @@ func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
 		}
 	} else if IsErrorAlreadyExists(err) {
 		p.err = nil
-		//logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
+		logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
 	} else if err != nil {
 		logError(err, ddl, p.filename)
 		p.err = err
@@ -442,32 +444,31 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	if pInd := p.FindIndex(ind.Name); pInd != nil {
 		if pInd.Expr != ind.Expr {
 			logInfo(prefix, p.filename,
-				"index '"+ind.Name+"' exists! New expr '"+ind.Expr+"' (old ="+pInd.Expr,
+				fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, pInd.Expr),
 				p.line)
+			logs.StatusLog(pInd)
 			return true
 		}
 
 		columns := pInd.Columns
-		for i, name := range ind.Columns {
+		hasChanges := true
+		if len(columns) == len(ind.Columns) {
+			for i, name := range ind.Columns {
 
-			if i < len(columns) && columns[i] == name {
-				continue
-			}
-			isFound := false
-			for _, col := range columns {
-				if col == name {
-					isFound = true
-					break
+				hasChanges = !(i < len(columns) && columns[i] == name)
+				if !hasChanges {
+					continue
 				}
-			}
-			if !isFound {
-				logInfo(prefix, p.filename,
-					"index '"+pInd.Name+"' exists! New column '"+name+"'"+strings.Join(pInd.Columns, ","),
-					p.line)
-				p.runDDL("DROP INDEX " + pInd.Name)
-				p.runDDL(ddl)
-			}
 
+				logInfo(prefix, p.filename,
+					fmt.Sprintf("index '%s' exists! New column '%s'", pInd.Name, name),
+					p.line)
+			}
+		}
+
+		if hasChanges {
+			p.runDDL("DROP INDEX " + pInd.Name)
+			p.runDDL(ddl)
 		}
 
 		return true
@@ -497,34 +498,38 @@ func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
 			return nil, errors.New("out if columns!" + name)
 		}
 
-		value := columns[i]
+		token := columns[i]
 		switch name {
 		case "":
+		case "fTable":
+			ind.foreignTable = token
 		case "table":
-			if value != p.Name() {
-				return nil, errors.New("bad table name! " + value)
+			if token != p.Name() {
+				return nil, errors.New("bad table name! " + token)
 			}
 		case "index":
-			ind.Name = value
+			ind.Name = token
 		case "columns":
-			for _, colDdl := range strings.Split(value, ",") {
-				col, isLegal := CheckColumn(colDdl, p)
+			for _, colDdl := range strings.Split(token, ",") {
+				col, isLegal := CheckColumn(strings.TrimSpace(colDdl), p)
 				if isLegal {
 					ind.Columns = append(ind.Columns, col.Name())
+				} else {
+					ind.Expr += colDdl
 				}
 			}
 
 			if len(ind.Columns) == 0 {
-				return nil, ErrNotFoundColumn{p.Name(), value}
+				return nil, ErrNotFoundColumn{p.Name(), token}
 			}
 
-			if strings.Join(ind.Columns, ",") != value {
-				ind.Expr = value
-			}
+			//if strings.Join(ind.Columns, ",") != token {
+			//	ind.Expr = token
+			//}
 		case "unique":
-			ind.Unique = value == name
+			ind.Unique = token == name
 		default:
-			logInfo(prefix, p.filename, name+value, p.line)
+			logInfo(prefix, p.filename, name+token, p.line)
 		}
 
 	}
