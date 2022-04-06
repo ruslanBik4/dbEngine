@@ -275,6 +275,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		typeCol = mapTypes[c.getTypeCol(col)]
 		if typeCol == "*time.Time" {
 			c.initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
+			defValue = nil
 		}
 
 	case col.IsNullable():
