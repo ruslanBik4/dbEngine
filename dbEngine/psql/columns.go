@@ -306,7 +306,8 @@ func (c *Column) SetDefault(d interface{}) {
 
 	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
 	// todo add other case of autogenerate column value
-	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
+	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER" ||
+		c.colDefault == "NOW()" || c.colDefault == "now()"
 }
 
 // RefColValue referral of column property 'name'
