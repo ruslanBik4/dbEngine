@@ -431,7 +431,7 @@ func (p ParserTableDDL) alterColumnsLength(fs Column, title, fieldName string) e
 }
 
 func (p *ParserTableDDL) updateIndex(ddl string) bool {
-	ind, err := p.checkDdlCreateIndex(ddl)
+	ind, err := p.checkDDLCreateIndex(ddl)
 	if err != nil {
 		p.err = err
 		return true
@@ -451,8 +451,8 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 		}
 
 		columns := pInd.Columns
-		hasChanges := true
-		if len(columns) == len(ind.Columns) {
+		hasChanges := !(len(columns) == len(ind.Columns))
+		if !hasChanges {
 			for i, name := range ind.Columns {
 
 				hasChanges = !(i < len(columns) && columns[i] == name)
@@ -464,22 +464,36 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 					fmt.Sprintf("index '%s' exists! New column '%s'", pInd.Name, name),
 					p.line)
 			}
+			if !hasChanges && ind.foreignTable > "" && ind.deleteCascade == "set null" {
+				logInfo(prefix, p.filename,
+					fmt.Sprintf("reference to '%s' exists! Update  '%s' delete '%s'", ind.foreignTable,
+						ind.updateCascade, ind.deleteCascade),
+					p.line)
+			}
+
+			if !hasChanges && pInd.Unique != ind.Unique {
+				logInfo(prefix, p.filename,
+					fmt.Sprintf("New unique condition '%v' exists! Old  '%v'", ind.Unique, pInd.Unique),
+					p.line)
+				hasChanges = true
+			}
 		}
 
 		if hasChanges {
+			logs.StatusLog(ind)
 			p.runDDL("DROP INDEX " + pInd.Name)
 			p.runDDL(ddl)
 		}
 
 		return true
 	}
-
+	// create new index
 	p.runDDL(ddl)
 
 	return true
 }
 
-func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
+func (p ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 
 	regIndex := ddlIndex
 	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
@@ -503,6 +517,10 @@ func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
 		case "":
 		case "fTable":
 			ind.foreignTable = token
+		case "onUpdate":
+			ind.updateCascade = token
+		case "onDelete":
+			ind.deleteCascade = token
 		case "table":
 			if token != p.Name() {
 				return nil, errors.New("bad table name! " + token)

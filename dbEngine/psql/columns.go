@@ -297,17 +297,18 @@ func (c *Column) SetDefault(d interface{}) {
 		return
 	}
 
-	str = (strings.Split(str, "::"))[0]
+	str = strings.ToUpper((strings.Split(str, "::"))[0])
 
 	if str == "NULL" {
 		c.colDefault = nil
 		return
 	}
 
-	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
+	const DEFAULT_SERIAL = "NEXTVAL("
+	c.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
 	// todo add other case of autogenerate column value
-	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER" ||
-		c.colDefault == "NOW()" || c.colDefault == "now()"
+	c.autoInc = strings.HasPrefix(str, DEFAULT_SERIAL) || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER" ||
+		c.colDefault == "NOW()"
 }
 
 // RefColValue referral of column property 'name'

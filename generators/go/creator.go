@@ -113,7 +113,7 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		}
 	}
 
-	_, err = fmt.Fprint(f, formatDBprivate)
+	_, err = f.WriteString(formatDBprivate)
 
 	return err
 }
@@ -210,7 +210,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
 		}
 
-		sTypeField += fmt.Sprintf(initFormat, propName, c.getReadFunc(col, propName, ind))
+		sTypeField += fmt.Sprintf(initFormat, propName, c.getFuncForDecode(col, propName, ind))
 
 		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
@@ -295,27 +295,27 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 	return typeCol, defValue
 }
 
-func (c *Creator) getReadFunc(col dbEngine.Column, propName string, ind int) string {
-	const title = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
+func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int) string {
+	const decodeFncTmp = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
 	bTypeCol := col.BasicType()
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
 	switch {
 	case bTypeCol == types.Invalid:
-		return fmt.Sprintf(title, "RawBytes", ind, propName)
+		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
 
 	case bTypeCol == types.UntypedFloat:
 		switch col.Type() {
 		case "numeric", "decimal":
-			return fmt.Sprintf(title, "Numeric", ind, propName)
+			return fmt.Sprintf(decodeFncTmp, "Numeric", ind, propName)
 		default:
-			return fmt.Sprintf(title, col.Type(), ind, propName)
+			return fmt.Sprintf(decodeFncTmp, col.Type(), ind, propName)
 		}
 
 	case bTypeCol < 0:
 		typeCol = c.getTypeCol(col)
 
-		return fmt.Sprintf(title, typeCol, ind, propName)
+		return fmt.Sprintf(decodeFncTmp, typeCol, ind, propName)
 
 	//case col.IsNullable():
 	//	if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
@@ -326,15 +326,19 @@ func (c *Creator) getReadFunc(col dbEngine.Column, propName string, ind int) str
 	//	}
 	default:
 
+		if strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]") {
+			return fmt.Sprintf(decodeFncTmp, "Array"+strcase.ToCamel(typeCol), ind, propName)
+		}
+
 		if col.IsNullable() {
 			titleType := strings.Title(typeCol)
 			return "sql.Null" + titleType + `{
-` + titleType + ":" + fmt.Sprintf(title, strcase.ToCamel(typeCol), ind, propName) + `,
+` + titleType + ":" + fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName) + `,
 }`
 
 		}
 
-		return fmt.Sprintf(title, strcase.ToCamel(typeCol), ind, propName)
+		return fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName)
 	}
 }
 

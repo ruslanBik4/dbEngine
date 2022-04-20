@@ -101,11 +101,12 @@ type Column interface {
 
 // Index consists of index properties
 type Index struct {
-	Name                        string
-	foreignTable, foreignColumn string
-	Expr                        string
-	Unique                      bool
-	Columns                     []string
+	Name                         string
+	foreignTable, foreignColumn  string
+	updateCascade, deleteCascade string
+	Expr                         string
+	Unique                       bool
+	Columns                      []string
 }
 
 // GetFields implements interface RowScanner

@@ -119,7 +119,7 @@ func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScan
 	case "%s":
 		return r.%s
 `
-	formatDBprivate = `// printNotice logging some psql messages (invoked command 'RAISE ')
+	formatDBprivate = `// printNotice logging some psql messages (invoked command 'RAISE ...')
 func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 
 	switch {
@@ -138,10 +138,10 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
 
 	default: // DEBUG
-		logs.DebugLog("%%+v %%s (PID:%%d)", n.Severity, n.Message, c.PID())
+		logs.DebugLog("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
 	}
 }`
-	formatTable = `// %s object for database operations
+	formatTable = `// %s implement operations for %[5]s 
 // DB comment: '%[4]s'
 type %[1]s struct {
 	*psql.Table
@@ -155,8 +155,8 @@ type %[1]s struct {
 }
 
 // New%[1]s create new instance of table object
-func New%[1]s( db *dbEngine.DB) (*%[1]s, error) {
-	table, ok := db.Tables["%[3]s"]
+func New%[1]s(DB *dbEngine.DB) (*%[1]s, error) {
+	table, ok := DB.Tables["%[3]s"]
     if !ok {
       return nil, dbEngine.ErrNotFoundTable{Table: "%[3]s"}
     }
@@ -296,6 +296,15 @@ func (r *%[1]sFields) ColValue(name string) interface{}{
 		return nil
 	}
 }
+// GetFields implement dbEngine.RowScanner interface
+func (r *%[1]sFields) GetFields(columns []dbEngine.Column) []interface{} {
+	v := make([]interface{}, len(columns))
+	for i, col := range columns {
+		v[i] = r.RefColValue( col.Name() )
+	}
+
+	return v
+}
 // GetValue implement httpgo.RouteDTO interface
 func (r *%[1]sFields) GetValue() interface{} {
 	return r
@@ -315,13 +324,7 @@ func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
 		columns = t.Columns()
 	}
 
-	t.NewRecord()
-	v := make([]interface{}, len(columns))
-	for i, col := range columns {
-		v[i] = t.Record.RefColValue( col.Name() )
-	}
-
-	return v
+	return t.NewRecord().GetFields(columns)
 }
 // SelectSelfScanEach exec request to DB & populate record & call each for each row of query
 func (t *%[1]s) SelectSelfScanEach(ctx context.Context, each func(record *%[1]sFields) error, Options ...dbEngine.BuildSqlOptions) error {

@@ -205,6 +205,7 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 	type args struct {
 		fs    Column
 		title string
+		res   []FlagColumn
 	}
 	tests := []struct {
 		name    string
@@ -225,7 +226,7 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			if err := p.checkColumn(tt.args.fs, tt.args.title); (err != nil) != tt.wantErr {
+			if err := p.checkColumn(tt.args.fs, tt.args.title, tt.args.res); (err != nil) != tt.wantErr {
 				t.Errorf("checkColumn() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -245,6 +246,7 @@ func TestParserTableDDL_checkPrimary(t *testing.T) {
 	type args struct {
 		fs          Column
 		fieldDefine string
+		res         []FlagColumn
 	}
 	tests := []struct {
 		name   string
@@ -264,7 +266,7 @@ func TestParserTableDDL_checkPrimary(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			p.checkPrimary(tt.args.fs, tt.args.fieldDefine)
+			p.checkPrimary(tt.args.fs, tt.args.fieldDefine, tt.args.res)
 		})
 	}
 }
@@ -382,7 +384,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			got, err := p.checkDdlCreateIndex(strings.ToLower(tt.ddl))
+			got, err := p.checkDDLCreateIndex(strings.ToLower(tt.ddl))
 			if tt.wantErr && !assert.NotNil(t, err) {
 				return
 			}

@@ -464,6 +464,16 @@ func Columns(columns ...string) BuildSqlOptions {
 	return ColumnsForSelect(columns...)
 }
 
+// Args set slice of arguments sql request
+func Args(args ...interface{}) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.Args = args
+
+		return nil
+	}
+}
+
 // ArgsForSelect set slice of arguments sql request
 func ArgsForSelect(args ...interface{}) BuildSqlOptions {
 	return func(b *SQLBuilder) error {

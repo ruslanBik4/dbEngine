@@ -79,6 +79,69 @@ func GetInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) int32 {
 	return dto.Int
 }
 
+// GetArrayInt16FromByte convert data from src into []int16
+func GetArrayInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int16 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.Int2Array
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]int16, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.Int
+	}
+
+	return res
+}
+
+// GetArrayInt32FromByte convert data from src into []int32
+func GetArrayInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int32 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.Int4Array
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]int32, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.Int
+	}
+
+	return res
+}
+
+// GetArrayInt64FromByte convert data from src into []int64
+func GetArrayInt64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int64 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.Int8Array
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]int64, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.Int
+	}
+
+	return res
+}
+
 // GetInt16FromByte convert data from src into int16
 func GetInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) int16 {
 	if len(src) == 0 {
