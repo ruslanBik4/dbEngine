@@ -152,6 +152,8 @@ type %[1]s struct {
 	doCopyValuesCount 	int
 	doCopyErr       	error
 	lock       			sync.RWMutex
+	ticket	 			*time.Ticker
+	poolDuration 	    time.Duration
 }
 
 // New%[1]s create new instance of table object
@@ -224,11 +226,13 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan err
 	}
 	t.doCopyErr = nil
 
+	t.ticket = time.NewTicker(d)
+	t.poolDuration = d
+
 	go func() {
-		ticket := time.NewTicker(d)
 		for {
 			select {
-			case <-ticket.C:
+			case <-t.ticket.C:
 				t.lock.Lock()
 				err := t.doCopy(ctx)
 				t.lock.Unlock()
@@ -244,7 +248,6 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan err
 			}
 		}
 	}()
-
 }
 // AddToPoolCopy add 'record' into copy pool
 func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
@@ -266,6 +269,7 @@ func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
 		if err != nil {
 			return err
 		}
+		t.ticket.Reset(t.poolDuration)
 	}
 
 	return nil
