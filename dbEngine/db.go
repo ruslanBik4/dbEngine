@@ -22,12 +22,18 @@ import (
 	"golang.org/x/net/context"
 )
 
+type CfgCreatorDB struct {
+	RecreateMaterView *struct{}
+}
+
 // CfgDB consist of setting for creating new DB
 type CfgDB struct {
-	Url       string
-	GetSchema *struct{}
-	PathCfg   *string
-	TestInit  *string
+	Url        string
+	GetSchema  *struct{}
+	CfgCreator *CfgCreatorDB
+	//obsolete - change on CfgCreatorDB properties
+	PathCfg  *string
+	TestInit *string
 }
 
 // TypeCfgDB is type for context values
@@ -38,6 +44,7 @@ type DB struct {
 	sync.RWMutex
 	Cfg           map[string]interface{}
 	Conn          Connection
+	ctx           context.Context
 	Name          string
 	Schema        string
 	Tables        map[string]Table
@@ -53,6 +60,7 @@ type DB struct {
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
 		Conn:       conn,
+		ctx:        ctx,
 		readTables: map[string][]string{},
 	}
 
@@ -72,6 +80,11 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 			db.Schema = *db.DbSet["db_schema"]
 		}
 
+		if cfg.CfgCreator != nil {
+			if cfg.CfgCreator.RecreateMaterView != nil {
+				db.Cfg[string(RECREATE_MATERIAZE_VIEW)] = true
+			}
+		}
 		if cfg.PathCfg != nil {
 
 			err := db.readCfg(ctx, *cfg.PathCfg)
@@ -159,12 +172,11 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			ctx := context.Background()
-			err = db.Conn.ExecDDL(ctx, string(ddl))
+			err = db.Conn.ExecDDL(db.ctx, string(ddl))
 			switch {
 			case err == nil:
 				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(ctx)
+				err = table.GetColumns(db.ctx)
 				if err == nil {
 					db.Tables[tableName] = table
 					logs.StatusLog("New table added to DB", tableName)
@@ -223,10 +235,10 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			err = db.Conn.ExecDDL(context.Background(), string(ddl))
+			err = db.Conn.ExecDDL(db.ctx, string(ddl))
 			if err == nil {
-				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(context.TODO())
+				table = db.Conn.NewTable(tableName, "VIEW")
+				err = table.GetColumns(db.ctx)
 				if err == nil {
 					db.Tables[tableName] = table
 					logs.StatusLog("New view added to DB", tableName)
@@ -265,7 +277,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		if err == nil {
 			ddlType := string(ddl)
 			// this local err - not return for parent method
-			err := db.Conn.ExecDDL(context.TODO(), ddlType)
+			err := db.Conn.ExecDDL(db.ctx, ddlType)
 			if err == nil {
 				logs.StatusLog("New types added to DB", typeName)
 				return nil

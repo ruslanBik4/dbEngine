@@ -207,7 +207,14 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		typeCol, defValue := c.chkTypes(col, propName)
 
 		if !col.AutoIncrement() && defValue != nil {
-			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
+			def, ok := defValue.(string)
+			if ok {
+				if typeCol == "string" {
+					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("'%s'", def))
+				}
+			} else {
+				c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
+			}
 		}
 
 		sTypeField += fmt.Sprintf(initFormat, propName, c.getFuncForDecode(col, propName, ind))

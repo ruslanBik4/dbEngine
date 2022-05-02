@@ -110,7 +110,9 @@ func (p *ParserTableDDL) alterMaterializedView(ddl string) bool {
 		return false
 	}
 
-	p.runDDL("DROP materialized view " + p.Table.Name())
+	if t, ok := p.DB.Cfg[string(RECREATE_MATERIAZE_VIEW)].(bool); ok && t {
+		p.runDDL("DROP materialized view " + p.Table.Name())
+	}
 	p.runDDL(ddl)
 
 	return true
@@ -190,7 +192,7 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 }
 
 func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
-	err := p.DB.Conn.ExecDDL(context.TODO(), ddl, args...)
+	err := p.DB.Conn.ExecDDL(p.DB.ctx, ddl, args...)
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
@@ -353,6 +355,7 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, ok := fs.Default().(string)
 	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
+		logs.DebugLog(colDef, defaults[1])
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
 			logs.ErrorLog(err, defaults, title, colDef)

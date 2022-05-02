@@ -309,6 +309,7 @@ func (c *Column) SetDefault(d interface{}) {
 	// todo add other case of autogenerate column value
 	c.autoInc = strings.HasPrefix(str, DEFAULT_SERIAL) ||
 		c.colDefault == "CURRENT_TIMESTAMP" ||
+		c.colDefault == "CURRENT_DATE" ||
 		c.colDefault == "CURRENT_USER" ||
 		strings.ToUpper(str) == "NOW()"
 }

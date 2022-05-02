@@ -82,11 +82,19 @@ func (err ErrWrongArgsLen) Error() string {
 
 // IsErrorNullValues indicates about column can't add because has NOT NULL
 func IsErrorNullValues(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	return strings.Contains(err.Error(), "contains null values")
 }
 
 // IsErrorAlreadyExists indicates about errors duplicated
 func IsErrorAlreadyExists(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	ignoreErrors := []string{
 		"already exists",
 	}
@@ -102,6 +110,10 @@ func IsErrorAlreadyExists(err error) bool {
 
 // IsErrorDoesNotExists indicates about errors not exists
 func IsErrorDoesNotExists(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	ignoreErrors := []string{
 		"does not exist",
 	}
@@ -117,6 +129,10 @@ func IsErrorDoesNotExists(err error) bool {
 
 // IsErrorForReplace indicates about errors 'cannot change or replace"
 func IsErrorForReplace(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	ignoreErrors := []string{
 		"cannot change return type of existing function",
 		"cannot change name of input parameter",
@@ -134,6 +150,10 @@ func IsErrorForReplace(err error) bool {
 
 // IsErrorCntChgView indicates about errors 'cannot change name of view column'
 func IsErrorCntChgView(err error) bool {
+	if err == nil {
+		return false
+	}
+
 	ignoreErrors := []string{
 		"cannot change name of view column",
 	}
@@ -154,7 +174,10 @@ var (
 
 // IsErrorDuplicated indicate about abort updating because there is a duplicated key found
 func IsErrorDuplicated(err error) (map[string]string, bool) {
-	logs.ErrorLog(err)
+	if err == nil {
+		return nil, false
+	}
+
 	if err == pgx.ErrNoRows {
 		return nil, false
 	}
