@@ -210,7 +210,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 			def, ok := defValue.(string)
 			if ok {
 				if typeCol == "string" {
-					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("'%s'", def))
+					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("\"%s\"", def))
 				}
 			} else {
 				c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
