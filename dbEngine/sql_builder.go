@@ -102,12 +102,15 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 		}
 	}
 
-	onConflict := strings.Join(b.filter, ",")
-	if strings.TrimSpace(onConflict) == "" {
-		return b.insertSql(), nil
+	if b.onConflict == "" {
+		onConflict := strings.Join(b.filter, ",")
+		if strings.TrimSpace(onConflict) == "" {
+			return b.insertSql(), nil
+		}
+
+		b.onConflict = onConflict
 	}
 
-	b.onConflict = onConflict
 	s := b.insertSql()
 	b.posFilter = 0
 
