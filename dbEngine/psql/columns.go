@@ -297,21 +297,28 @@ func (c *Column) SetDefault(d interface{}) {
 		return
 	}
 
-	str = (strings.Split(str, "::"))[0]
+	if !(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")")) {
+		str = (strings.Split(str, "::"))[0]
 
-	if str == "NULL" {
-		c.colDefault = nil
-		return
+		if str == "NULL" {
+			c.colDefault = nil
+			return
+		}
 	}
 
 	const DEFAULT_SERIAL = "nextval("
-	c.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
+	isSerial := strings.HasPrefix(str, DEFAULT_SERIAL)
+	if isSerial {
+		c.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
+	} else {
+		c.colDefault = strings.Trim(str, "'")
+	}
 	// todo add other case of autogenerate column value
-	c.autoInc = strings.HasPrefix(str, DEFAULT_SERIAL) ||
-		c.colDefault == "CURRENT_TIMESTAMP" ||
-		c.colDefault == "CURRENT_DATE" ||
-		c.colDefault == "CURRENT_USER" ||
-		strings.ToUpper(str) == "NOW()"
+	c.autoInc = isSerial ||
+		strings.Contains(str, "CURRENT_TIMESTAMP") ||
+		strings.Contains(str, "CURRENT_DATE") ||
+		strings.Contains(str, "CURRENT_USER") ||
+		strings.Contains(strings.ToUpper(str), "NOW()")
 }
 
 // RefColValue referral of column property 'name'

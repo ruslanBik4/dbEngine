@@ -273,7 +273,6 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 
 			nameFields := strings.Split(fields[i], ",\n")
 			for _, name := range nameFields {
-
 				title := regField.FindStringSubmatch(name)
 				if len(title) < 3 ||
 					strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
@@ -284,7 +283,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				fieldName := title[1]
 				fieldDefine := title[2]
 				if fs := p.FindColumn(fieldName); fs == nil {
-					p.addColumn(ddl, name, fieldDefine, fieldName, fs)
+					p.addColumn(ddl, title[0], fieldDefine, fieldName, fs)
 				} else if res := fs.CheckAttr(fieldDefine); fs.Primary() {
 					p.checkPrimary(fs, fieldDefine, res)
 				} else {
@@ -354,7 +353,7 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, ok := fs.Default().(string)
-	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
+	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != strings.Trim(defaults[1], "'")) {
 		logs.DebugLog(colDef, defaults[1])
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {

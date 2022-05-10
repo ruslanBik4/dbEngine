@@ -210,7 +210,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 			def, ok := defValue.(string)
 			if ok {
 				if typeCol == "string" {
-					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("\"%s\"", def))
+					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf(`"%s"`, def))
 				}
 			} else {
 				c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
@@ -229,7 +229,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	//todo: add TYpe to interface Table
+	//todo: add Type to interface Table
 	_, err = fmt.Fprintf(f, formatTable, name, fields, table.Name(), table.Comment(), table.(*psql.Table).Type)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
