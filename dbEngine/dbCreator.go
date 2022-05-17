@@ -406,6 +406,8 @@ func (p ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) err
 	if typeDef == "double" ||
 		(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
 		typeDef += " " + attr[1]
+	} else if typeDef == "bigserial" {
+		typeDef = "bigint"
 	}
 	sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
 	if attr[0] == "money" && fs.Type() == "double precision" {
