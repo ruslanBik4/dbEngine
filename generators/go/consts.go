@@ -274,7 +274,37 @@ func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
 
 	return nil
 }
+// InsertPoolAndReset inserted all record from Poll as is
+// returns slice of records which were be not inserted
+func (t *%[1]s) InsertPoolAndReset(ctx context.Context) []*%[1]sFields {
+	t.lock.Lock()
+	defer t.lock.Unlock()
 
+	columns := t.doCopyPoolColumns
+	failRecords := make([]*%[1]sFields,0)
+	allInserted := int64(0)
+
+	for _, record := range t.DoCopyPoll {
+		v := make([]interface{}, len(columns))
+		for i, name := range columns {
+			v[i] = record.RefColValue(name)
+		}
+		i, err := t.Insert(ctx,
+			dbEngine.Columns(columns...),
+			dbEngine.Values(v...),
+		)
+		if err != nil {
+			failRecords = append(failRecords, record)
+			continue
+		}
+		allInserted += i
+	}
+	logs.DebugLog("%%d record inserted by InsertPoolAndReset", allInserted)
+	t.DoCopyPoll = t.DoCopyPoll[:0]
+	t.doCopyPoolCount = 0
+
+	return failRecords
+}
 // %[1]sFields data object for '%[1]s' columns
 type %[1]sFields struct {
 	// columns of table %s
