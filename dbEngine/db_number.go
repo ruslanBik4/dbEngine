@@ -29,8 +29,8 @@ func (c *NumberColumn) BasicTypeInfo() types.BasicInfo {
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *NumberColumn) CheckAttr(fieldDefine string) string {
-	return ""
+func (c *NumberColumn) CheckAttr(fieldDefine string) []FlagColumn {
+	return nil
 }
 
 // CharacterMaximumLength return max of length text columns
