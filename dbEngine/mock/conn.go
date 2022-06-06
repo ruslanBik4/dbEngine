@@ -17,7 +17,7 @@ import (
 // Conn for mock connection
 type Conn struct {
 	pgxtype.Querier
-	mock.Call
+	mock.Mock
 }
 
 //SelectAndPerformRaw  run sql with args & run each every row
@@ -31,7 +31,8 @@ func (c *Conn) chkSqlAndArgs(ctx context.Context, sql string, args []interface{}
 		return errors.New(sql)
 	}
 
-	if !c.Call.Arguments.Is(args...) {
+	c.Mock.
+	if !c.Mock.Called().Arguments.Is(args...) {
 		logs.DebugLog("args failed")
 	}
 
