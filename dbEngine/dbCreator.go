@@ -99,16 +99,20 @@ func (p *ParserTableDDL) alterTable(ddl string) bool {
 		return false
 	}
 
+	logs.StatusLog("alter")
 	p.runDDL(ddl)
 
 	return true
 }
 
 func (p *ParserTableDDL) alterMaterializedView(ddl string) bool {
-	if !strings.Contains(strings.ToLower(ddl), "materialized view") {
+	if !strings.HasPrefix(strings.ToLower(ddl), "create materialized view") {
 		return false
 	}
 
+	if t, ok := p.DB.Cfg[string(RECREATE_MATERIAZE_VIEW)].(bool); ok && t {
+		p.runDDL("DROP materialized view " + p.Table.Name())
+	}
 	p.runDDL(ddl)
 
 	return true
@@ -187,8 +191,8 @@ func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	return true
 }
 
-func (p *ParserTableDDL) runDDL(ddl string) {
-	err := p.DB.Conn.ExecDDL(context.TODO(), ddl)
+func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
+	err := p.DB.Conn.ExecDDL(p.DB.ctx, ddl, args...)
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
@@ -196,8 +200,8 @@ func (p *ParserTableDDL) runDDL(ddl string) {
 			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
 		}
 	} else if IsErrorAlreadyExists(err) {
-		err = nil
-		//logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
+		p.err = nil
+		logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
 	} else if err != nil {
 		logError(err, ddl, p.filename)
 		p.err = err
@@ -265,11 +269,10 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				p.err = errors.New("bad table name! " + fields[i])
 				return false
 			}
-		case "fields":
+		case "builderOpts":
 
 			nameFields := strings.Split(fields[i], ",\n")
 			for _, name := range nameFields {
-
 				title := regField.FindStringSubmatch(name)
 				if len(title) < 3 ||
 					strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
@@ -280,15 +283,13 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 				fieldName := title[1]
 				fieldDefine := title[2]
 				if fs := p.FindColumn(fieldName); fs == nil {
-					p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
-				} else if fs.Primary() {
-					p.checkPrimary(fs, fieldDefine)
-
+					p.addColumn(ddl, title[0], fieldDefine, fieldName, fs)
+				} else if res := fs.CheckAttr(fieldDefine); fs.Primary() {
+					p.checkPrimary(fs, fieldDefine, res)
 				} else {
 					// don't chg primary column
-					p.err = p.checkColumn(fs, fieldDefine)
+					p.err = p.checkColumn(fs, fieldDefine, res)
 				}
-
 			}
 		}
 	}
@@ -296,68 +297,97 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 	return true
 }
 
-func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string) {
-	res := fs.CheckAttr(fieldDefine)
-	fieldName := fs.Name()
-	// change type
-	if strings.Contains(res, "type") {
-		attr := strings.Split(fieldDefine, " ")
-		if attr[0] == "double" {
-			attr[0] += " " + attr[1]
-		} else if attr[0] == "serial" {
-			attr[0] = "integer"
+func (p *ParserTableDDL) addColumn(ddl string, name string, fieldDefine string, fieldName string, fs Column) {
+	p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + name)
+	if p.err != nil && IsErrorNullValues(p.err) {
+		logError(p.err, ddl, p.filename)
+		p.runDDL("ALTER TABLE " + p.Name() + " ADD COLUMN " + strings.ReplaceAll(name, "not null", ""))
+		if p.err != nil {
+			logError(p.err, ddl, p.filename)
+			return
 		}
 
-		sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
-		if attr[0] == "money" && fs.Type() == "double precision" {
-			sql = fmt.Sprintf(
-				" type %s using %s::numeric::%[1]s",
-				attr[0], fieldName)
-		}
+		defaults := regDefault.FindStringSubmatch(strings.ToLower(fieldDefine))
+		if len(defaults) > 1 && defaults[1] > "" {
+			p.runDDL(fmt.Sprintf("UPDATE TABLE %s SET %s=$1", p.Name(), fieldName), defaults[1])
+			if p.err != nil {
+				logError(p.err, ddl, p.filename)
+				return
+			}
 
-		p.err = p.alterColumn(sql, fieldName, fieldDefine, fs)
+			err := p.alterColumn(" set not null", fieldName, fieldDefine, fs)
+			if err != nil {
+				logError(err, ddl, p.filename)
+			}
+		}
 	}
 }
 
-func (p ParserTableDDL) checkColumn(fs Column, title string) (err error) {
-	res := fs.CheckAttr(title)
+func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string, res []FlagColumn) {
+
+	fieldName := fs.Name()
+	for _, token := range res {
+
+		// change type
+		if token == ChangeType {
+			attr := strings.Split(fieldDefine, " ")
+			if attr[0] == "double" {
+				attr[0] += " " + attr[1]
+			} else if attr[0] == "serial" {
+				attr[0] = "integer"
+			}
+
+			sql := fmt.Sprintf(" type %s using %s::%[1]s", attr[0], fieldName)
+			if attr[0] == "money" && fs.Type() == "double precision" {
+				sql = fmt.Sprintf(
+					" type %s using %s::numeric::%[1]s",
+					attr[0], fieldName)
+			}
+
+			p.err = p.alterColumn(sql, fieldName, fieldDefine, fs)
+		}
+	}
+}
+
+func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, ok := fs.Default().(string)
-	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != defaults[1]) {
+	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != strings.Trim(defaults[1], "'")) {
+		logs.DebugLog(colDef, defaults[1])
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
-			logs.DebugLog(defaults, title)
+			logs.ErrorLog(err, defaults, title, colDef)
 		}
+		fs.SetDefault(defaults[1])
 	}
 
-	if res > "" {
-		err = ErrNotFoundColumn{
-			Table:  p.Name(),
-			Column: fieldName,
-		}
+	//err = ErrNotFoundColumn{
+	//	Table:  p.Name(),
+	//	Column: fieldName,
+	//}
+	for _, token := range res {
+
+		switch token {
 		// change length
-		if strings.Contains(res, "has length") {
+		case ChangeLength:
 			err = p.alterColumnsLength(fs, title, fieldName)
-		}
 
 		// change type
-		if strings.Contains(res, "type") {
+		case ChangeType:
 			err = p.alterColumnsType(fs, title, fieldName)
-		}
 
 		// set not nullable
-		if strings.Contains(res, "is nullable") {
+		case MustNotNull:
 			err = p.alterColumn(" set not null", fieldName, title, fs)
 			if err != nil {
 				logs.ErrorLog(err)
 			} else {
 				fs.SetNullable(true)
 			}
-		}
 
 		// set nullable
-		if strings.Contains(res, "is not nullable") {
+		case Nullable:
 			err = p.alterColumn(" drop not null", fieldName, title, fs)
 			if err != nil {
 				logs.ErrorLog(err)
@@ -376,6 +406,8 @@ func (p ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) err
 	if typeDef == "double" ||
 		(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
 		typeDef += " " + attr[1]
+	} else if typeDef == "bigserial" {
+		typeDef = "bigint"
 	}
 	sql := fmt.Sprintf(" type %s using %s::%[1]s", typeDef, fieldName)
 	if attr[0] == "money" && fs.Type() == "double precision" {
@@ -403,7 +435,7 @@ func (p ParserTableDDL) alterColumnsLength(fs Column, title, fieldName string) e
 }
 
 func (p *ParserTableDDL) updateIndex(ddl string) bool {
-	ind, err := p.checkDdlCreateIndex(ddl)
+	ind, err := p.checkDDLCreateIndex(ddl)
 	if err != nil {
 		p.err = err
 		return true
@@ -416,43 +448,56 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	if pInd := p.FindIndex(ind.Name); pInd != nil {
 		if pInd.Expr != ind.Expr {
 			logInfo(prefix, p.filename,
-				"index '"+ind.Name+"' exists! New expr '"+ind.Expr+"' (old ="+pInd.Expr,
+				fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, pInd.Expr),
 				p.line)
+			logs.StatusLog(pInd)
 			return true
 		}
 
 		columns := pInd.Columns
-		for i, name := range ind.Columns {
+		hasChanges := !(len(columns) == len(ind.Columns))
+		if !hasChanges {
+			for i, name := range ind.Columns {
 
-			if i < len(columns) && columns[i] == name {
-				continue
-			}
-			isFound := false
-			for _, col := range columns {
-				if col == name {
-					isFound = true
-					break
+				hasChanges = !(i < len(columns) && columns[i] == name)
+				if !hasChanges {
+					continue
 				}
-			}
-			if !isFound {
+
 				logInfo(prefix, p.filename,
-					"index '"+pInd.Name+"' exists! New column '"+name+"'"+strings.Join(pInd.Columns, ","),
+					fmt.Sprintf("index '%s' exists! New column '%s'", pInd.Name, name),
 					p.line)
-				p.runDDL("DROP INDEX " + pInd.Name)
-				p.runDDL(ddl)
+			}
+			if !hasChanges && ind.foreignTable > "" && ind.deleteCascade == "set null" {
+				logInfo(prefix, p.filename,
+					fmt.Sprintf("reference to '%s' exists! Update  '%s' delete '%s'", ind.foreignTable,
+						ind.updateCascade, ind.deleteCascade),
+					p.line)
 			}
 
+			if !hasChanges && pInd.Unique != ind.Unique {
+				logInfo(prefix, p.filename,
+					fmt.Sprintf("New unique condition '%v' exists! Old  '%v'", ind.Unique, pInd.Unique),
+					p.line)
+				hasChanges = true
+			}
+		}
+
+		if hasChanges {
+			logs.StatusLog(ind)
+			p.runDDL("DROP INDEX " + pInd.Name)
+			p.runDDL(ddl)
 		}
 
 		return true
 	}
-
+	// create new index
 	p.runDDL(ddl)
 
 	return true
 }
 
-func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
+func (p ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 
 	regIndex := ddlIndex
 	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
@@ -471,40 +516,46 @@ func (p ParserTableDDL) checkDdlCreateIndex(ddl string) (*Index, error) {
 			return nil, errors.New("out if columns!" + name)
 		}
 
-		value := columns[i]
+		token := columns[i]
 		switch name {
 		case "":
+		case "fTable":
+			ind.foreignTable = token
+		case "onUpdate":
+			ind.updateCascade = token
+		case "onDelete":
+			ind.deleteCascade = token
 		case "table":
-			if value != p.Name() {
-				return nil, errors.New("bad table name! " + value)
+			if token != p.Name() {
+				return nil, errors.New("bad table name! " + token)
 			}
 		case "index":
-			// todo implement
-			ind.Name = value
+			ind.Name = token
 		case "columns":
-			for _, colDdl := range strings.Split(value, ",") {
-				col, isLegal := CheckColumn(colDdl, p)
+			for _, colDdl := range strings.Split(token, ",") {
+				col, isLegal := CheckColumn(strings.TrimSpace(colDdl), p)
 				if isLegal {
 					ind.Columns = append(ind.Columns, col.Name())
+				} else {
+					ind.Expr += colDdl
 				}
 			}
 
 			if len(ind.Columns) == 0 {
-				return nil, ErrNotFoundColumn{p.Name(), value}
+				return nil, ErrNotFoundColumn{p.Name(), token}
 			}
 
-			if strings.Join(ind.Columns, ",") != value {
-				ind.Expr = value
-			}
+			//if strings.Join(ind.Columns, ",") != token {
+			//	ind.Expr = token
+			//}
 		case "unique":
-			ind.Unique = value == name
+			ind.Unique = token == name
 		default:
-			logInfo(prefix, p.filename, name+value, p.line)
+			logInfo(prefix, p.filename, name+token, p.line)
 		}
 
 	}
 
-	// todo: chg after implement method
 	return &ind, nil
 }
 

@@ -10,22 +10,6 @@ type StringColumn struct {
 	maxLen                    int
 }
 
-func (s *StringColumn) AutoIncrement() bool {
-	return false
-}
-
-func (c *StringColumn) IsNullable() bool {
-	return c.isNullable
-}
-
-func (s *StringColumn) Default() interface{} {
-	return ""
-}
-
-func (s *StringColumn) SetDefault(str interface{}) {
-	s.colDefault = str.(string)
-}
-
 func NewStringColumn(name, comment string, req bool, maxLen ...int) *StringColumn {
 	if len(maxLen) == 0 {
 		maxLen = append(maxLen, 0)
@@ -47,12 +31,40 @@ func (s *StringColumn) BasicTypeInfo() types.BasicInfo {
 	return types.IsString
 }
 
-func (s *StringColumn) CheckAttr(fieldDefine string) string {
-	return ""
+func (s *StringColumn) CheckAttr(fieldDefine string) []FlagColumn {
+	return nil
+}
+
+func (s *StringColumn) CharacterMaximumLength() int {
+	return s.maxLen
 }
 
 func (s *StringColumn) Comment() string {
 	return s.comment
+}
+
+func (s *StringColumn) Name() string {
+	return s.name
+}
+
+func (s *StringColumn) AutoIncrement() bool {
+	return false
+}
+
+func (s *StringColumn) IsNullable() bool {
+	return s.isNullable
+}
+
+func (s *StringColumn) Default() interface{} {
+	return ""
+}
+
+func (s *StringColumn) SetDefault(str interface{}) {
+	s.colDefault = str.(string)
+}
+
+func (s *StringColumn) Foreign() *ForeignKey {
+	return nil
 }
 
 func (s *StringColumn) Primary() bool {
@@ -67,20 +79,8 @@ func (s *StringColumn) Required() bool {
 	return s.req
 }
 
-func (s *StringColumn) Name() string {
-	return s.name
-}
-
-func (s *StringColumn) CharacterMaximumLength() int {
-	return s.maxLen
-}
-
-func (c *StringColumn) SetNullable(f bool) {
-	c.isNullable = f
-}
-
-func (c *StringColumn) Foreign() *ForeignKey {
-	return nil
+func (s *StringColumn) SetNullable(f bool) {
+	s.isNullable = f
 }
 
 func SimpleColumns(names ...string) []Column {

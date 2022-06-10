@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-// type of function which use as callback for select methods
+// FncEachRow & FncRawRow are types of function which use as callback for select methods
 type (
 	FncEachRow func(values []interface{}, columns []Column) error
 	FncRawRow  func(values [][]byte, columns []Column) error
@@ -31,12 +31,14 @@ type Connection interface {
 	SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []Column, error)
 }
 
+// Types consists of parameters of DB types
 type Types struct {
 	Id   int
 	Name string
 	Attr []string
 }
 
+// Table describes methods for table operations
 type Table interface {
 	Columns() []Column
 	Comment() string
@@ -56,6 +58,7 @@ type Table interface {
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
+// Routine describes methods for function/procedures operations
 type Routine interface {
 	Name() string
 	BuildSql(Options ...BuildSqlOptions) (sql string, args []interface{}, err error)
@@ -69,6 +72,7 @@ type Routine interface {
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
+// ForeignKey consists of parameters of foreign key
 type ForeignKey struct {
 	Parent     string `json:"parent"`
 	Column     string `json:"column"`
@@ -76,33 +80,36 @@ type ForeignKey struct {
 	DeleteRule string `json:"delete_rule"`
 }
 
-// Column implements methods of table/view/function fields
+// Column describes methods for table/view/function builderOpts
 type Column interface {
-	BasicType() types.BasicKind
-	BasicTypeInfo() types.BasicInfo
-	CheckAttr(fieldDefine string) string
-	CharacterMaximumLength() int
-	Comment() string
-	Name() string
-	AutoIncrement() bool
-	IsNullable() bool
-	Default() interface{}
-	SetDefault(interface{})
+	BasicType() types.BasicKind                //+
+	BasicTypeInfo() types.BasicInfo            //+
+	CheckAttr(fieldDefine string) []FlagColumn //+
+	CharacterMaximumLength() int               //+
+	Comment() string                           //+
+	Name() string                              //+
+	AutoIncrement() bool                       //+
+	IsNullable() bool                          //+
+	Default() interface{}                      //+
+	SetDefault(interface{})                    //+
 	Foreign() *ForeignKey
-	Primary() bool
-	Type() string
-	Required() bool
-	SetNullable(bool)
+	Primary() bool    //+
+	Type() string     //+
+	Required() bool   //+
+	SetNullable(bool) //+
 }
 
-// Index
+// Index consists of index properties
 type Index struct {
-	Name    string
-	Expr    string
-	Unique  bool
-	Columns []string
+	Name                         string
+	foreignTable, foreignColumn  string
+	updateCascade, deleteCascade string
+	Expr                         string
+	Unique                       bool
+	Columns                      []string
 }
 
+// GetFields implements interface RowScanner
 func (ind *Index) GetFields(columns []Column) []interface{} {
 	fields := make([]interface{}, len(columns))
 	for i, col := range columns {
@@ -126,6 +133,7 @@ func (ind *Index) GetFields(columns []Column) []interface{} {
 // Indexes cluster index of table
 type Indexes []*Index
 
+// GetFields implements interface RowScanner
 func (i *Indexes) GetFields(columns []Column) []interface{} {
 	ind := &Index{}
 	*i = append(*i, ind)
@@ -133,6 +141,7 @@ func (i *Indexes) GetFields(columns []Column) []interface{} {
 	return ind.GetFields(columns)
 }
 
+// LastIndex returns last index of list
 func (i Indexes) LastIndex() *Index {
 	return i[len(i)-1]
 }

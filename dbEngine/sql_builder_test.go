@@ -482,126 +482,269 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 	}
 }
 
-func TestSQLBuilder_Where(t *testing.T) {
-	type fields struct {
-		Args          []interface{}
-		columns       []string
-		filter        []string
-		posFilter     int
-		Table         Table
-		SelectColumns []Column
+type builderOpts struct {
+	Args          []interface{}
+	columns       []string
+	filter        []string
+	posFilter     int
+	Table         Table
+	SelectColumns []Column
+}
+
+var (
+	testFields = map[string]builderOpts{
+		"simple where with id": {
+			[]interface{}{1},
+			nil,
+			[]string{"id"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"simple where with <id": {
+			[]interface{}{1},
+			nil,
+			[]string{"<id"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"case": {
+			[]interface{}{1},
+			nil,
+			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"case with included param": {
+			[]interface{}{1},
+			nil,
+			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = %s ELSE true END"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"some params with OR condition one of them included param": {
+			[]interface{}{"name", 1, 3},
+			nil,
+			[]string{
+				"name",
+				"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)",
+				"id",
+			},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"null": {
+			[]interface{}{nil, "is not null", "is null"},
+			nil,
+			[]string{"id_parent", "id", "name"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"null with other simples arguments": {
+			[]interface{}{nil, 0, "is not null", 4, "is null"},
+			nil,
+			[]string{"id_parent", "id", "temp is null", "name", "id_user", "comment"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"borrowed > repaid": {
+			[]interface{}{1},
+			[]string{
+				"borrowed > repaid",
+			},
+			[]string{"borrowed > repaid"},
+			0,
+			TableString{
+				name: "StringTable",
+				columns: []Column{
+					&StringColumn{
+						comment:    "",
+						name:       "borrowed",
+						colDefault: "",
+						req:        false,
+						primary:    false,
+						isNullable: false,
+						maxLen:     0,
+					},
+					&StringColumn{
+						comment:    "",
+						name:       "repaid",
+						colDefault: "",
+						req:        false,
+						primary:    false,
+						isNullable: false,
+						maxLen:     0,
+					},
+					&StringColumn{
+						comment:    "",
+						name:       "closed_at",
+						colDefault: "",
+						req:        false,
+						primary:    false,
+						isNullable: false,
+						maxLen:     0,
+					},
+					&StringColumn{
+						comment:    "",
+						name:       "last_interest_at",
+						colDefault: "",
+						req:        false,
+						primary:    false,
+						isNullable: false,
+						maxLen:     0,
+					},
+				},
+			},
+			nil,
+		},
+		"or": {
+			[]interface{}{1},
+			nil,
+			[]string{"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"one columns & one filter select": {
+			[]interface{}{1},
+			[]string{"last_login"},
+			[]string{">id"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"two columns": {
+			[]interface{}{1},
+			[]string{"last_login", "name"},
+			[]string{"id", "$name"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"two column with <, >": {
+			[]interface{}{1, 2},
+			[]string{"last_login", "name"},
+			[]string{"<id", ">id_roles"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"two column with array": {
+			[]interface{}{[]int8{1, 3}, 2},
+			[]string{"last_login", "name"},
+			[]string{"id", ">id_roles"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
+		"two column with wrong args": {
+			[]interface{}{1, 3},
+			[]string{"last_login", "name"},
+			[]string{"~name", "^name"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
 	}
+)
+
+func TestSQLBuilder_Where(t *testing.T) {
 	tests := []struct {
-		name   string
-		fields fields
-		want   string
-		fnc    func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
+		name string
+		want string
+		fnc  func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
 	}{
 		// TODO: Add test cases.
 		{
-			"simple where",
-			fields{
-				[]interface{}{1},
-				nil,
-				[]string{"id"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"simple where with id",
 			" WHERE  id=$1",
 			assert.Equal,
 		},
 		{
-			"select full columns",
-			fields{
-				[]interface{}{1},
-				nil,
-				[]string{"<id"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"simple where with <id",
 			" WHERE  id < $1",
 			assert.Equal,
 		},
 		{
-			"one columns &one filter select",
-			fields{
-				[]interface{}{1},
-				[]string{"last_login"},
-				[]string{">id"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"null",
+			" WHERE  id_parent is null AND id is not null AND name is null",
+			assert.Equal,
+		},
+		{
+			"null with other simples arguments",
+			" WHERE  id_parent is null AND id=$1 AND temp is null AND name is not null AND id_user=$2 AND comment is null",
+			assert.Equal,
+		},
+		{
+			"case",
+			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END",
+			assert.Equal,
+		},
+		{
+			"case with included param",
+			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = $1 ELSE true END",
+			assert.Equal,
+		},
+		{
+			"borrowed > repaid",
+			" WHERE  borrowed > repaid",
+			assert.Equal,
+		},
+		{
+			"or",
+			" WHERE  (m.wallet_type = $1 or m.pair_id = $1 OR m.wallet_type > m.pair_id)",
+			assert.Equal,
+		},
+		{
+			"some params with OR condition one of them included param",
+			" WHERE  name=$1 AND (m.wallet_type = $2 or m.pair_id = $2 OR m.wallet_type > m.pair_id) AND id=$3",
+			assert.Equal,
+		},
+		{
+			"one columns & one filter select",
 			" WHERE  id > $1",
 			assert.Equal,
 		},
 		{
-			"two columns select",
-			fields{
-				[]interface{}{1},
-				[]string{"last_login", "name"},
-				[]string{"id", "$name"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"two columns",
 			" WHERE  id=$1 AND name ~ concat('.*', $2, '$')",
 			assert.Equal,
 		},
 		{
-			"two columns select according two filter columns",
-			fields{
-				[]interface{}{1, 2},
-				[]string{"last_login", "name"},
-				[]string{"<id", ">id_roles"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"two column with <, >",
 			" WHERE  id < $1 AND id_roles > $2",
 			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
 				return assert.Equal(t, expected, actual, msgAndArgs...)
 			},
 		},
 		{
-			"two columns select according two filter columns with array",
-			fields{
-				[]interface{}{[]int8{1, 3}, 2},
-				[]string{"last_login", "name"},
-				[]string{"id", ">id_roles"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"two column with array",
 			" WHERE  id=ANY($1) AND id_roles > $2",
 			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
 				return assert.Equal(t, expected, actual, msgAndArgs...)
 			},
 		},
 		{
-			"two columns select according two filter columns & wrong args",
-			fields{
-				[]interface{}{1, 3},
-				[]string{"last_login", "name"},
-				[]string{"~name", "^name"},
-				0,
-				TableString{name: "StringTable"},
-				nil,
-			},
+			"two column with wrong args",
 			" WHERE  name ~ $1 AND name ~ concat('^.*', $2)",
 			assert.Equal,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			opt := testFields[tt.name]
 			b := &SQLBuilder{
-				Args:      tt.fields.Args,
-				columns:   tt.fields.columns,
-				filter:    tt.fields.filter,
-				posFilter: tt.fields.posFilter,
-				Table:     tt.fields.Table,
+				Args:      opt.Args,
+				columns:   opt.columns,
+				filter:    opt.filter,
+				posFilter: opt.posFilter,
+				Table:     opt.Table,
 			}
 			tt.fnc(t, tt.want, b.Where())
 		})
@@ -641,21 +784,45 @@ func TestSQLBuilder_values(t *testing.T) {
 }
 
 func TestWhereForSelect(t *testing.T) {
-	type args struct {
-		columns []string
-	}
 	tests := []struct {
 		name string
-		args args
-		want BuildSqlOptions
+		fnc  func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
 	}{
 		// TODO: Add test cases.
+		{
+			"case with included param",
+			assert.Equal,
+		},
+		{
+			"some params with OR condition one of them included param",
+			assert.Equal,
+		},
+		{
+			"case with included param",
+			assert.Equal,
+		},
+		{
+			"or",
+			assert.Equal,
+		},
+		{
+			"borrowed > repaid",
+			assert.Equal,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := WhereForSelect(tt.args.columns...); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("WhereForSelect() = %v, want %v", got, tt.want)
+			opt := testFields[tt.name]
+			b := &SQLBuilder{
+				Args:      opt.Args,
+				columns:   opt.columns,
+				filter:    opt.filter,
+				posFilter: opt.posFilter,
+				Table:     opt.Table,
 			}
+			err := WhereForSelect(opt.columns...)(b)
+			assert.Nil(t, err)
+			//tt.fnc(t, )
 		})
 	}
 }
@@ -726,7 +893,9 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 	}
 	columns := []string{"id", "last_login"}
 	threeColumns := append(columns, "name")
-	const sqlTmpl = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
+	const sqlTmpl2Columns = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
+	const sqlTmpl3Columns = "INSERT INTO StringTable(%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s"
+	const sqlTmpl4Columns = "INSERT INTO StringTable(%s,%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s, %s=EXCLUDED.%[4]s"
 	tests := []struct {
 		name    string
 		fields  fields
@@ -755,7 +924,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			fmt.Sprintf(sqlTmpl, columns[0], columns[1], "$1,$2"),
+			fmt.Sprintf(sqlTmpl2Columns, columns[0], columns[1], "$1,$2"),
 			false,
 		},
 		{
@@ -815,7 +984,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTwoColumns,
 				"",
 			},
-			fmt.Sprintf(sqlTmpl, "candidate_id,vacancy_id", "id_roles,blob", "$1,$2,$3,$4"),
+			fmt.Sprintf(sqlTmpl3Columns, "candidate_id,vacancy_id", "id_roles", "blob", "$1,$2,$3,$4"),
 			false,
 		},
 	}

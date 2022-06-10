@@ -54,6 +54,11 @@ func (dst *Numeric) Set(src interface{}) error {
 
 	case []byte:
 		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
+	case *big.Int:
+		dst.Numeric = &pgtype.Numeric{Int: value, Status: pgtype.Present}
+	case big.Int:
+		dst.Numeric = &pgtype.Numeric{Int: &value, Status: pgtype.Present}
+
 	default:
 		return dst.Numeric.Set(src)
 	}
@@ -79,6 +84,7 @@ func (src *Numeric) AssignTo(dst interface{}) error {
 	return nil
 }
 
+// EncodeText expand pgtype.Numeric.EncodeText()
 func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	switch src.Status {
 	case pgtype.Null:
@@ -98,7 +104,7 @@ func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	return buf, nil
 }
 
-// DecodeText expand pgtype.Numeric.DecodeText
+// DecodeText expand pgtype.Numeric.DecodeText()
 func (dst *Numeric) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if dst.Numeric == nil {
 		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
@@ -114,4 +120,20 @@ func (dst *Numeric) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	}
 
 	return dst.Numeric.DecodeBinary(ci, src)
+}
+
+func (src *Numeric) Float64() float64 {
+	dst := float64(src.Int.Int64())
+	exp := int(src.Exp)
+	if exp > 0 {
+		for i := 0; i < exp; i++ {
+			dst *= 10
+		}
+	} else {
+		for i := 0; i > exp; i-- {
+			dst /= 10
+		}
+	}
+
+	return dst
 }

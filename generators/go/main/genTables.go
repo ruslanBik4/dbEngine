@@ -7,6 +7,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"path"
 
 	"github.com/pkg/errors"
 	"github.com/ruslanBik4/dbEngine/typesExt"
@@ -20,17 +21,20 @@ import (
 
 var (
 	fDstPath  = flag.String("dst_path", "./db", "path for generated files")
-	fCfgPath  = flag.String("src_path", "cfg/DB", "path to cfg DB files")
-	fURL      = flag.String("db_url", "", "URL for DB connection")
+	fCfgPath  = flag.String("src_path", "cfg", "path to cfg DB files")
 	fOnlyShow = flag.Bool("read_only", true, "only show DB schema")
 )
 
 func main() {
 
 	conn := psql.NewConn(nil, nil, nil)
-	ctx := context.WithValue(context.Background(), dbEngine.DB_URL, *fURL)
-	ctx = context.WithValue(ctx, dbEngine.DB_GET_SCHEMA, true)
-	ctx = context.WithValue(ctx, dbEngine.DB_MIGRATION, *fCfgPath)
+	dbCfgPath := path.Join(path.Join(*fCfgPath, "DB"), "DB")
+	cfgDB := dbEngine.CfgDB{
+		Url:       "",
+		GetSchema: &struct{}{},
+		PathCfg:   &dbCfgPath,
+	}
+	ctx := context.WithValue(context.Background(), dbEngine.DB_SETTING, cfgDB)
 	db, err := dbEngine.NewDB(ctx, conn)
 	if err != nil {
 		logs.ErrorLog(err, "dbEngine.NewDB")

@@ -102,12 +102,15 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 		}
 	}
 
-	onConflict := strings.Join(b.filter, ",")
-	if strings.TrimSpace(onConflict) == "" {
-		return b.insertSql(), nil
+	if b.onConflict == "" {
+		onConflict := strings.Join(b.filter, ",")
+		if strings.TrimSpace(onConflict) == "" {
+			return b.insertSql(), nil
+		}
+
+		b.onConflict = onConflict
 	}
 
-	b.onConflict = onConflict
 	s := b.insertSql()
 	b.posFilter = 0
 
@@ -132,10 +135,20 @@ func (b SQLBuilder) DeleteSql() (string, error) {
 }
 
 // SelectSql construct select sql
-func (b SQLBuilder) SelectSql() (string, error) {
+func (b *SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
-	if len(b.filter)+strings.Count(b.Table.Name(), "$") != len(b.Args) {
-		return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
+	lenFilter := len(b.filter) + strings.Count(b.Table.Name(), "$")
+	if lenFilter != len(b.Args) {
+		//rm from counter filter without params
+		for _, name := range b.filter {
+			yes, hasTempl := b.isComplexCondition(name)
+			if yes && !hasTempl {
+				lenFilter--
+			}
+		}
+		if lenFilter != len(b.Args) {
+			return "", NewErrWrongArgsLen(b.Table.Name(), b.filter, b.Args)
+		}
 	}
 
 	sql := "SELECT " + b.Select() + " FROM " + b.Table.Name() + b.Where()
@@ -298,46 +311,17 @@ func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
 	for _, name := range b.filter {
+		isComplexCondition, hasTempl := b.isComplexCondition(name)
+		// 'is null, 'is not null', 'CASE WHEN ..END' write as is when they not consist of '%s'
+		if isComplexCondition && !hasTempl {
+			where += comma + name
+			comma = " AND "
+			continue
+		}
+
 		b.posFilter++
 
-		switch pre := name[0]; {
-		case isOperator(pre):
-			preStr := string(pre)
-			switch {
-			case isOperatorPre(name[1]):
-				preStr += string(name[1])
-				name = name[2:]
-			default:
-				name = name[1:]
-			}
-
-			switch pre {
-			case '$':
-				where += fmt.Sprintf(comma+"%s ~ concat('.*', $%d, '$')", name, b.posFilter)
-			case '^':
-				where += fmt.Sprintf(comma+"%s ~ concat('^.*', $%d)", name, b.posFilter)
-			default:
-				where += fmt.Sprintf(comma+"%s %s $%d", name, preStr, b.posFilter)
-			}
-
-		default:
-			cond := ""
-			switch b.Args[b.posFilter-1].(type) {
-			case []int, []int8, []int16, []int32, []int64, []string:
-				// todo: chk column type
-				cond = "ANY($%d)"
-			default:
-				cond = "$%d"
-			}
-
-			if strings.Contains(name, " in (") {
-				cond = fmt.Sprintf(name, cond)
-			} else {
-				cond = name + "=" + cond
-			}
-
-			where += fmt.Sprintf(comma+cond, b.posFilter)
-		}
+		where += comma + b.writeCondition(name, hasTempl)
 		comma = " AND "
 	}
 
@@ -346,6 +330,80 @@ func (b *SQLBuilder) Where() string {
 	}
 
 	return ""
+}
+
+func (b *SQLBuilder) isComplexCondition(name string) (bool, bool) {
+	isComplexCondition := strings.Index(name, " ") > 0
+	return isComplexCondition, isComplexCondition && strings.Contains(name, "%s")
+}
+
+func (b *SQLBuilder) writeCondition(name string, hasTempl bool) string {
+	switch pre := name[0]; {
+	case isOperator(pre):
+		preStr := string(pre)
+		switch {
+		case isOperatorPre(name[1]):
+			preStr += string(name[1])
+			name = name[2:]
+		default:
+			name = name[1:]
+		}
+
+		switch pre {
+		case '$':
+			return fmt.Sprintf("%s ~ concat('.*', $%d, '$')", name, b.posFilter)
+		case '^':
+			return fmt.Sprintf("%s ~ concat('^.*', $%d)", name, b.posFilter)
+		default:
+			return fmt.Sprintf("%s %s $%d", name, preStr, b.posFilter)
+		}
+
+	default:
+		return b.chkSpecialParams(name, hasTempl)
+	}
+}
+
+// chkSpecialParams get condition for WHERE include complex params as:
+// 'is null, 'is not null'
+// in (select ... from ... where field = {param})
+func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
+
+	cond := "$%[1]d"
+	switch arg := b.Args[b.posFilter-1].(type) {
+	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string:
+		// todo: chk column type
+		cond = "ANY($%[1]d)"
+	case nil:
+		cond = "is null"
+	case string:
+		if strings.Contains(arg, "is ") {
+			cond = arg
+		}
+	}
+
+	if strings.Contains(cond, "is ") {
+		// rm agr from slice
+		b.posFilter--
+		b.Args = rmElem(b.Args, b.posFilter)
+		// condition without psql params
+		return name + " " + cond
+	}
+
+	if hasTempl {
+		cond = fmt.Sprintf(name, cond)
+	} else {
+		cond = name + "=" + cond
+	}
+
+	return fmt.Sprintf(cond, b.posFilter)
+}
+
+func rmElem(a []interface{}, i int) []interface{} {
+	if i < len(a)-1 {
+		copy(a[i:], a[i+1:])
+	}
+	a[len(a)-1] = 0 // or the zero value of T
+	return a[:len(a)-1]
 }
 
 // OnConflict return sql-text for handling error on insert
@@ -409,6 +467,16 @@ func Columns(columns ...string) BuildSqlOptions {
 	return ColumnsForSelect(columns...)
 }
 
+// Args set slice of arguments sql request
+func Args(args ...interface{}) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+
+		b.Args = args
+
+		return nil
+	}
+}
+
 // ArgsForSelect set slice of arguments sql request
 func ArgsForSelect(args ...interface{}) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
@@ -425,25 +493,34 @@ func Values(values ...interface{}) BuildSqlOptions {
 }
 
 // WhereForSelect set columns for WHERE clause
+// may consisted first symbol as conditions rule:
+//    '>', '<', '$', '~', '^', '@', '&', '+', '-', '*'
+// that will replace equals condition, instead:
+//  field_name = $1
+//  write:
+//  field_name > $1, field_name < $1, etc
 func WhereForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.filter = make([]string, len(columns))
 		if b.Table != nil {
 			for _, name := range columns {
-
-				switch pre := name[0]; {
-				case isOperator(pre):
+				if isOperator(name[0]) {
 					switch {
 					case isOperatorPre(name[1]):
-						// preStr += string(name[1])
 						name = name[2:]
 					default:
 						name = name[1:]
 					}
-				default:
-					if strings.Contains(name, " in (") {
-						name = strings.Split(name, " ")[0]
+				} else if tokens := strings.Split(name, " "); len(tokens) > 1 {
+					if tokens[1] == "in" || tokens[1] == "is" {
+						name = tokens[0]
+					} else if len(tokens) > 2 && isOperatorPre(tokens[1][0]) {
+						name = tokens[0]
+						secName := tokens[2]
+						if regFieldName.MatchString(secName) && b.Table.FindColumn(secName) == nil {
+							return NewErrNotFoundColumn(b.Table.Name(), secName)
+						}
 					}
 				}
 

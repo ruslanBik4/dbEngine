@@ -16,8 +16,11 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+// Conn i empty structure
 type Conn struct {
 }
+
+// Table implement dbEngine interface Table for csv
 type Table struct {
 	columns  []dbEngine.Column
 	indexes  dbEngine.Indexes
@@ -25,6 +28,7 @@ type Table struct {
 	csv      *csv.Reader
 }
 
+// NewTable open csv & init conn
 func NewTable(filePath string) (*Table, error) {
 	t := &Table{}
 	if filePath > "" {
@@ -41,10 +45,13 @@ func NewTable(filePath string) (*Table, error) {
 func (t *Table) Indexes() dbEngine.Indexes {
 	return t.indexes
 }
+
+// Comment of Table
 func (t *Table) Comment() string {
 	panic("implement me")
 }
 
+// InitConn create csv reader
 func (t *Table) InitConn(ctx context.Context, filePath string) error {
 
 	f, err := os.Open(filePath)
@@ -58,26 +65,32 @@ func (t *Table) InitConn(ctx context.Context, filePath string) error {
 	return t.GetColumns(ctx)
 }
 
+// GetSchema read DB schema & store it
 func (t *Table) GetSchema(ctx context.Context) (map[string]dbEngine.Table, map[string]dbEngine.Routine, error) {
 	return map[string]dbEngine.Table{t.fileName: t}, nil, nil
 }
 
+// GetStat return stats of conn
 func (t *Table) GetStat() string {
 	panic("implement me")
 }
 
+// ExecDDL execute sql
 func (t *Table) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
 	panic("implement me")
 }
 
+// NewTable create empty Table
 func (t *Table) NewTable(name, typ string) dbEngine.Table {
 	return &Table{fileName: name}
 }
 
+// Columns of Table
 func (t *Table) Columns() []dbEngine.Column {
 	return t.columns
 }
 
+// FindColumn return column 'name' on Table or nil
 func (t *Table) FindColumn(name string) dbEngine.Column {
 	for _, col := range t.columns {
 		if col.Name() == name {
@@ -88,10 +101,12 @@ func (t *Table) FindColumn(name string) dbEngine.Column {
 	return nil
 }
 
+// FindIndex get index according to name
 func (t *Table) FindIndex(name string) *dbEngine.Index {
 	return nil
 }
 
+// GetColumns получение значений полей для форматирования данных
 func (t *Table) GetColumns(ctx context.Context) error {
 	rec, err := t.csv.Read()
 	if err != nil {
@@ -106,42 +121,52 @@ func (t *Table) GetColumns(ctx context.Context) error {
 	return nil
 }
 
+// Insert new row & return new ID or rowsAffected if there not autoinc field
 func (t *Table) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
+// Update table according to Options
 func (t *Table) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
+// Upsert preforms INSERT sql or UPDATE if record with primary keys exists
 func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
+// Delete row of table according to Options
 func (t *Table) Delete(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	panic("implement me")
 }
 
+// Name of Table
 func (t *Table) Name() string {
 	return t.fileName
 }
 
+// ReReadColumn renew properties of column 'name'
 func (t *Table) ReReadColumn(name string) dbEngine.Column {
 	panic("implement me")
 }
 
+// Select run sql with Options (deprecated)
 func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }
 
+// SelectOneAndScan run sqlof table  with Options & return rows into rowValues
 func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }
 
+// SelectAndScanEach run sql of table with Options & return every row into rowValues & run each
 func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }
 
+// SelectAndRunEach run sql of table with Options & performs each every row of query results
 func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }

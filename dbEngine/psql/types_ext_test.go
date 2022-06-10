@@ -3,6 +3,7 @@ package psql
 import (
 	"github.com/jackc/pgtype"
 	"github.com/stretchr/testify/assert"
+	"math/big"
 	"testing"
 )
 
@@ -134,26 +135,30 @@ func TestNumeric_DecodeText(t *testing.T) {
 }
 
 func TestNumeric_Set(t *testing.T) {
-	type fields struct {
-		Numeric *pgtype.Numeric
-	}
-	type args struct {
-		src interface{}
-	}
 	tests := []struct {
 		name    string
-		fields  fields
-		args    args
+		Numeric Numeric
+		src     interface{}
 		wantErr bool
 	}{
 		// TODO: Add test cases.
+		{
+			"simple",
+			NewNumericNull(),
+			[]byte("sds"),
+			false,
+		},
+		{
+			"Int",
+			NewNumericNull(),
+			big.NewInt(100),
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			dst := &Numeric{
-				Numeric: tt.fields.Numeric,
-			}
-			if err := dst.Set(tt.args.src); (err != nil) != tt.wantErr {
+			dst := tt.Numeric
+			if err := dst.Set(tt.src); (err != nil) != tt.wantErr {
 				t.Errorf("Set() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

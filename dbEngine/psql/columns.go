@@ -31,9 +31,10 @@ type Column struct {
 	PrimaryKey             bool
 	Constraints            map[string]*dbEngine.ForeignKey
 	IsHidden               bool
+	Position               int32
 }
 
-// NewColumnForTableBuf
+// NewColumnForTableBuf create Column for scanning operation of Table
 func NewColumnForTableBuf(table dbEngine.Table) *Column {
 	return &Column{
 		Table:       table,
@@ -146,11 +147,12 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
-	return toType(c.UdtName)
+	return UdtNameToType(c.UdtName)
 }
 
-func toType(dtName string) types.BasicKind {
-	switch dtName {
+// UdtNameToType return types.BasicKind according to psql udtName
+func UdtNameToType(udtName string) types.BasicKind {
+	switch udtName {
 	case "bool":
 		return types.Bool
 	case "int2", "_int2":
@@ -161,7 +163,7 @@ func toType(dtName string) types.BasicKind {
 		return types.Int64
 	case "float4", "_float4":
 		return types.Float32
-	case "float8", "_float8", "money", "_money":
+	case "float8", "_float8", "money", "_money", "double precision":
 		return types.Float64
 	case "numeric", "decimal":
 		// todo add check field length
@@ -178,10 +180,12 @@ func toType(dtName string) types.BasicKind {
 		return types.String
 	case "bytea", "_bytea":
 		return types.UnsafePointer
-	case "inet":
+	case "inet", "interval":
 		return typesExt.TMap
 	default:
-		logs.DebugLog("unknown type ", dtName)
+
+		logs.DebugLog("unknown type: %s", udtName)
+
 		return types.Invalid
 	}
 }
@@ -205,13 +209,13 @@ var dataTypeAlias = map[string][]string{
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *Column) CheckAttr(fieldDefine string) (res string) {
+func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	fieldDefine = strings.ToLower(fieldDefine)
 	isNotNull := strings.Contains(fieldDefine, isNotNullable)
 	if c.isNullable && isNotNull {
-		res += " is nullable "
+		res = append(res, dbEngine.MustNotNull)
 	} else if !c.isNullable && !isNotNull {
-		res += " is not nullable "
+		res = append(res, dbEngine.Nullable)
 	}
 
 	// todo: add check arrays
@@ -235,10 +239,10 @@ func (c *Column) CheckAttr(fieldDefine string) (res string) {
 		if strings.HasPrefix(c.DataType, "character") &&
 			(lenCol > 0) &&
 			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", lenCol)) {
-			res += fmt.Sprintf(" has length %d symbols", lenCol)
+			res = append(res, dbEngine.ChangeLength)
 		}
 	} else {
-		res += " has type " + c.DataType
+		res = append(res, dbEngine.ChangeType)
 		logs.DebugLog(c.DataType, c.UdtName, lenCol)
 	}
 
@@ -293,16 +297,28 @@ func (c *Column) SetDefault(d interface{}) {
 		return
 	}
 
-	str = (strings.Split(str, "::"))[0]
+	if !(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")")) {
+		str = (strings.Split(str, "::"))[0]
 
-	if str == "NULL" {
-		c.colDefault = nil
-		return
+		if str == "NULL" {
+			c.colDefault = nil
+			return
+		}
 	}
 
-	c.colDefault = strings.Trim(strings.TrimPrefix(str, "nextval("), "'")
+	const DEFAULT_SERIAL = "nextval("
+	isSerial := strings.HasPrefix(str, DEFAULT_SERIAL)
+	if isSerial {
+		c.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
+	} else {
+		c.colDefault = strings.Trim(str, "'")
+	}
 	// todo add other case of autogenerate column value
-	c.autoInc = strings.HasPrefix(str, "nextval(") || c.colDefault == "CURRENT_TIMESTAMP" || c.colDefault == "CURRENT_USER"
+	c.autoInc = isSerial ||
+		strings.Contains(str, "CURRENT_TIMESTAMP") ||
+		strings.Contains(str, "CURRENT_DATE") ||
+		strings.Contains(str, "CURRENT_USER") ||
+		strings.Contains(strings.ToUpper(str), "NOW()")
 }
 
 // RefColValue referral of column property 'name'
@@ -326,6 +342,8 @@ func (c *Column) RefColValue(name string) interface{} {
 		return &c.comment
 	case "keys":
 		return &c.Constraints
+	case "ordinal_position":
+		return &c.Position
 	default:
 		panic("not implement scan for field " + name)
 	}

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgconn"
@@ -21,36 +22,46 @@ import (
 	"golang.org/x/net/context"
 )
 
-// CfgDB consist of setting for creating new DB
-type CfgDB struct {
-	Url       string
-	GetSchema *struct{}
-	PathCfg   *string
-	TestInit  *string
+type CfgCreatorDB struct {
+	RecreateMaterView *struct{}
 }
 
+// CfgDB consist of setting for creating new DB
+type CfgDB struct {
+	Url        string
+	GetSchema  *struct{}
+	CfgCreator *CfgCreatorDB
+	//obsolete - change on CfgCreatorDB properties
+	PathCfg  *string
+	TestInit *string
+}
+
+// TypeCfgDB is type for context values
 type TypeCfgDB string
 
 // DB name & schema
 type DB struct {
-	Cfg        map[string]interface{}
-	Conn       Connection
-	Name       string
-	Schema     string
-	Tables     map[string]Table
-	Types      map[string]Types
-	Routines   map[string]Routine
-	modFuncs   []string
-	newFuncs   []string
-	readTables map[string]string
-	DbSet      map[string]*string
+	sync.RWMutex
+	Cfg           map[string]interface{}
+	Conn          Connection
+	ctx           context.Context
+	Name          string
+	Schema        string
+	Tables        map[string]Table
+	Types         map[string]Types
+	Routines      map[string]Routine
+	FuncsReplaced []string
+	FuncsAdded    []string
+	readTables    map[string][]string
+	DbSet         map[string]*string
 }
 
 // NewDB create new DB instance & performs something migrations
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
 		Conn:       conn,
-		readTables: map[string]string{},
+		ctx:        ctx,
+		readTables: map[string][]string{},
 	}
 
 	if cfg, ok := ctx.Value(DB_SETTING).(CfgDB); ok {
@@ -60,16 +71,20 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 
 		if cfg.GetSchema != nil {
-			logs.StatusLog(cfg.GetSchema)
 			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
 			if err != nil {
 				return nil, err
 			}
-			logs.StatusLog(db.Routines)
+
 			db.Name = *db.DbSet["db_name"]
 			db.Schema = *db.DbSet["db_schema"]
 		}
 
+		if cfg.CfgCreator != nil {
+			if cfg.CfgCreator.RecreateMaterView != nil {
+				db.Cfg[string(RECREATE_MATERIAZE_VIEW)] = true
+			}
+		}
 		if cfg.PathCfg != nil {
 
 			err := db.readCfg(ctx, *cfg.PathCfg)
@@ -108,9 +123,9 @@ func (db *DB) readCfg(ctx context.Context, path string) error {
 		}
 	}
 
-	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.newFuncs, "', '"))
-	if len(db.modFuncs) > 0 {
-		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.modFuncs, "', '"))
+	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.FuncsAdded, "', '"))
+	if len(db.FuncsReplaced) > 0 {
+		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.FuncsReplaced, "', '"))
 	}
 
 	var err error
@@ -139,7 +154,7 @@ func (db *DB) runTestInitScript(name string) {
 	}
 }
 
-// ReadTableSQL perform ddl script for tables
+// ReadTableSQL performs ddl script for tables
 func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -157,20 +172,24 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			err = db.Conn.ExecDDL(db.ctx, string(ddl))
 			switch {
 			case err == nil:
 				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(context.TODO())
+				err = table.GetColumns(db.ctx)
 				if err == nil {
 					db.Tables[tableName] = table
-					logs.StatusLog("New table add to DB", tableName)
+					logs.StatusLog("New table added to DB", tableName)
 				}
-				rel, ok := db.readTables[tableName]
-				if ok {
-					return db.ReadTableSQL(rel, info, err)
-				} else {
-					logs.StatusLog("no relation")
+
+				if rel, ok := db.readTables[tableName]; ok {
+					for _, each := range rel {
+						err = db.ReadTableSQL(each, info, err)
+						if err != nil {
+							return err
+						}
+					}
+					return nil
 				}
 
 			case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
@@ -178,8 +197,10 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 
 			case IsErrorDoesNotExists(err):
 				errParts := regDoesNotExist.FindStringSubmatch(err.Error())
-				if len(errParts) > 1 {
-					db.readTables[errParts[1]] = path
+				if val, ok := db.readTables[errParts[1]]; ok {
+					db.readTables[errParts[1]] = append(val, path)
+				} else {
+					db.readTables[errParts[1]] = []string{path}
 				}
 
 			default:
@@ -196,6 +217,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	}
 }
 
+// ReadViewSQL performs ddl script for view
 func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -213,13 +235,13 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 
 		table, ok := db.Tables[tableName]
 		if !ok {
-			err = db.Conn.ExecDDL(context.TODO(), string(ddl))
+			err = db.Conn.ExecDDL(db.ctx, string(ddl))
 			if err == nil {
-				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(context.TODO())
+				table = db.Conn.NewTable(tableName, "VIEW")
+				err = table.GetColumns(db.ctx)
 				if err == nil {
 					db.Tables[tableName] = table
-					logs.StatusLog("New table add to DB", tableName)
+					logs.StatusLog("New view added to DB", tableName)
 				}
 
 				return err
@@ -228,7 +250,6 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 				logs.ErrorLog(err, "table - "+tableName)
 				return err
 			}
-			// 	todo: add table new
 		}
 
 		return NewParserTableDDL(table, db).Parse(string(ddl))
@@ -256,9 +277,9 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		if err == nil {
 			ddlType := string(ddl)
 			// this local err - not return for parent method
-			err := db.Conn.ExecDDL(context.TODO(), ddlType)
+			err := db.Conn.ExecDDL(db.ctx, ddlType)
 			if err == nil {
-				logs.StatusLog("New types add to DB", typeName)
+				logs.StatusLog("New types added to DB", typeName)
 				return nil
 			}
 
@@ -281,7 +302,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 	return err
 }
 
-var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<fields>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
+var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
 
 //var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
@@ -289,7 +310,7 @@ func (db *DB) alterType(typeName, ddl string) error {
 	fields := regTypeAttr.FindStringSubmatch(ddl)
 
 	for i, name := range regTypeAttr.SubexpNames() {
-		if name == "fields" && (i < len(fields)) {
+		if name == "builderOpts" && (i < len(fields)) {
 
 			nameFields := strings.Split(fields[i], ",")
 			for _, name := range nameFields {
@@ -354,7 +375,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 		// this local err - not return for parent method
 		err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
 		if err == nil {
-			db.newFuncs = append(db.newFuncs, funcName)
+			db.FuncsAdded = append(db.FuncsAdded, funcName)
 		} else if IsErrorAlreadyExists(err) {
 			err = nil
 		} else if IsErrorForReplace(err) {
@@ -371,7 +392,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 			if err == nil {
 				err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
 				if err == nil {
-					db.modFuncs = append(db.modFuncs, funcName)
+					db.FuncsReplaced = append(db.FuncsReplaced, funcName)
 				}
 			}
 		}
@@ -381,40 +402,42 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 			err = nil
 		}
 
+		return err
+
 	default:
 		return nil
 	}
-
-	return err
 }
 
 func logError(err error, ddlSQL string, fileName string) {
 	pgErr, ok := err.(*pgconn.PgError)
 	if ok {
-		pos := pgErr.Position - 1
-		if pos < 0 {
-			pos = 0
+		pos := int(pgErr.Position - 1)
+		if pos <= 0 {
+			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1
 		}
 		line := strings.Count(ddlSQL[:pos], "\n") + 1
-		printError(fileName, line, pgErr.Message, pgErr)
+		msg := fmt.Sprintf("%s: %s", pgErr.Message, pgErr.Detail)
+		if pgErr.Where > "" {
+			msg += "(" + pgErr.Where + ")"
+		}
+		if pgErr.Hint > "" {
+			msg += "'" + pgErr.Hint + "'"
+		}
+		printError(fileName, line, msg)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
-		printError(fileName, e.Line, e.Msg, e)
+		printError(fileName, e.Line, e.Msg+e.sql)
 	} else {
-		printError(fileName, 1, prefix, err)
+		printError(fileName, 1, err.Error())
 	}
 }
 
-func printError(fileName string, line int, msg string, err error) {
-	// todo mv to logs
-	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s %#v\n",
-		logs.LogPutColor,
-		33, "ERROR", logs.LogEndColor, timeLogFormat(), fileName, line, msg, err)
+func printError(fileName string, line int, msg string) {
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {
-	// todo mv to logs
-	fmt.Printf("[[%s%d;1m%s%s]]%s %s:%d: %s\n",
-		logs.LogPutColor, 30, prefix, logs.LogEndColor, timeLogFormat(), fileName, line, msg)
+	logs.CustomLog(logs.NOTICE, prefix, fileName, line, msg, logs.FgInfo)
 }
 
 func timeLogFormat() string {
