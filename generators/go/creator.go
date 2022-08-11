@@ -6,15 +6,20 @@ package _go
 
 import (
 	"fmt"
-	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
-	"github.com/ruslanBik4/dbEngine/typesExt"
 	"go/types"
 	"os"
 	"path"
 	"strings"
 
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
+
+	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
+	"github.com/ruslanBik4/dbEngine/typesExt"
+
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
+
 	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -338,7 +343,7 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 		}
 
 		if col.IsNullable() {
-			titleType := strings.Title(typeCol)
+			titleType := cases.Title(language.English).String(typeCol)
 			return "sql.Null" + titleType + `{
 ` + titleType + ":" + fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName) + `,
 }`
