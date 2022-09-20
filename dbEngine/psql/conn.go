@@ -203,7 +203,13 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 		func(values []interface{}, columns []dbEngine.Column) error {
 
 			// use only func knows types
-			rowType, ok := values[2].(string)
+			rType := values[2]
+			if rType == nil {
+				//not use
+				return nil
+			}
+
+			rowType, ok := rType.(string)
 			if !ok {
 				logs.ErrorLog(errors.Wrapf(ErrUnknownRoutineType, " %+v", values))
 				return nil

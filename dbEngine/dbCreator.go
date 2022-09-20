@@ -165,7 +165,7 @@ func (p *ParserTableDDL) addComment(ddl string) bool {
 			return true
 		}
 
-		if strings.Contains(ddl, "'"+col.Comment()+"'") {
+		if col.Comment() > "" && strings.Contains(ddl, "'"+col.Comment()+"'") {
 			return true
 		}
 	}
@@ -196,7 +196,7 @@ func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
 			logInfo(prefix, p.filename, ddl, p.line)
-		} else if !strings.HasPrefix(ddl, "insert") {
+		} else if !strings.HasPrefix(strings.ToLower(ddl), "insert") {
 			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
 		}
 	} else if IsErrorAlreadyExists(err) {
@@ -309,7 +309,7 @@ func (p *ParserTableDDL) addColumn(ddl string, name string, fieldDefine string, 
 
 		defaults := regDefault.FindStringSubmatch(strings.ToLower(fieldDefine))
 		if len(defaults) > 1 && defaults[1] > "" {
-			p.runDDL(fmt.Sprintf("UPDATE TABLE %s SET %s=$1", p.Name(), fieldName), defaults[1])
+			p.runDDL(fmt.Sprintf("UPDATE %s SET %s=$1", p.Name(), fieldName), defaults[1])
 			if p.err != nil {
 				logError(p.err, ddl, p.filename)
 				return
@@ -352,8 +352,8 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string, res []FlagC
 func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
-	colDef, ok := fs.Default().(string)
-	if len(defaults) > 1 && (!ok || strings.ToLower(colDef) != strings.Trim(defaults[1], "'")) {
+	colDef, hasDefault := fs.Default().(string)
+	if len(defaults) > 1 && (!hasDefault || strings.ToLower(colDef) != strings.Trim(defaults[1], "'")) {
 		logs.DebugLog(colDef, defaults[1])
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
@@ -380,8 +380,19 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 		// set not nullable
 		case MustNotNull:
 			err = p.alterColumn(" set not null", fieldName, title, fs)
+			if IsErrorNullValues(err) && hasDefault {
+				//set defult value into ALL null the column
+				ddl := fmt.Sprintf(`UPDATE %s SET %s=$1 WHERE %[2]s is null`, p.Name(), fieldName)
+				p.runDDL(ddl, colDef)
+				if p.err != nil {
+					logError(p.err, ddl, p.filename)
+					continue
+				}
+				err = p.alterColumn(" set not null", fieldName, title, fs)
+			}
+
 			if err != nil {
-				logs.ErrorLog(err)
+				logs.ErrorLog(err, hasDefault, colDef)
 			} else {
 				fs.SetNullable(true)
 			}

@@ -297,7 +297,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
 			typeCol = "interface{}"
 		} else {
-			typeCol = "sql.Null" + strings.ToTitle(typeCol)
+			typeCol = "sql.Null" + strcase.ToCamel(typeCol)
 			c.packages += c.addImport(moduloSql)
 		}
 	}
@@ -361,7 +361,7 @@ func (c *Creator) getTypeCol(col dbEngine.Column) string {
 	switch typeName := col.Type(); typeName {
 	case "inet", "interval":
 		c.packages += c.addImport(moduloPgType)
-		return strings.ToTitle(typeName)
+		return strcase.ToCamel(typeName)
 
 	case "json", "jsonb":
 		return "Json"

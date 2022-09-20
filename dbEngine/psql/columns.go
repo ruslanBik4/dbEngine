@@ -314,11 +314,12 @@ func (c *Column) SetDefault(d interface{}) {
 		c.colDefault = strings.Trim(str, "'")
 	}
 	// todo add other case of autogenerate column value
+	upperS := strings.ToUpper(str)
 	c.autoInc = isSerial ||
-		strings.Contains(str, "CURRENT_TIMESTAMP") ||
-		strings.Contains(str, "CURRENT_DATE") ||
-		strings.Contains(str, "CURRENT_USER") ||
-		strings.Contains(strings.ToUpper(str), "NOW()")
+		strings.Contains(upperS, "CURRENT_TIMESTAMP") ||
+		strings.Contains(upperS, "CURRENT_DATE") ||
+		strings.Contains(upperS, "CURRENT_USER") ||
+		strings.Contains(upperS, "NOW()")
 }
 
 // RefColValue referral of column property 'name'
