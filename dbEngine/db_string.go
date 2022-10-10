@@ -8,6 +8,12 @@ type StringColumn struct {
 	comment, name, colDefault string
 	req, primary, isNullable  bool
 	maxLen                    int
+	table                     Table
+}
+
+func (s *StringColumn) UserDefinedType() *Types {
+	//TODO implement me
+	panic("implement me")
 }
 
 func NewStringColumn(name, comment string, req bool, maxLen ...int) *StringColumn {
@@ -63,8 +69,13 @@ func (s *StringColumn) SetDefault(str interface{}) {
 	s.colDefault = str.(string)
 }
 
+// Foreign
 func (s *StringColumn) Foreign() *ForeignKey {
 	return nil
+}
+
+func (s *StringColumn) Table() Table {
+	return s.table
 }
 
 func (s *StringColumn) Primary() bool {

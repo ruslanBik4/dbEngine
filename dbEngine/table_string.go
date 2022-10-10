@@ -111,7 +111,7 @@ func (t TableString) Name() string {
 }
 
 // ReReadColumn renew properties of column 'name'
-func (t TableString) ReReadColumn(name string) Column {
+func (t TableString) ReReadColumn(ctx context.Context, name string) Column {
 	panic("implement me")
 }
 

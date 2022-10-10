@@ -119,7 +119,20 @@ func (c *Conn) LastRowAffected() int64 {
 
 // GetSchema read DB schema & store it
 func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
-	tables, err := c.GetTablesProp(ctx)
+	types := make(map[string]dbEngine.Types)
+	typeBuf := &dbEngine.Types{}
+	err := c.SelectAndScanEach(ctx,
+		func() error {
+			types[typeBuf.Name] = *typeBuf
+			return nil
+		},
+		typeBuf,
+		sqlTypesList)
+	if err != nil {
+		logs.ErrorLog(err, "during getting settings")
+	}
+
+	tables, err := c.GetTablesProp(ctx, types)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetTablesProp")
 	}
@@ -127,21 +140,6 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
-	types := make(map[string]dbEngine.Types)
-
-	err = c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
-			types[values[0].(string)] = dbEngine.Types{
-				0,
-				values[0].(string),
-				[]string{},
-			}
-			return nil
-		}, sqlTypesList)
-	if err != nil {
-		logs.ErrorLog(err, "during getting settings")
-	}
-
 	database := make(map[string]*string)
 	err = c.SelectOneAndScan(ctx, database,
 		`SELECT current_database() as db_name, current_schema() as db_schema,
@@ -155,16 +153,16 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 	return database, tables, routines, types, err
 }
 
-// GetTablesProp получение данных таблиц по условию
-func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngine.Table, err error) {
+// GetTablesProp populate tables schemas data
+func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Types) (map[string]dbEngine.Table, error) {
 	// buf for scan table fields from query
 	table := &Table{
 		conn: c,
 	}
 
-	SchemaCache = make(map[string]dbEngine.Table, 0)
+	tables := make(map[string]dbEngine.Table, 0)
 
-	err = c.SelectAndScanEach(
+	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
 
@@ -185,13 +183,35 @@ func (c *Conn) GetTablesProp(ctx context.Context) (SchemaCache map[string]dbEngi
 				return errors.Wrap(err, "during get indexes")
 			}
 
-			SchemaCache[t.Name()] = t
+			tables[t.Name()] = t
 
 			return nil
 		},
 		table, sqlTableList)
+	if err != nil {
+		return nil, err
+	}
 
-	return
+	for _, table := range tables {
+		for _, column := range table.(*Table).columns {
+			if column.DataType == "USER-DEFINED" {
+				t, ok := types[column.UdtName]
+				if ok {
+					column.UserDefined = &t
+				}
+			}
+			for _, key := range column.Constraints {
+				if key != nil && key.ForeignCol == nil {
+					p, ok := tables[key.Parent]
+					if ok {
+						key.ForeignCol = p.FindColumn(key.Column)
+					}
+				}
+			}
+		}
+	}
+
+	return tables, nil
 }
 
 // GetRoutines get properties of DB routines & returns them as map

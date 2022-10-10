@@ -99,7 +99,6 @@ func (p *ParserTableDDL) alterTable(ddl string) bool {
 		return false
 	}
 
-	logs.StatusLog("alter")
 	p.runDDL(ddl)
 
 	return true
@@ -575,9 +574,18 @@ func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs C
 	p.runDDL(ddl)
 	if p.err == nil {
 		logInfo(prefix, p.filename, ddl, p.line)
-		p.ReReadColumn(fieldName)
+		p.ReReadColumn(p.DB.ctx, fieldName)
 	} else if !IsErrorForReplace(p.err) {
 		logs.DebugLog(`Field %s.%s, different with define: '%s' %v`, p.Name(), fieldName, title, fs)
+	} else if IsErrorNullValues(p.err) {
+		defaults := regDefault.FindStringSubmatch(strings.ToLower(sAlter))
+		if len(defaults) > 1 && defaults[1] > "" {
+			p.runDDL(fmt.Sprintf("UPDATE %s SET %s=$1", p.Name(), fieldName), defaults[1])
+			if p.err != nil {
+				logError(p.err, ddl, p.filename)
+				return p.err
+			}
+		}
 	}
 
 	return p.err

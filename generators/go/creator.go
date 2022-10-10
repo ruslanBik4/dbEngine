@@ -294,9 +294,12 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 		}
 
 	case col.IsNullable():
-		if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
-			typeCol = "interface{}"
-		} else {
+		switch bTypeCol {
+		case types.UnsafePointer:
+			typeCol = "[]byte"
+		case types.Invalid:
+			typeCol = "any"
+		default:
 			typeCol = "sql.Null" + strcase.ToCamel(typeCol)
 			c.packages += c.addImport(moduloSql)
 		}
@@ -317,6 +320,9 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 
 	switch {
 	case bTypeCol == types.Invalid:
+		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
+
+	case bTypeCol == types.UnsafePointer:
 		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
 
 	case bTypeCol == types.UntypedFloat:

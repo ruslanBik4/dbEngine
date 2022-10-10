@@ -22,7 +22,7 @@ import (
 
 func TestColumn_BasicType(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -44,7 +44,7 @@ func TestColumn_BasicType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -65,7 +65,7 @@ func TestColumn_BasicType(t *testing.T) {
 
 func TestColumn_BasicTypeInfo(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -136,7 +136,7 @@ func TestColumn_BasicTypeInfo(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -158,7 +158,7 @@ func TestColumn_BasicTypeInfo(t *testing.T) {
 
 func TestColumn_CharacterMaximumLength(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -180,7 +180,7 @@ func TestColumn_CharacterMaximumLength(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -201,7 +201,7 @@ func TestColumn_CharacterMaximumLength(t *testing.T) {
 
 func TestColumn_Comment(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -223,7 +223,7 @@ func TestColumn_Comment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -244,7 +244,7 @@ func TestColumn_Comment(t *testing.T) {
 
 func TestColumn_Name(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -266,7 +266,7 @@ func TestColumn_Name(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -287,7 +287,7 @@ func TestColumn_Name(t *testing.T) {
 
 func TestColumn_Required(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -309,7 +309,7 @@ func TestColumn_Required(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -330,7 +330,7 @@ func TestColumn_Required(t *testing.T) {
 
 func TestColumn_Type(t *testing.T) {
 	type fields struct {
-		Table                  dbEngine.Table
+		Table                  *Table
 		name                   string
 		DataType               string
 		ColumnDefault          string
@@ -352,7 +352,7 @@ func TestColumn_Type(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := &Column{
-				Table:                  tt.fields.Table,
+				table:                  tt.fields.Table,
 				name:                   tt.fields.name,
 				DataType:               tt.fields.DataType,
 				colDefault:             tt.fields.ColumnDefault,
@@ -566,7 +566,7 @@ func TestConn_GetTablesProp(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			gotSchemaCache, err := c.GetTablesProp(context.TODO())
+			gotSchemaCache, err := c.GetTablesProp(context.TODO(), nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetTablesProp() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -813,7 +813,7 @@ func TestConn_listen(t *testing.T) {
 
 func TestNewColumn(t *testing.T) {
 	type args struct {
-		table                  dbEngine.Table
+		table                  *Table
 		name                   string
 		dataType               string
 		columnDefault          interface{}
@@ -1196,7 +1196,7 @@ func TestTable_Insert(t *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			assert.Implements(t1, (dbEngine.Table)(nil), table)
+			assert.Implements(t1, (*Table)(nil), table)
 		})
 	}
 }
@@ -1232,7 +1232,7 @@ func TestTable_Name(t1 *testing.T) {
 			if got := t.Name(); got != tt.want {
 				t1.Errorf("Name() = %v, want %v", got, tt.want)
 			}
-			assert.Implements(t1, (dbEngine.Table)(nil), t)
+			assert.Implements(t1, (*Table)(nil), t)
 		})
 	}
 }
@@ -1268,7 +1268,7 @@ func TestTable_Select(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			assert.Implements(t1, (dbEngine.Table)(nil), t)
+			assert.Implements(t1, (*Table)(nil), t)
 		})
 	}
 }

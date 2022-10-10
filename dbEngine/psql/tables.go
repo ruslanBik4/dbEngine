@@ -329,7 +329,7 @@ func (t *Table) Indexes() dbEngine.Indexes {
 }
 
 // ReReadColumn renew properties of column 'name'
-func (t *Table) ReReadColumn(name string) dbEngine.Column {
+func (t *Table) ReReadColumn(ctx context.Context, name string) dbEngine.Column {
 	t.lock.RLock()
 	defer t.lock.RUnlock()
 
@@ -341,17 +341,18 @@ func (t *Table) ReReadColumn(name string) dbEngine.Column {
 			0,
 		)
 
-		column.Table = t
+		column.table = t
 		t.columns = append(t.columns, column)
 	}
 
 	// todo implement
 	err := t.conn.SelectAndScanEach(
-		context.TODO(),
-		func() error {
-			return nil
-		},
-		column, sqlGetColumnAttr, t.name, column.Name(),
+		ctx,
+		nil,
+		column,
+		sqlGetColumnAttr,
+		t.name,
+		column.Name(),
 	)
 	if err != nil {
 		logs.ErrorLog(err, sqlGetColumnAttr)

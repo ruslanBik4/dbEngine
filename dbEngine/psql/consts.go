@@ -98,13 +98,23 @@ ORDER BY ordinal_position`
 							COALESCE(character_set_name, '') as character_set_name,
 							COALESCE(character_maximum_length, -1) as character_maximum_length, 
 							udt_name,
+  		(select json_object_agg( k.constraint_name,
+								CASE WHEN kcu.table_name IS NULL THEN NULL
+								   ELSE json_build_object('parent', kcu.table_name, 'column', kcu.column_name,
+								   'update_rule', rc.update_rule, 'delete_rule', rc.delete_rule)
+							    END)
+			FROM  INFORMATION_SCHEMA.key_column_usage k
+				LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
+				LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
+			WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)
+		) as keys,
 							COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
 							   AS column_comment
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
 	sqlTypeExists = "SELECT exists(select null FROM pg_type WHERE typname::text=ANY($1))"
 	sqlGetTypes   = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
-	sqlTypesList  = "SELECT typname, typcategory FROM pg_type"
+	sqlTypesList  = "SELECT oid, typname, typtype, array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates FROM pg_type"
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,

@@ -6,9 +6,11 @@ package psql
 
 import (
 	"bytes"
+	"database/sql"
 	"time"
 
 	"github.com/jackc/pgtype"
+
 	"github.com/ruslanBik4/logs"
 )
 
@@ -325,6 +327,18 @@ func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgty
 		logs.ErrorLog(err, name)
 		return
 	}
+
+	return
+}
+
+// GetRawBytesFromByte convert data from src into []time.Time
+func GetRawBytesFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
+	if len(src) == 0 {
+		return
+	}
+
+	dto = make([]byte, len(src))
+	copy(dto, src)
 
 	return
 }

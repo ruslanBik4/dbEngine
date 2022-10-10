@@ -147,7 +147,7 @@ func (t *Table) Name() string {
 }
 
 // ReReadColumn renew properties of column 'name'
-func (t *Table) ReReadColumn(name string) dbEngine.Column {
+func (t *Table) ReReadColumn(ctx context.Context, name string) dbEngine.Column {
 	panic("implement me")
 }
 

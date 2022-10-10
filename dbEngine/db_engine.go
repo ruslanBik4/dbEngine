@@ -3,8 +3,9 @@ package dbEngine
 import (
 	"go/types"
 
-	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/logs"
 )
 
 // FncEachRow & FncRawRow are types of function which use as callback for select methods
@@ -33,9 +34,32 @@ type Connection interface {
 
 // Types consists of parameters of DB types
 type Types struct {
-	Id   int
-	Name string
-	Attr []string
+	Id         uint32
+	Name       string
+	Type       rune
+	Enumerates []string
+}
+
+func (t *Types) GetFields(columns []Column) []interface{} {
+	if len(columns) == 0 {
+		return []interface{}{&t.Id, t.Type, &t.Type, &t.Enumerates}
+	}
+
+	v := make([]interface{}, len(columns))
+	for i, col := range columns {
+		switch name := col.Name(); name {
+		case "oid":
+			v[i] = &t.Id
+		case "typname":
+			v[i] = &t.Name
+		case "typtype":
+			v[i] = &t.Type
+		case "enumerates":
+			v[i] = &t.Enumerates
+		}
+	}
+
+	return v
 }
 
 // Table describes methods for table operations
@@ -51,7 +75,7 @@ type Table interface {
 	Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Name() string
-	ReReadColumn(name string) Column
+	ReReadColumn(ctx context.Context, name string) Column
 	Select(ctx context.Context, Options ...BuildSqlOptions) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
 	SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error
@@ -78,6 +102,7 @@ type ForeignKey struct {
 	Column     string `json:"column"`
 	UpdateRule string `json:"update_rule"`
 	DeleteRule string `json:"delete_rule"`
+	ForeignCol Column `json:"-"`
 }
 
 // Column describes methods for table/view/function builderOpts
@@ -93,6 +118,8 @@ type Column interface {
 	Default() interface{}                      //+
 	SetDefault(interface{})                    //+
 	Foreign() *ForeignKey
+	UserDefinedType() *Types
+	Table() Table
 	Primary() bool    //+
 	Type() string     //+
 	Required() bool   //+
