@@ -66,6 +66,12 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		return errors.Wrap(err, "WriteString Database")
 	}
 
+	for name := range DB.Tables {
+		_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
+		if err != nil {
+			return errors.Wrap(err, "WriteNewTable of Database")
+		}
+	}
 	for _, name := range append(DB.FuncsAdded, DB.FuncsReplaced...) {
 		r, ok := DB.Routines[name].(*psql.Routine)
 		if !ok {

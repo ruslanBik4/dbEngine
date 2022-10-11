@@ -32,6 +32,7 @@ import (
 	formatDatabase = `// Database is root interface for operation for %s.%s
 type Database struct {
 	*dbEngine.DB
+	CreateAt time.Time
 }
 
 // NewDatabase create new Database with minimal necessary handlers
@@ -50,7 +51,7 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 		return nil, err
 	}
 
-	return &Database{DB}, nil
+	return &Database{DB, time.Now()}, nil
 }
 // PsqlConn return connection as *psql.Conn
 // need for some low-level operation, 
@@ -60,6 +61,21 @@ func (d *Database) PsqlConn() *psql.Conn {
 	return (d.Conn).(*psql.Conn)
 }
 `
+	newTableInstance = `// New%s create new instance of table %[1]s
+func (d *Database) New%[1]s(ctx context.Context) (*%[1]s, error) {
+	table, ok := d.Tables["%s"]
+    if !ok {
+		var err error
+		table, err = New%[1]sFromConn(ctx, d.PsqlConn())
+		if err != nil {
+			return nil, err
+		}
+    }
+
+    return &%[1]s{
+		Table: table.(*psql.Table),
+    }, nil
+}`
 	callProcFormat = `// %s call procedure '%[5]s' 
 // DB comment: '%s'
 func (d *Database) %[1]s(ctx context.Context%s) error {
