@@ -70,12 +70,14 @@ func (d *Database) New%[1]s(ctx context.Context) (*%[1]s, error) {
 		if err != nil {
 			return nil, err
 		}
+		d.Tables["%[1]s"] = table
     }
 
     return &%[1]s{
 		Table: table.(*psql.Table),
     }, nil
-}`
+}
+`
 	callProcFormat = `// %s call procedure '%[5]s' 
 // DB comment: '%s'
 func (d *Database) %[1]s(ctx context.Context%s) error {

@@ -10,7 +10,7 @@ import (
 
 // FncEachRow & FncRawRow are types of function which use as callback for select methods
 type (
-	FncEachRow func(values []interface{}, columns []Column) error
+	FncEachRow func(values []any, columns []Column) error
 	FncRawRow  func(values [][]byte, columns []Column) error
 )
 
@@ -20,16 +20,16 @@ type Connection interface {
 	GetRoutines(ctx context.Context) (map[string]Routine, error)
 	GetSchema(ctx context.Context) (database map[string]*string, tables map[string]Table, routines map[string]Routine, dbTypes map[string]Types, err error)
 	GetStat() string
-	ExecDDL(ctx context.Context, sql string, args ...interface{}) error
+	ExecDDL(ctx context.Context, sql string, args ...any) error
 	NewTable(name, typ string) Table
 	LastRowAffected() int64
-	SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error
-	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, args ...interface{}) error
-	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, args ...interface{}) error
-	SelectAndPerformRaw(ctx context.Context, each FncRawRow, sql string, args ...interface{}) error
-	SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error)
-	SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error)
-	SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []Column, error)
+	SelectOneAndScan(ctx context.Context, rowValues any, sql string, args ...any) error
+	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, sql string, args ...any) error
+	SelectAndRunEach(ctx context.Context, each FncEachRow, sql string, args ...any) error
+	SelectAndPerformRaw(ctx context.Context, each FncRawRow, sql string, args ...any) error
+	SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error)
+	SelectToMaps(ctx context.Context, sql string, args ...any) ([]map[string]any, error)
+	SelectToMultiDimension(ctx context.Context, sql string, args ...any) ([][]any, []Column, error)
 }
 
 // Types consists of parameters of DB types
@@ -40,12 +40,12 @@ type Types struct {
 	Enumerates []string
 }
 
-func (t *Types) GetFields(columns []Column) []interface{} {
+func (t *Types) GetFields(columns []Column) []any {
 	if len(columns) == 0 {
-		return []interface{}{&t.Id, t.Type, &t.Type, &t.Enumerates}
+		return []any{&t.Id, t.Type, &t.Type, &t.Enumerates}
 	}
 
-	v := make([]interface{}, len(columns))
+	v := make([]any, len(columns))
 	for i, col := range columns {
 		switch name := col.Name(); name {
 		case "oid":
@@ -78,21 +78,21 @@ type Table interface {
 	ReReadColumn(ctx context.Context, name string) Column
 	Select(ctx context.Context, Options ...BuildSqlOptions) error
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
-	SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error
+	SelectOneAndScan(ctx context.Context, row any, Options ...BuildSqlOptions) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
 // Routine describes methods for function/procedures operations
 type Routine interface {
 	Name() string
-	BuildSql(Options ...BuildSqlOptions) (sql string, args []interface{}, err error)
-	Select(ctx context.Context, args ...interface{}) error
-	Call(ctx context.Context, args ...interface{}) error
+	BuildSql(Options ...BuildSqlOptions) (sql string, args []any, err error)
+	Select(ctx context.Context, args ...any) error
+	Call(ctx context.Context, args ...any) error
 	Overlay() Routine
 	Params() []Column
 	ReturnType() string
 	SelectAndScanEach(ctx context.Context, each func() error, rowValue RowScanner, Options ...BuildSqlOptions) error
-	SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error
+	SelectOneAndScan(ctx context.Context, row any, Options ...BuildSqlOptions) error
 	SelectAndRunEach(ctx context.Context, each FncEachRow, Options ...BuildSqlOptions) error
 }
 
@@ -115,8 +115,8 @@ type Column interface {
 	Name() string                              //+
 	AutoIncrement() bool                       //+
 	IsNullable() bool                          //+
-	Default() interface{}                      //+
-	SetDefault(interface{})                    //+
+	Default() any                              //+
+	SetDefault(any)                            //+
 	Foreign() *ForeignKey
 	UserDefinedType() *Types
 	Table() Table
@@ -137,8 +137,8 @@ type Index struct {
 }
 
 // GetFields implements interface RowScanner
-func (ind *Index) GetFields(columns []Column) []interface{} {
-	fields := make([]interface{}, len(columns))
+func (ind *Index) GetFields(columns []Column) []any {
+	fields := make([]any, len(columns))
 	for i, col := range columns {
 		switch col.Name() {
 		case "index_name":
@@ -161,7 +161,7 @@ func (ind *Index) GetFields(columns []Column) []interface{} {
 type Indexes []*Index
 
 // GetFields implements interface RowScanner
-func (i *Indexes) GetFields(columns []Column) []interface{} {
+func (i *Indexes) GetFields(columns []Column) []any {
 	ind := &Index{}
 	*i = append(*i, ind)
 
@@ -175,5 +175,5 @@ func (i Indexes) LastIndex() *Index {
 
 // RowScanner must return slice variables for pgx.Rows.Scan
 type RowScanner interface {
-	GetFields(columns []Column) []interface{}
+	GetFields(columns []Column) []any
 }

@@ -30,6 +30,7 @@ type Creator struct {
 	dst        string
 	packages   string
 	initValues string
+	db         *dbEngine.DB
 }
 
 // NewCreator create with destination directory 'dst'
@@ -51,6 +52,7 @@ func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
 		return errors.Wrap(err, "creator")
 	}
 
+	c.db = DB
 	c.packages += c.addImport("github.com/jackc/pgconn")
 	c.packages += c.addImport("strings")
 	c.packages += c.addImport("fmt")
@@ -135,8 +137,17 @@ func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
 	switch toType {
 	case types.Invalid:
 		sType = "*" + strcase.ToCamel(r.UdtName)
+		// when type is tables record
+		for name := range c.db.Tables {
+			if name == r.UdtName {
+				sType = fmt.Sprintf("%sFields", strcase.ToCamel(r.UdtName))
+				break
+			}
+		}
+
 	case types.UntypedFloat:
 		sType = "float64"
+	default:
 	}
 
 	return "res " + sType + ", ", "&res,"
@@ -160,8 +171,8 @@ func (c *Creator) prepareReturns(r *psql.Routine, name string) (string, string) 
 	return sReturn, sResult
 }
 
-func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string, args []interface{}) {
-	args = make([]interface{}, len(r.Params()))
+func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string, args []any) {
+	args = make([]any, len(r.Params()))
 	for i, param := range r.Params() {
 		typeCol, _ := c.chkTypes(param, name)
 		s := strcase.ToLowerCamel(param.Name())
@@ -251,17 +262,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
 
-	_, err = fmt.Fprintf(f, formatType, name)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	_, err = fmt.Fprint(f, sTypeField)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	_, err = fmt.Fprintf(f, formatEnd, name)
+	_, err = fmt.Fprintf(f, formatType, name, sTypeField)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -275,6 +276,9 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 
 	switch {
+	case bTypeCol == types.UnsafePointer:
+		typeCol = "[]byte"
+
 	case bTypeCol == types.Invalid:
 		typeCol = "sql.RawBytes"
 		c.packages += c.addImport(moduloSql)
@@ -301,14 +305,13 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 
 	case col.IsNullable():
 		switch bTypeCol {
-		case types.UnsafePointer:
-			typeCol = "[]byte"
 		case types.Invalid:
 			typeCol = "any"
 		default:
 			typeCol = "sql.Null" + strcase.ToCamel(typeCol)
 			c.packages += c.addImport(moduloSql)
 		}
+	default:
 	}
 
 	if strings.HasPrefix(col.Type(), "_") ||

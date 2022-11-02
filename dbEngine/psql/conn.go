@@ -220,7 +220,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 	RoutinesCache = make(map[string]dbEngine.Routine, 0)
 
 	err = c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
+		func(values []any, columns []dbEngine.Column) error {
 
 			// use only func knows types
 			rType := values[2]
@@ -315,7 +315,7 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 }
 
 //SelectAndPerformRaw  run sql with args & run each every row
-func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
+func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...any) error {
 	conn, err := c.Acquire(ctx)
 	if err != nil {
 		return errors.Wrap(err, "c.Acquire")
@@ -356,7 +356,7 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 
 // SelectAndScanEach run sql with args return every row into rowValues & run each
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
-	sql string, args ...interface{}) error {
+	sql string, args ...any) error {
 
 	conn, err := c.Acquire(ctx)
 	if err != nil {
@@ -402,7 +402,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 }
 
 // SelectOneAndScan run sql with args return rows into rowValues
-func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) (err error) {
+func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, args ...any) (err error) {
 	if rowValues == nil {
 		return dbEngine.ErrWrongType{
 			Name:     "rowValues",
@@ -448,84 +448,98 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql 
 	return row.Scan(dest...)
 }
 
-func (c *Conn) mapForScan(r map[string]*string, columns []dbEngine.Column) []interface{} {
-	if len(r) == 0 {
-		for _, col := range columns {
-			r[col.Name()] = new(string)
-		}
-	}
-
-	v := make([]interface{}, len(r))
+func mapForScan[T any](r map[string]T, columns []dbEngine.Column) []any {
+	v := make([]any, len(r))
 	for i, col := range columns {
 		v[i] = r[col.Name()]
 	}
-
+	logs.StatusLog(v)
 	return v
 }
 
-func (c *Conn) getFieldForScan(rowValues interface{}, columns []dbEngine.Column) []interface{} {
+func mapPointersForScan[T any](r map[string]*T, columns []dbEngine.Column) []any {
+	isEmpty := len(r) == 0
+	v := make([]any, len(columns))
+	for i, col := range columns {
+		if isEmpty {
+			r[col.Name()] = new(T)
+		}
+		v[i] = r[col.Name()]
+	}
+	return v
+}
+
+func (c *Conn) getFieldForScan(rowValues any, columns []dbEngine.Column) []any {
 	switch r := rowValues.(type) {
-	case []interface{}:
+	case []any:
 		return r
 
 	case dbEngine.RowScanner:
 		return r.GetFields(columns)
 
 	case map[string]*string:
-		return c.mapForScan(r, columns)
+		return mapPointersForScan(r, columns)
+
+	case map[string]string:
+		return mapForScan(r, columns)
+
+	case map[string]int:
+		return mapForScan(r, columns)
+
+	case map[string]int32:
+		return mapForScan(r, columns)
+
+	case map[string]int64:
+		return mapForScan(r, columns)
+
+	case map[string]float32:
+		return mapForScan(r, columns)
+
+	case map[string]float64:
+		return mapForScan(r, columns)
+
+	case map[string]any:
+		return mapForScan(r, columns)
 
 	case []string:
-		return c.stringsForScan(r)
+		return sliceForScan(r)
+
+	case []int:
+		return sliceForScan(r)
+
+	case []int8:
+		return sliceForScan(r)
+
+	case []int16:
+		return sliceForScan(r)
 
 	case []int32:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
-
-		return v
+		return sliceForScan(r)
 
 	case []int64:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
-
-		return v
+		return sliceForScan(r)
 
 	case []float32:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
-
-		return v
+		return sliceForScan(r)
 
 	case []float64:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
-
-		return v
+		return sliceForScan(r)
 
 	case []time.Time:
-		v := make([]interface{}, len(r))
-		for i := range r {
-			v[i] = &(r[i])
-		}
+		return sliceForScan(r)
 
-		return v
+	case []*time.Time:
+		return sliceForScan(r)
 
 	default:
 		return nil
 	}
 }
 
-func (c *Conn) stringsForScan(r []string) []interface{} {
-	v := make([]interface{}, len(r))
-	for i := range r {
-		v[i] = &(r[i])
+func sliceForScan[T any](arr []T) []any {
+	v := make([]any, len(arr))
+	for i := range arr {
+		v[i] = &(arr[i])
 	}
 
 	return v
@@ -533,12 +547,12 @@ func (c *Conn) stringsForScan(r []string) []interface{} {
 
 // SelectToMap run sql with args return rows as map[{name_column}]
 // case of executed - gets one record
-func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
+func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error) {
 
-	rows := make(map[string]interface{})
-
+	rows := make(map[string]any)
+	//todo: chande on selectScan with map
 	err := c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
+		func(values []any, columns []dbEngine.Column) error {
 			for i, val := range values {
 				rows[columns[i].Name()] = val
 			}
@@ -554,13 +568,13 @@ func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{})
 }
 
 // SelectToMaps run sql with args return rows as slice of map[{name_column}]
-func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
+func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...any) ([]map[string]any, error) {
 
-	maps := make([]map[string]interface{}, 0)
+	maps := make([]map[string]any, 0)
 
 	err := c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
-			row := make(map[string]interface{}, len(columns))
+		func(values []any, columns []dbEngine.Column) error {
+			row := make(map[string]any, len(columns))
 
 			for i, val := range values {
 				row[columns[i].Name()] = val
@@ -579,11 +593,11 @@ func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}
 }
 
 // SelectToMultiDimension run sql with args and return rows (slice of record) and columns
-func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) (
-	rows [][]interface{}, cols []dbEngine.Column, err error) {
+func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...any) (
+	rows [][]any, cols []dbEngine.Column, err error) {
 
 	err = c.selectAndRunEach(ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
+		func(values []any, columns []dbEngine.Column) error {
 			rows = append(rows, values)
 			if len(cols) == 0 {
 				cols = columns
@@ -600,13 +614,13 @@ func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...i
 }
 
 // SelectAndRunEach run sql with args and performs each every row of query results
-func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
+func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...any) error {
 
 	return c.selectAndRunEach(ctx, each, sql, args...)
 }
 
 func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
-	sql string, args ...interface{}) error {
+	sql string, args ...any) error {
 
 	conn, err := c.Acquire(ctx)
 	if err != nil {
@@ -665,6 +679,7 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 		} else {
 			columns[i] = &Column{name: string(col.Name)}
 		}
+		//logs.StatusLog(fields)
 	}
 
 	return columns
@@ -684,7 +699,7 @@ func (c *Conn) GetStat() string {
 }
 
 // ExecDDL execute sql
-func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
+func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...any) error {
 	comTag, err := c.Exec(ctx, sql, args...)
 	// if err != nil {
 	// 	logs.DebugLog("%v '%s' %s", comTag., err, strings.Split(sqlTypesList, "\n")[0])
@@ -758,7 +773,7 @@ func (c *Conn) listen(ch string) {
 	}
 }
 
-func (c *Conn) addNoticeToErrLog(conn *pgxpool.Conn, args ...interface{}) []interface{} {
+func (c *Conn) addNoticeToErrLog(conn *pgxpool.Conn, args ...any) []any {
 	n, ok := c.GetNotice(conn)
 	if ok {
 		return append(args, n)
