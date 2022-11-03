@@ -18,7 +18,7 @@ import (
 
 // Column implement store data of column of table
 type Column struct {
-	Table                  dbEngine.Table `json:"-"`
+	table                  *Table
 	name                   string
 	DataType               string
 	colDefault             interface{}
@@ -32,12 +32,17 @@ type Column struct {
 	Constraints            map[string]*dbEngine.ForeignKey
 	IsHidden               bool
 	Position               int32
+	UserDefined            *dbEngine.Types
+}
+
+func (c *Column) UserDefinedType() *dbEngine.Types {
+	return c.UserDefined
 }
 
 // NewColumnForTableBuf create Column for scanning operation of Table
-func NewColumnForTableBuf(table dbEngine.Table) *Column {
+func NewColumnForTableBuf(table *Table) *Column {
 	return &Column{
-		Table:       table,
+		table:       table,
 		Constraints: make(map[string]*dbEngine.ForeignKey),
 	}
 }
@@ -66,7 +71,7 @@ func (c *Column) AutoIncrement() bool {
 // Copy column & return new instance
 func (c *Column) Copy() *Column {
 	return &Column{
-		Table:                  c.Table,
+		table:                  c.table,
 		name:                   c.name,
 		DataType:               c.DataType,
 		colDefault:             c.colDefault,
@@ -79,6 +84,7 @@ func (c *Column) Copy() *Column {
 		PrimaryKey:             c.PrimaryKey,
 		Constraints:            c.Constraints,
 		IsHidden:               c.IsHidden,
+		UserDefined:            c.UserDefined,
 	}
 }
 
@@ -99,7 +105,7 @@ func NewColumnPone(name string, comment string, characterMaximumLength int) *Col
 
 // NewColumn create new column with many properties
 func NewColumn(
-	table dbEngine.Table,
+	table *Table,
 	name string,
 	dataType string,
 	colDefault interface{},
@@ -112,7 +118,7 @@ func NewColumn(
 	isHidden bool,
 ) *Column {
 	col := &Column{
-		Table:                  table,
+		table:                  table,
 		name:                   name,
 		DataType:               dataType,
 		isNullable:             isNullable,
@@ -147,7 +153,20 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
-	return UdtNameToType(c.UdtName)
+	if c.DataType == "USER-DEFINED" {
+		logs.DebugLog(c.UserDefined)
+		return types.String
+	}
+
+	b := UdtNameToType(c.UdtName)
+	if b == types.Invalid {
+		logs.StatusLog(c.name, c.UdtName, c.DataType)
+	}
+	return b
+}
+
+func (s *Column) Table() dbEngine.Table {
+	return s.table
 }
 
 // UdtNameToType return types.BasicKind according to psql udtName
@@ -314,11 +333,12 @@ func (c *Column) SetDefault(d interface{}) {
 		c.colDefault = strings.Trim(str, "'")
 	}
 	// todo add other case of autogenerate column value
+	upperS := strings.ToUpper(str)
 	c.autoInc = isSerial ||
-		strings.Contains(str, "CURRENT_TIMESTAMP") ||
-		strings.Contains(str, "CURRENT_DATE") ||
-		strings.Contains(str, "CURRENT_USER") ||
-		strings.Contains(strings.ToUpper(str), "NOW()")
+		strings.Contains(upperS, "CURRENT_TIMESTAMP") ||
+		strings.Contains(upperS, "CURRENT_DATE") ||
+		strings.Contains(upperS, "CURRENT_USER") ||
+		strings.Contains(upperS, "NOW()")
 }
 
 // RefColValue referral of column property 'name'

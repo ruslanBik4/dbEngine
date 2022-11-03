@@ -18,8 +18,9 @@ import (
 
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/logs"
 )
 
 type CfgCreatorDB struct {
@@ -196,11 +197,14 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
 
 			case IsErrorDoesNotExists(err):
-				errParts := regDoesNotExist.FindStringSubmatch(err.Error())
-				if val, ok := db.readTables[errParts[1]]; ok {
-					db.readTables[errParts[1]] = append(val, path)
+				if errParts := regRelationNotExist.FindStringSubmatch(err.Error()); len(errParts) > 0 {
+					if val, ok := db.readTables[errParts[1]]; ok {
+						db.readTables[errParts[1]] = append(val, path)
+					} else {
+						db.readTables[errParts[1]] = []string{path}
+					}
 				} else {
-					db.readTables[errParts[1]] = []string{path}
+					logs.ErrorLog(err, "performs not implement")
 				}
 
 			default:

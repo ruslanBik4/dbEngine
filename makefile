@@ -27,3 +27,13 @@ git:
 
 patch:
 	$(call increment,3,path)
+
+lint: check-lint dep
+	golangci-lint run --timeout=5m -c .golangci.yml
+
+check-lint:
+	@which golangci-lint || curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.25.0
+
+dep:
+	@go mod tidy
+	@go mod download

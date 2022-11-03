@@ -6,9 +6,11 @@ package psql
 
 import (
 	"bytes"
+	"database/sql"
 	"time"
 
 	"github.com/jackc/pgtype"
+
 	"github.com/ruslanBik4/logs"
 )
 
@@ -142,6 +144,27 @@ func GetArrayInt64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int64
 	return res
 }
 
+// GetArrayStringFromByte convert data from src into []string
+func GetArrayStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) []string {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.TextArray
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]string, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.String
+	}
+
+	return res
+}
+
 // GetInt16FromByte convert data from src into int16
 func GetInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) int16 {
 	if len(src) == 0 {
@@ -212,7 +235,7 @@ func GetStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) string {
 		return ""
 	}
 
-	//todo: split accroding psql text type (varchar, bchar, etc.)
+	// todo: split accroding psql text type (varchar, bchar, etc.)
 	var dto pgtype.Text
 	err := dto.DecodeText(ci, src)
 	if err != nil {
@@ -245,7 +268,7 @@ func GetTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
 		return time.Time{}
 	}
 
-	//todo: split according to psql time types
+	// todo: split according to psql time types
 	var dto pgtype.Timestamptz
 	err := dto.DecodeText(ci, src)
 	if err != nil {
@@ -304,6 +327,18 @@ func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgty
 		logs.ErrorLog(err, name)
 		return
 	}
+
+	return
+}
+
+// GetRawBytesFromByte convert data from src into []time.Time
+func GetRawBytesFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
+	if len(src) == 0 {
+		return
+	}
+
+	dto = make([]byte, len(src))
+	copy(dto, src)
 
 	return
 }

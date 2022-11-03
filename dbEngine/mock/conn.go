@@ -20,7 +20,7 @@ type Conn struct {
 	mock.Mock
 }
 
-//SelectAndPerformRaw  run sql with args & run each every row
+// SelectAndPerformRaw  run sql with args & run each every row
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
 
 	return c.chkSqlAndArgs(ctx, sql, args)
@@ -31,14 +31,13 @@ func (c *Conn) chkSqlAndArgs(ctx context.Context, sql string, args []interface{}
 		return errors.New(sql)
 	}
 
-	c.Mock.
-	if !c.Mock.Called().Arguments.Is(args...) {
+	if !c.Mock.Called().Is(args...) {
 		logs.DebugLog("args failed")
 	}
 
-	c.Call.Run(func(args mock.Arguments) {
+	c.Calls[0].RunFn = func(args mock.Arguments) {
 		logs.StatusLog(args.String(), ctx.Value(CONN_MOCK_ENV))
-	})
+	}
 
 	return nil
 }

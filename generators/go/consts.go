@@ -32,6 +32,7 @@ import (
 	formatDatabase = `// Database is root interface for operation for %s.%s
 type Database struct {
 	*dbEngine.DB
+	CreateAt time.Time
 }
 
 // NewDatabase create new Database with minimal necessary handlers
@@ -50,7 +51,7 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 		return nil, err
 	}
 
-	return &Database{DB}, nil
+	return &Database{DB, time.Now()}, nil
 }
 // PsqlConn return connection as *psql.Conn
 // need for some low-level operation, 
@@ -58,6 +59,23 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 //        New{table_name}FromConn, etc.
 func (d *Database) PsqlConn() *psql.Conn {
 	return (d.Conn).(*psql.Conn)
+}
+`
+	newTableInstance = `// New%s create new instance of table %[1]s
+func (d *Database) New%[1]s(ctx context.Context) (*%[1]s, error) {
+	table, ok := d.Tables["%s"]
+    if !ok {
+		var err error
+		table, err = New%[1]sFromConn(ctx, d.PsqlConn())
+		if err != nil {
+			return nil, err
+		}
+		d.Tables["%[1]s"] = table
+    }
+
+    return &%[1]s{
+		Table: table.(*psql.Table),
+    }, nil
 }
 `
 	callProcFormat = `// %s call procedure '%[5]s' 
@@ -84,8 +102,8 @@ type %[1]sRowScanner struct {
 		 %s
 }
 // GetFields implement dbEngine.RowScanner interface
-func (r *%[1]sRowScanner) GetFields(columns []dbEngine.Column) []interface{} {
-	return []interface{}{ 
+func (r *%[1]sRowScanner) GetFields(columns []dbEngine.Column) []any {
+	return []any{ 
 			 %[4]s 
 			}
 }
@@ -108,7 +126,7 @@ func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScan
 	colFormat    = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
 	initFormat   = "\n\t\t%-21s:\t%s,"
 	paramsFormat = `
-				[]interface{}{
+				[]any{
 					%s
 				},`
 	caseRefFormat = `
@@ -191,8 +209,8 @@ func (t *%[1]s) Next() bool {
 	return t.doCopyValuesCount < len(t.DoCopyPoll)
 }
 // Values returns the values for the current row.
-func (t *%[1]s) Values() ([]interface{}, error) {
-	res := make([]interface{}, len(t.doCopyPoolColumns))
+func (t *%[1]s) Values() ([]any, error) {
+	res := make([]any, len(t.doCopyPoolColumns))
 	for i, col := range t.doCopyPoolColumns {
 		res[i] = t.DoCopyPoll[t.doCopyValuesCount].ColValue(col)
 	}
@@ -285,7 +303,7 @@ func (t *%[1]s) InsertPoolAndReset(ctx context.Context) []*%[1]sFields {
 	allInserted := int64(0)
 
 	for _, record := range t.DoCopyPoll {
-		v := make([]interface{}, len(columns))
+		v := make([]any, len(columns))
 		for i, name := range columns {
 			v[i] = record.RefColValue(name)
 		}
@@ -317,22 +335,22 @@ func New%[1]sFields() *%[1]sFields{
 	}
 }
 // RefColValue return referral of column
-func (r *%[1]sFields) RefColValue(name string) interface{}{
+func (r *%[1]sFields) RefColValue(name string) any{
 	switch name {	%s
    	default:
 		return nil
 	}
 }
 // ColValue return value of column
-func (r *%[1]sFields) ColValue(name string) interface{}{
+func (r *%[1]sFields) ColValue(name string) any{
 	switch name {	%[3]s
    	default:
 		return nil
 	}
 }
 // GetFields implement dbEngine.RowScanner interface
-func (r *%[1]sFields) GetFields(columns []dbEngine.Column) []interface{} {
-	v := make([]interface{}, len(columns))
+func (r *%[1]sFields) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
 	for i, col := range columns {
 		v[i] = r.RefColValue( col.Name() )
 	}
@@ -340,11 +358,11 @@ func (r *%[1]sFields) GetFields(columns []dbEngine.Column) []interface{} {
 	return v
 }
 // GetValue implement httpgo.RouteDTO interface
-func (r *%[1]sFields) GetValue() interface{} {
+func (r *%[1]sFields) GetValue() any {
 	return r
 }
 // NewValue implement httpgo.RouteDTO interface
-func (r *%[1]sFields) NewValue() interface{} {
+func (r *%[1]sFields) NewValue() any {
 	return New%[1]sFields()
 }
 // NewRecord return new row of table
@@ -353,7 +371,7 @@ func (t *%[1]s) NewRecord() *%[1]sFields{
 	return t.Record
 }
 // GetFields implement dbEngine.RowScanner interface
-func (t *%[1]s) GetFields(columns []dbEngine.Column) []interface{} {
+func (t *%[1]s) GetFields(columns []dbEngine.Column) []any {
 	if len(columns) == 0 {
 		columns = t.Columns()
 	}
@@ -388,7 +406,7 @@ func (t *%[1]s) SelectAll(ctx context.Context, Options ...dbEngine.BuildSqlOptio
 // Insert new record into table
 func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, 0, len(t.Columns()))
+		v := make([]any, 0, len(t.Columns()))
 		columns := make([]string, 0, len(t.Columns()))
 		for _, col := range t.Columns() {
 			if col.AutoIncrement() {
@@ -410,8 +428,8 @@ func (t *%[1]s) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 // Update record of table according to Options
 func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, 0, len(t.Columns()))
-		priV := make([]interface{}, 0)
+		v := make([]any, 0, len(t.Columns()))
+		priV := make([]any, 0)
 		columns := make([]string, 0, len(t.Columns()))
 		priColumns := make([]string, 0, len(t.Columns()))
 		for _, col := range t.Columns() {
@@ -439,8 +457,8 @@ func (t *%[1]s) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 // Upsert insert new Record into table according to Options or update if this record exists
 func (t *%[1]s) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
-		v := make([]interface{}, 0, len(t.Columns()))
-		priV := make([]interface{}, 0)
+		v := make([]any, 0, len(t.Columns()))
+		priV := make([]any, 0)
 		columns := make([]string, 0, len(t.Columns()))
 		priColumns := make([]string, 0, len(t.Columns()))
 		for _, col := range t.Columns() {

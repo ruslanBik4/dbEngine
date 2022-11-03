@@ -10,7 +10,22 @@ type (
 	}
 )
 
-func (dst *%[1]sPsqlType) Set(src interface{}) error {
+// GetFields implement dbEngine.RowScanner interface
+func (r *%[1]sPsqlType) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
+	for i, col := range columns {
+		switch name:= col.Name(); name {
+		case "themes":
+			v[i] = r
+		default:
+			v[i] = r.RefColValue(name)
+		}
+	}
+
+	return v
+}
+// Set implement pgtype.Value interface
+func (dst *%[1]sPsqlType) Set(src any) error {
 	switch value := src.(type) {
 	// untyped nil and typed nil interfaces are different
 	case nil:
@@ -27,8 +42,8 @@ func (dst *%[1]sPsqlType) Set(src interface{}) error {
 		return nil
 	}
 }
-
-func (dst *%[1]sPsqlType) Get() interface{} {
+// Get implement pgtype.Value interface
+func (dst *%[1]sPsqlType) Get() any {
 	switch dst.Status {
 	case pgtype.Present:
 		return *dst
@@ -38,8 +53,8 @@ func (dst *%[1]sPsqlType) Get() interface{} {
 		return dst.Status
 	}
 }
-
-func (src *%[1]sPsqlType) AssignTo(dst interface{}) error {
+// AssignTo implement pgtype.Value interface
+func (src *%[1]sPsqlType) AssignTo(dst any) error {
 	switch src.Status {
 	case pgtype.Present:
 		switch v := dst.(type) {
@@ -61,23 +76,36 @@ func (src *%[1]sPsqlType) AssignTo(dst interface{}) error {
 		return errors.Errorf("cannot decode %%v into %%T", src, dst)
 	}
 }
-
+// DecodeText implement pgtype.TextDecoder interface
 func (dst *%[1]sPsqlType) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
 		*dst = %[1]sPsqlType{Status: pgtype.Null}
 		return nil
 	}
 
-	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
-
-	record := %[1]sFields{
-	// fill columns of table
-`
-	formatEnd = `
-	}
-
-	*dst = %[1]sPsqlType{%[1]sFields: record, Status: pgtype.Present}
+	*dst = dst.readSrc(ci, src)
 
 	return nil
+}
+// DecodeBinary implement pgtype.DecodeBinary interface
+func (dst *%[1]sPsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	if len(src) == 0 {
+		*dst = %[1]sPsqlType{Status: pgtype.Null}
+		return nil
+	}
+
+	*dst = dst.readSrc(ci, src)
+
+	return nil
+}
+func (dst *%[1]sPsqlType) readSrc(ci *pgtype.ConnInfo, src []byte) %[1]sPsqlType {
+	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
+	return %[1]sPsqlType{
+		%[1]sFields: %[1]sFields{
+			// fill columns of table
+			%s
+		},
+		Status: pgtype.Present,
+	}
 }`
 )

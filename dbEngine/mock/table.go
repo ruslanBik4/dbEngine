@@ -30,7 +30,7 @@ func (t *Table) Indexes() dbEngine.Indexes {
 }
 
 // ReReadColumn renew properties of column 'name'
-func (t *Table) ReReadColumn(name string) dbEngine.Column {
+func (t *Table) ReReadColumn(ctx context.Context, name string) dbEngine.Column {
 	//TODO implement me
 	panic("implement me")
 }

@@ -10,9 +10,10 @@ import (
 	"path"
 
 	"github.com/pkg/errors"
+	"golang.org/x/net/context"
+
 	"github.com/ruslanBik4/dbEngine/typesExt"
 	"github.com/ruslanBik4/logs"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
@@ -22,7 +23,7 @@ import (
 var (
 	fDstPath  = flag.String("dst_path", "./db", "path for generated files")
 	fCfgPath  = flag.String("src_path", "cfg", "path to cfg DB files")
-	fOnlyShow = flag.Bool("read_only", true, "only show DB schema")
+	fOnlyShow = flag.Bool("read_only", false, "only show DB schema")
 )
 
 func main() {
