@@ -270,10 +270,11 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 	return err
 }
 
-func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interface{}) {
+func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	bTypeCol := col.BasicType()
 	defValue := col.Default()
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
 
 	switch {
 	case bTypeCol == types.UnsafePointer:
@@ -303,6 +304,9 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 			defValue = nil
 		}
 
+	case isArray:
+		typeCol = "[]" + typeCol
+
 	case col.IsNullable():
 		switch bTypeCol {
 		case types.Invalid:
@@ -314,11 +318,6 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 	default:
 	}
 
-	if strings.HasPrefix(col.Type(), "_") ||
-		strings.HasSuffix(col.Type(), "[]") {
-		typeCol = "[]" + typeCol
-	}
-
 	return typeCol, defValue
 }
 
@@ -326,50 +325,34 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 	const decodeFncTmp = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
 	bTypeCol := col.BasicType()
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+	titleType := cases.Title(language.English).String(typeCol)
+	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
+	if isArray {
+		titleType = "Array" + titleType
+	}
 
 	switch {
-	case bTypeCol == types.Invalid:
-		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
+	case bTypeCol == types.Invalid || bTypeCol == types.UnsafePointer:
+		titleType = "RawBytes"
+		//c.packages += c.addImport(moduloSql)
 
-	case bTypeCol == types.UnsafePointer:
-		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
-
-	case bTypeCol == types.UntypedFloat:
-		switch col.Type() {
-		case "numeric", "decimal":
-			return fmt.Sprintf(decodeFncTmp, "Numeric", ind, propName)
-		default:
-			return fmt.Sprintf(decodeFncTmp, col.Type(), ind, propName)
-		}
+	case bTypeCol == types.UntypedFloat && (col.Type() == "numeric" || col.Type() == "decimal"):
+		titleType = "Numeric"
 
 	case bTypeCol < 0:
-		typeCol = c.getTypeCol(col)
+		titleType = c.getTypeCol(col)
 
-		return fmt.Sprintf(decodeFncTmp, typeCol, ind, propName)
-
-	//case col.IsNullable():
-	//	if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
-	//		typeCol = "interface{}"
-	//	} else {
-	//		typeCol = "sql.Null" + strings.Title(typeCol)
-	//		c.packages += c.addImport(moduloSql)
-	//	}
 	default:
-
-		if strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]") {
-			return fmt.Sprintf(decodeFncTmp, "Array"+strcase.ToCamel(typeCol), ind, propName)
-		}
-
-		if col.IsNullable() {
-			titleType := cases.Title(language.English).String(typeCol)
+		if col.IsNullable() && !isArray {
 			return "sql.Null" + titleType + `{
-` + titleType + ":" + fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName) + `,
+` + titleType + ":" + fmt.Sprintf(decodeFncTmp, titleType, ind, propName) + `,
+	Valid: true,
 }`
-
 		}
 
-		return fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName)
 	}
+
+	return fmt.Sprintf(decodeFncTmp, titleType, ind, propName)
 }
 
 func (c *Creator) getTypeCol(col dbEngine.Column) string {
@@ -398,12 +381,12 @@ func (c *Creator) getTypeCol(col dbEngine.Column) string {
 var mapTypes = map[string]string{
 	"Inet":      "pgtype.Inet",
 	"Interval":  "pgtype.Interval",
-	"Json":      "interface{}",
-	"jsonb":     "interface{}",
+	"Json":      "any",
+	"jsonb":     "any",
 	"RefTime":   "*time.Time",
 	"Time":      "time.Time",
 	"ArrayTime": "[]time.Time",
-	"Interface": "interface{}",
+	"Interface": "any",
 }
 
 func (c *Creator) addImport(moduloName string) string {

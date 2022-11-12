@@ -186,7 +186,7 @@ func UdtNameToType(udtName string) types.BasicKind {
 		return types.Float64
 	case "numeric", "decimal":
 		// todo add check field length
-		return types.UntypedFloat
+		return types.Float64
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
 		return typesExt.TStruct
 	case "json", "jsonb":
