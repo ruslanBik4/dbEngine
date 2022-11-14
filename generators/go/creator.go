@@ -184,7 +184,7 @@ func (c *Creator) chkDefineType(udtName string) string {
 	if isArray {
 		udtName = strings.TrimPrefix(udtName, "_")
 		udtName = strings.TrimSuffix(udtName, "[]")
-		prefix = "[] "
+		prefix = "[]"
 		logs.StatusLog(prefix, udtName)
 	}
 	for name := range c.db.Tables {
@@ -192,8 +192,11 @@ func (c *Creator) chkDefineType(udtName string) string {
 			return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
 		}
 	}
-	for name := range c.db.Types {
+	for name, t := range c.db.Types {
 		if name == udtName {
+			if len(t.Enumerates) > 0 {
+				return prefix + "string"
+			}
 			return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(udtName))
 		}
 	}

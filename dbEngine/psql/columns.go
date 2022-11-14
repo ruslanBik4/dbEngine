@@ -153,11 +153,6 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
-	if c.DataType == "USER-DEFINED" {
-		logs.DebugLog(c.UserDefined)
-		return types.String
-	}
-
 	b := UdtNameToType(c.UdtName)
 	if b == types.Invalid {
 		logs.StatusLog(c.name, c.UdtName, c.DataType)
