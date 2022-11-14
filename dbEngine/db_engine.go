@@ -37,7 +37,12 @@ type Types struct {
 	Id         uint32
 	Name       string
 	Type       rune
+	Attr       map[string]string
 	Enumerates []string
+}
+
+func NewTypes() *Types {
+	return &Types{Attr: make(map[string]string)}
 }
 
 func (t *Types) GetFields(columns []Column) []any {
@@ -54,6 +59,8 @@ func (t *Types) GetFields(columns []Column) []any {
 			v[i] = &t.Name
 		case "typtype":
 			v[i] = &t.Type
+		case "attr":
+			v[i] = &t.Attr
 		case "enumerates":
 			v[i] = &t.Enumerates
 		}

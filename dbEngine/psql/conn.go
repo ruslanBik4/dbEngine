@@ -124,6 +124,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 	err := c.SelectAndScanEach(ctx,
 		func() error {
 			types[typeBuf.Name] = *typeBuf
+			*typeBuf = dbEngine.Types{}
 			return nil
 		},
 		typeBuf,

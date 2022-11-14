@@ -61,9 +61,8 @@ func (d *Database) PsqlConn() *psql.Conn {
 	return (d.Conn).(*psql.Conn)
 }
 `
-	newTypeInterface = `// New%s create new instance of table %[1]s
-type %s struct {
-	%v
+	newTypeInterface = `// %s create new instance of table %s
+type %[1]s struct {%[3]s
 }
 `
 	newTableInstance = `// New%s create new instance of table %[1]s

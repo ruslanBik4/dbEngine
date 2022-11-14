@@ -53,7 +53,14 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 // MakeInterfaceDB create interface of DB
 func (c *Creator) makeDBUserTypes(f *os.File) error {
 	for name, t := range c.db.Types {
-		_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, t)
+		initValues := ""
+		for name, tName := range t.Attr {
+			propName := strcase.ToCamel(name)
+			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tName}, propName)
+			initValues += fmt.Sprintf(colFormat, propName, typeCol, name)
+
+		}
+		_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, initValues)
 		if err != nil {
 			return errors.Wrap(err, "WriteNewTable of Database")
 		}
@@ -74,16 +81,16 @@ func (c *Creator) MakeInterfaceDB() error {
 	c.packages += c.addImport("strings")
 	c.packages += c.addImport("fmt")
 
-	err = c.makeDBUserTypes(f)
-	if err != nil {
-		return err
-	}
 	sql := ""
 	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
 
+	err = c.makeDBUserTypes(f)
+	if err != nil {
+		return err
+	}
 	_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
 	if err != nil {
 		return errors.Wrap(err, "WriteString Database")
@@ -157,13 +164,9 @@ func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
 	sType := typesExt.Basic(toType).String()
 	switch toType {
 	case types.Invalid:
-		sType = "*" + strcase.ToCamel(r.UdtName)
-		// when type is tables record
-		for name := range c.db.Tables {
-			if name == r.UdtName {
-				sType = fmt.Sprintf("%sFields", strcase.ToCamel(r.UdtName))
-				break
-			}
+		sType = c.chkDefineType(r.UdtName)
+		if sType == "" {
+			sType = "*" + strcase.ToCamel(r.UdtName)
 		}
 
 	case types.UntypedFloat:
@@ -172,6 +175,29 @@ func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
 	}
 
 	return "res " + sType + ", ", "&res,"
+}
+
+// when type is tables record or DB  type
+func (c *Creator) chkDefineType(udtName string) string {
+	isArray := strings.HasPrefix(udtName, "_") || strings.HasSuffix(udtName, "[]")
+	prefix := ""
+	if isArray {
+		udtName = strings.TrimPrefix(udtName, "_")
+		udtName = strings.TrimSuffix(udtName, "[]")
+		prefix = "[] "
+		logs.StatusLog(prefix, udtName)
+	}
+	for name := range c.db.Tables {
+		if name == udtName {
+			return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
+		}
+	}
+	for name := range c.db.Types {
+		if name == udtName {
+			return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(udtName))
+		}
+	}
+	return ""
 }
 
 func (c *Creator) prepareReturns(r *psql.Routine, name string) (string, string) {
@@ -302,7 +328,10 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 		typeCol = "[]byte"
 
 	case bTypeCol == types.Invalid:
-		typeCol = "sql.RawBytes"
+		typeCol = c.chkDefineType(col.Type())
+		if typeCol == "" {
+			typeCol = "sql.RawBytes"
+		}
 		c.packages += c.addImport(moduloSql)
 
 	case bTypeCol == types.UntypedFloat:

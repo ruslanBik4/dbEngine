@@ -112,9 +112,32 @@ ORDER BY ordinal_position`
 							   AS column_comment
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
-	sqlTypeExists = "SELECT exists(select null FROM pg_type WHERE typname::text=ANY($1))"
-	sqlGetTypes   = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
-	sqlTypesList  = "SELECT oid, typname, typtype, array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates FROM pg_type"
+	sqlTypesList = `SELECT c.oid, typname, typtype,
+       (select json_object_agg( a.attname,
+                                CASE
+                                    WHEN t.typtype = 'd'::"char" THEN
+                                        CASE
+                                            WHEN bt.typelem <> 0::oid AND bt.typlen = '-1'::integer OR nbt.nspname = 'pg_catalog'::name 
+                                                THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
+                                            ELSE 'USER-DEFINED'::text
+                                            END
+                                    ELSE
+                                        CASE
+                                            WHEN t.typelem <> 0::oid AND t.typlen = '-1'::integer OR nt.nspname = 'pg_catalog'::name 
+                                                THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
+                                            ELSE 'USER-DEFINED'::text
+                                            END
+                                    END::information_schema.character_data
+                   )
+        from pg_attribute a
+                 JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
+                 LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid)
+                           ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       where a.attrelid = c.oid
+        ) as attr,
+       array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
+FROM pg_type JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
+where nc.nspname='public' AND c.relkind = 'c'`
+
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,
