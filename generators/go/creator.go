@@ -34,48 +34,69 @@ type Creator struct {
 }
 
 // NewCreator create with destination directory 'dst'
-func NewCreator(dst string) (*Creator, error) {
+func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
+	if DB == nil {
+		return nil, dbEngine.ErrDBNotFound
+	}
 	err := os.Mkdir(dst, os.ModePerm)
 
 	if err != nil && !os.IsExist(err) {
 		return nil, errors.Wrap(err, "mkDirAll")
 	}
 
-	return &Creator{dst: dst}, nil
+	return &Creator{
+		db:  DB,
+		dst: dst,
+	}, nil
 }
 
 // MakeInterfaceDB create interface of DB
-func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
+func (c *Creator) makeDBUserTypes(f *os.File) error {
+	for name, t := range c.db.Types {
+		_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, t)
+		if err != nil {
+			return errors.Wrap(err, "WriteNewTable of Database")
+		}
+
+	}
+	return nil
+}
+
+// MakeInterfaceDB create interface of DB
+func (c *Creator) MakeInterfaceDB() error {
 	f, err := os.Create(path.Join(c.dst, "database") + ".go")
 	if err != nil && !os.IsExist(err) {
 		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
 	}
 
-	c.db = DB
 	c.packages += c.addImport("github.com/jackc/pgconn")
 	c.packages += c.addImport("strings")
 	c.packages += c.addImport("fmt")
 
+	err = c.makeDBUserTypes(f)
+	if err != nil {
+		return err
+	}
 	sql := ""
-	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, formatDatabase, DB.Name, DB.Schema)
+	_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
 	if err != nil {
 		return errors.Wrap(err, "WriteString Database")
 	}
 
-	for name := range DB.Tables {
+	for name := range c.db.Tables {
 		_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
 		if err != nil {
 			return errors.Wrap(err, "WriteNewTable of Database")
 		}
 	}
-	for _, name := range append(DB.FuncsAdded, DB.FuncsReplaced...) {
-		r, ok := DB.Routines[name].(*psql.Routine)
+	for _, name := range append(c.db.FuncsAdded, c.db.FuncsReplaced...) {
+		r, ok := c.db.Routines[name].(*psql.Routine)
 		if !ok {
 			logs.ErrorLog(dbEngine.ErrNotFoundRoutine{
 				Name:  name,
@@ -192,7 +213,7 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 }
 
 // MakeStruct create table interface with Columns operations
-func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
+func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	logs.SetDebug(true)
 	name := strcase.ToCamel(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
@@ -249,7 +270,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
-	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -270,10 +291,11 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 	return err
 }
 
-func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interface{}) {
+func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	bTypeCol := col.BasicType()
 	defValue := col.Default()
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
 
 	switch {
 	case bTypeCol == types.UnsafePointer:
@@ -303,6 +325,9 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 			defValue = nil
 		}
 
+	case isArray:
+		typeCol = "[]" + typeCol
+
 	case col.IsNullable():
 		switch bTypeCol {
 		case types.Invalid:
@@ -314,11 +339,6 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, interf
 	default:
 	}
 
-	if strings.HasPrefix(col.Type(), "_") ||
-		strings.HasSuffix(col.Type(), "[]") {
-		typeCol = "[]" + typeCol
-	}
-
 	return typeCol, defValue
 }
 
@@ -326,50 +346,34 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 	const decodeFncTmp = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
 	bTypeCol := col.BasicType()
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
+	titleType := cases.Title(language.English).String(typeCol)
+	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
+	if isArray {
+		titleType = "Array" + titleType
+	}
 
 	switch {
-	case bTypeCol == types.Invalid:
-		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
+	case bTypeCol == types.Invalid || bTypeCol == types.UnsafePointer:
+		titleType = "RawBytes"
+		//c.packages += c.addImport(moduloSql)
 
-	case bTypeCol == types.UnsafePointer:
-		return fmt.Sprintf(decodeFncTmp, "RawBytes", ind, propName)
-
-	case bTypeCol == types.UntypedFloat:
-		switch col.Type() {
-		case "numeric", "decimal":
-			return fmt.Sprintf(decodeFncTmp, "Numeric", ind, propName)
-		default:
-			return fmt.Sprintf(decodeFncTmp, col.Type(), ind, propName)
-		}
+	case bTypeCol == types.UntypedFloat && (col.Type() == "numeric" || col.Type() == "decimal"):
+		titleType = "Numeric"
 
 	case bTypeCol < 0:
-		typeCol = c.getTypeCol(col)
+		titleType = c.getTypeCol(col)
 
-		return fmt.Sprintf(decodeFncTmp, typeCol, ind, propName)
-
-	//case col.IsNullable():
-	//	if bTypeCol == types.UnsafePointer || bTypeCol == types.Invalid {
-	//		typeCol = "interface{}"
-	//	} else {
-	//		typeCol = "sql.Null" + strings.Title(typeCol)
-	//		c.packages += c.addImport(moduloSql)
-	//	}
 	default:
-
-		if strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]") {
-			return fmt.Sprintf(decodeFncTmp, "Array"+strcase.ToCamel(typeCol), ind, propName)
-		}
-
-		if col.IsNullable() {
-			titleType := cases.Title(language.English).String(typeCol)
+		if col.IsNullable() && !isArray {
 			return "sql.Null" + titleType + `{
-` + titleType + ":" + fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName) + `,
+` + titleType + ":" + fmt.Sprintf(decodeFncTmp, titleType, ind, propName) + `,
+	Valid: true,
 }`
-
 		}
 
-		return fmt.Sprintf(decodeFncTmp, strcase.ToCamel(typeCol), ind, propName)
 	}
+
+	return fmt.Sprintf(decodeFncTmp, titleType, ind, propName)
 }
 
 func (c *Creator) getTypeCol(col dbEngine.Column) string {
@@ -398,12 +402,12 @@ func (c *Creator) getTypeCol(col dbEngine.Column) string {
 var mapTypes = map[string]string{
 	"Inet":      "pgtype.Inet",
 	"Interval":  "pgtype.Interval",
-	"Json":      "interface{}",
-	"jsonb":     "interface{}",
+	"Json":      "any",
+	"jsonb":     "any",
 	"RefTime":   "*time.Time",
 	"Time":      "time.Time",
 	"ArrayTime": "[]time.Time",
-	"Interface": "interface{}",
+	"Interface": "any",
 }
 
 func (c *Creator) addImport(moduloName string) string {
