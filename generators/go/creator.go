@@ -34,48 +34,69 @@ type Creator struct {
 }
 
 // NewCreator create with destination directory 'dst'
-func NewCreator(dst string) (*Creator, error) {
+func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
+	if DB == nil {
+		return nil, dbEngine.ErrDBNotFound
+	}
 	err := os.Mkdir(dst, os.ModePerm)
 
 	if err != nil && !os.IsExist(err) {
 		return nil, errors.Wrap(err, "mkDirAll")
 	}
 
-	return &Creator{dst: dst}, nil
+	return &Creator{
+		db:  DB,
+		dst: dst,
+	}, nil
 }
 
 // MakeInterfaceDB create interface of DB
-func (c *Creator) MakeInterfaceDB(DB *dbEngine.DB) error {
+func (c *Creator) makeDBUserTypes(f *os.File) error {
+	for name, t := range c.db.Types {
+		_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, t)
+		if err != nil {
+			return errors.Wrap(err, "WriteNewTable of Database")
+		}
+
+	}
+	return nil
+}
+
+// MakeInterfaceDB create interface of DB
+func (c *Creator) MakeInterfaceDB() error {
 	f, err := os.Create(path.Join(c.dst, "database") + ".go")
 	if err != nil && !os.IsExist(err) {
 		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
 	}
 
-	c.db = DB
 	c.packages += c.addImport("github.com/jackc/pgconn")
 	c.packages += c.addImport("strings")
 	c.packages += c.addImport("fmt")
 
+	err = c.makeDBUserTypes(f)
+	if err != nil {
+		return err
+	}
 	sql := ""
-	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	_, err = fmt.Fprintf(f, formatDatabase, DB.Name, DB.Schema)
+	_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
 	if err != nil {
 		return errors.Wrap(err, "WriteString Database")
 	}
 
-	for name := range DB.Tables {
+	for name := range c.db.Tables {
 		_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
 		if err != nil {
 			return errors.Wrap(err, "WriteNewTable of Database")
 		}
 	}
-	for _, name := range append(DB.FuncsAdded, DB.FuncsReplaced...) {
-		r, ok := DB.Routines[name].(*psql.Routine)
+	for _, name := range append(c.db.FuncsAdded, c.db.FuncsReplaced...) {
+		r, ok := c.db.Routines[name].(*psql.Routine)
 		if !ok {
 			logs.ErrorLog(dbEngine.ErrNotFoundRoutine{
 				Name:  name,
@@ -192,7 +213,7 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 }
 
 // MakeStruct create table interface with Columns operations
-func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
+func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	logs.SetDebug(true)
 	name := strcase.ToCamel(table.Name())
 	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
@@ -249,7 +270,7 @@ func (c *Creator) MakeStruct(DB *dbEngine.DB, table dbEngine.Table) error {
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
-	_, err = fmt.Fprintf(f, title, DB.Name, DB.Schema, c.packages)
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
