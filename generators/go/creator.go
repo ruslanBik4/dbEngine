@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
+	"github.com/ruslanBik4/dbEngine/generators/go/tpl"
 	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/iancoleman/strcase"
@@ -31,6 +32,7 @@ type Creator struct {
 	packages   string
 	initValues string
 	db         *dbEngine.DB
+	tpl        *tpl.DatabaseTpl
 }
 
 // NewCreator create with destination directory 'dst'
@@ -47,23 +49,26 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 	return &Creator{
 		db:  DB,
 		dst: dst,
+		tpl: tpl.NewDatabaseTpl(DB),
 	}, nil
 }
 
 // MakeInterfaceDB create interface of DB
 func (c *Creator) makeDBUserTypes(f *os.File) error {
-	for name, t := range c.db.Types {
+	for tName, t := range c.db.Types {
 		initValues := ""
 		for name, tName := range t.Attr {
 			propName := strcase.ToCamel(name)
 			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tName}, propName)
 			initValues += fmt.Sprintf(colFormat, propName, typeCol, name)
+			t.Attr[name] = typeCol
+		}
+		c.db.Types[tName] = t
 
-		}
-		_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, initValues)
-		if err != nil {
-			return errors.Wrap(err, "WriteNewTable of Database")
-		}
+		//_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, initValues)
+		//if err != nil {
+		//	return errors.Wrap(err, "WriteNewTable of Database")
+		//}
 
 	}
 	return nil
@@ -77,31 +82,33 @@ func (c *Creator) MakeInterfaceDB() error {
 		return errors.Wrap(err, "creator")
 	}
 
-	c.packages += c.addImport("github.com/jackc/pgconn")
-	c.packages += c.addImport("strings")
-	c.packages += c.addImport("fmt")
-
-	sql := ""
-	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
+	//c.packages += c.addImport("github.com/jackc/pgconn")
+	//c.packages += c.addImport("strings")
+	//c.packages += c.addImport("fmt")
+	//
+	//_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
+	//if err != nil {
+	//	return errors.Wrap(err, "WriteString title")
+	//}
 
 	err = c.makeDBUserTypes(f)
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
-	if err != nil {
-		return errors.Wrap(err, "WriteString Database")
-	}
-
-	for name := range c.db.Tables {
-		_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
-		if err != nil {
-			return errors.Wrap(err, "WriteNewTable of Database")
-		}
-	}
+	c.tpl.Packages = strings.Split(c.packages, "\n")
+	logs.StatusLog(c.packages)
+	c.tpl.WriteCreateDatabase(f)
+	//_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
+	//if err != nil {
+	//	return errors.Wrap(err, "WriteString Database")
+	//}
+	//
+	//for name := range c.db.Tables {
+	//	_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
+	//	if err != nil {
+	//		return errors.Wrap(err, "WriteNewTable of Database")
+	//	}
+	//}
 	for _, name := range append(c.db.FuncsAdded, c.db.FuncsReplaced...) {
 		r, ok := c.db.Routines[name].(*psql.Routine)
 		if !ok {
@@ -119,6 +126,7 @@ func (c *Creator) MakeInterfaceDB() error {
 		logs.StatusLog(r.Type, name, r.ReturnType())
 		camelName := strcase.ToCamel(name)
 		sParams, sParamsTitle, args := c.prepareParams(r, camelName)
+		sql := ""
 		if r.Type == psql.ROUTINE_TYPE_PROC {
 			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
 			if err == nil {
@@ -142,6 +150,7 @@ func (c *Creator) MakeInterfaceDB() error {
 					sql, sParams, name, r.Comment)
 				if r.ReturnType() == "record" {
 					_, err = fmt.Fprintf(f, newFuncRecordFormat, camelName,
+						//todo make Title (export
 						strings.ReplaceAll(sReturn, ",", "\n\t\t"),
 						sParamsTitle,
 						sRecord,

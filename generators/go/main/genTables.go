@@ -48,14 +48,20 @@ func main() {
 		return
 	}
 
-	creator, err := _go.NewCreator(*fDstPath)
+	creator, err := _go.NewCreator(*fDstPath, db)
 	if err != nil {
 		logs.ErrorLog(errors.Wrap(err, "NewCreator"))
 		return
 	}
 
+	err = creator.MakeInterfaceDB()
+	if err != nil {
+		logs.ErrorLog(errors.Wrap(err, "make DB interface"))
+		return
+	}
+
 	for name, table := range db.Tables {
-		err = creator.MakeStruct(db, table)
+		err = creator.MakeStruct(table)
 		if err != nil {
 			logs.ErrorLog(errors.Wrap(err, "makeStruct - "+name))
 		}
