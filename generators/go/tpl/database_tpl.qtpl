@@ -1,5 +1,6 @@
 {% import (
 	"fmt"
+
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -27,6 +28,7 @@ func NewDatabaseTpl(db *dbEngine.DB) *DatabaseTpl {
 package db
 
 import (
+	"bytes"
 	"fmt"
 	"time"
 	"strings"
@@ -34,6 +36,7 @@ import (
     {%- endfor -%}
 
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 
 	"github.com/ruslanBik4/logs"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -50,7 +53,6 @@ type Database struct {
 	*dbEngine.DB
 	CreateAt time.Time
 }
-
 // NewDatabase create new Database with minimal necessary handlers
 func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
 	if noticeHandler == nil {
@@ -88,6 +90,19 @@ type {%s cName %} struct {
 {%- for name, tName := range t.Attr -%}
 	{%s strcase.ToCamel(name) %}{%s= fmt.Sprintf("\t\t\t%s\t",  tName) %}`json:"{%s name %}"`
 {%- endfor -%}
+}
+
+func (dst *{%s cName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	if len(src) == 0 {
+		*dst = {%s cName %}{}
+		return nil
+	}
+	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
+    *dst =  {%s cName %}{
+	{%- for name, tName := range t.Attr -%}
+		{%s strcase.ToCamel(name) %}: psql.Get{%s strcase.ToCamel(tName) %}FromByte(ci, srcPart[0], "{%s name %}"),
+	{%- endfor -%}
+        },
 }
 {%- endfunc -%}
 

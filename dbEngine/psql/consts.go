@@ -34,7 +34,7 @@ const (
 					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
 						 LEFT JOIN pg_description d
 								   ON d.objoid = p.oid
-					WHERE specific_schema = 'public'`
+					WHERE specific_schema = 'public' AND  is_deterministic = 'NO'`
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,  is_nullable='YES' is_nullable, 
         COALESCE(character_set_name, '') character_set_name,
 		COALESCE(character_maximum_length, -1) character_maximum_length, 

@@ -109,6 +109,9 @@ func (c *Creator) MakeInterfaceDB() error {
 	//		return errors.Wrap(err, "WriteNewTable of Database")
 	//	}
 	//}
+	for name, routine := range c.db.Routines {
+		logs.StatusLog(name, routine.Name(), routine.Params())
+	}
 	for _, name := range append(c.db.FuncsAdded, c.db.FuncsReplaced...) {
 		r, ok := c.db.Routines[name].(*psql.Routine)
 		if !ok {
