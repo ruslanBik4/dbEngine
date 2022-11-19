@@ -155,7 +155,12 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 func (c *Column) BasicType() types.BasicKind {
 	b := UdtNameToType(c.UdtName)
 	if b == types.Invalid {
-		logs.StatusLog(c.name, c.UdtName, c.DataType)
+		if c.UserDefined != nil {
+			if len(c.UserDefined.Enumerates) > 0 {
+				return types.String
+			}
+		}
+		logs.StatusLog(c.name, c.UdtName, c.UserDefined)
 	}
 	return b
 }

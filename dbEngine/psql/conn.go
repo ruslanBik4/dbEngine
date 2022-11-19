@@ -199,6 +199,7 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 				t, ok := types[column.UdtName]
 				if ok {
 					column.UserDefined = &t
+					logs.StatusLog(column.name, column.UserDefined)
 				}
 			}
 			for _, key := range column.Constraints {

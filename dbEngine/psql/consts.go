@@ -112,7 +112,7 @@ ORDER BY ordinal_position`
 							   AS column_comment
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
-	sqlTypesList = `SELECT c.oid, typname, typtype,
+	sqlTypesList = `SELECT pg_type.oid, typname, typtype,
        (select json_object_agg( a.attname,
                                 CASE
                                     WHEN t.typtype = 'd'::"char" THEN
@@ -132,11 +132,12 @@ ORDER BY ordinal_position`
         from pg_attribute a
                  JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
                  LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid)
-                           ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       where a.attrelid = c.oid
+                           ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       
+        where a.attrelid = c.oid
         ) as attr,
        array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
-FROM pg_type JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
-where nc.nspname='public' AND c.relkind = 'c'`
+FROM pg_type LEFT JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
+where typtype = 'e' or (nc.nspname='public' AND c.relkind = 'c')`
 
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
