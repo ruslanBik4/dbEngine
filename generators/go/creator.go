@@ -95,9 +95,9 @@ func (c *Creator) MakeInterfaceDB() error {
 	if err != nil {
 		return err
 	}
-	c.tpl.Packages = strings.Split(c.packages, "\n")
+	packages := strings.Split(c.packages, "\n")
 	logs.StatusLog(c.packages)
-	c.tpl.WriteCreateDatabase(f)
+	c.tpl.WriteCreateDatabase(f, packages[1:])
 	//_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
 	//if err != nil {
 	//	return errors.Wrap(err, "WriteString Database")
