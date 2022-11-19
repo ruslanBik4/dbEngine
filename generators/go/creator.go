@@ -62,6 +62,10 @@ func (c *Creator) makeDBUserTypes(f *os.File) error {
 			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tName}, propName)
 			initValues += fmt.Sprintf(colFormat, propName, typeCol, name)
 			t.Attr[name] = typeCol
+			if len(t.Enumerates) == 0 {
+				c.packages += c.addImport("bytes")
+				c.packages += c.addImport(moduloPgType)
+			}
 		}
 		c.db.Types[tName] = t
 
