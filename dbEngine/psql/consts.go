@@ -34,7 +34,8 @@ const (
 					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
 						 LEFT JOIN pg_description d
 								   ON d.objoid = p.oid
-					WHERE specific_schema = 'public' AND  is_deterministic = 'NO'`
+                                   left join pg_language l on p.prolang = l.oid
+					WHERE specific_schema = 'public' and prokind != 'a'  and data_type != 'trigger' and l.lanname = 'plpgsql'`
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,  is_nullable='YES' is_nullable, 
         COALESCE(character_set_name, '') character_set_name,
 		COALESCE(character_maximum_length, -1) character_maximum_length, 

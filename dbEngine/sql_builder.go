@@ -16,7 +16,7 @@ import (
 
 // SQLBuilder implement sql native constructor
 type SQLBuilder struct {
-	Args          []interface{}
+	Args          []any
 	columns       []string
 	filter        []string
 	posFilter     int
@@ -402,7 +402,7 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 	return fmt.Sprintf(cond, b.posFilter)
 }
 
-func rmElem(a []interface{}, i int) []interface{} {
+func rmElem(a []any, i int) []any {
 	if i < len(a)-1 {
 		copy(a[i:], a[i+1:])
 	}
@@ -472,7 +472,7 @@ func Columns(columns ...string) BuildSqlOptions {
 }
 
 // Args set slice of arguments sql request
-func Args(args ...interface{}) BuildSqlOptions {
+func Args(args ...any) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.Args = args
@@ -482,7 +482,7 @@ func Args(args ...interface{}) BuildSqlOptions {
 }
 
 // ArgsForSelect set slice of arguments sql request
-func ArgsForSelect(args ...interface{}) BuildSqlOptions {
+func ArgsForSelect(args ...any) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.Args = args
@@ -492,7 +492,7 @@ func ArgsForSelect(args ...interface{}) BuildSqlOptions {
 }
 
 // Values set values sql insert
-func Values(values ...interface{}) BuildSqlOptions {
+func Values(values ...any) BuildSqlOptions {
 	return ArgsForSelect(values...)
 }
 

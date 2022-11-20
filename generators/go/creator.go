@@ -9,13 +9,13 @@ import (
 	"go/types"
 	"os"
 	"path"
+	"sort"
 	"strings"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
-	"github.com/ruslanBik4/dbEngine/generators/go/tpl"
 	"github.com/ruslanBik4/dbEngine/typesExt"
 
 	"github.com/iancoleman/strcase"
@@ -28,11 +28,11 @@ import (
 
 // Creator is interface for generate go-interface according to DB structires (tavles & routibes)
 type Creator struct {
+	Types      map[string]string
 	dst        string
-	packages   string
+	packages   []string
 	initValues string
 	db         *dbEngine.DB
-	tpl        *tpl.DatabaseTpl
 }
 
 // NewCreator create with destination directory 'dst'
@@ -49,7 +49,6 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 	return &Creator{
 		db:  DB,
 		dst: dst,
-		tpl: tpl.NewDatabaseTpl(DB),
 	}, nil
 }
 
@@ -63,17 +62,10 @@ func (c *Creator) makeDBUserTypes(f *os.File) error {
 			initValues += fmt.Sprintf(colFormat, propName, typeCol, name)
 			t.Attr[name] = typeCol
 			if len(t.Enumerates) == 0 {
-				c.packages += c.addImport("bytes")
-				c.packages += c.addImport(moduloPgType)
+				c.addImport("bytes", moduloPgType)
 			}
 		}
 		c.db.Types[tName] = t
-
-		//_, err := fmt.Fprintf(f, newTypeInterface, strcase.ToCamel(name), name, initValues)
-		//if err != nil {
-		//	return errors.Wrap(err, "WriteNewTable of Database")
-		//}
-
 	}
 	return nil
 }
@@ -86,37 +78,18 @@ func (c *Creator) MakeInterfaceDB() error {
 		return errors.Wrap(err, "creator")
 	}
 
-	//c.packages += c.addImport("github.com/jackc/pgconn")
-	//c.packages += c.addImport("strings")
-	//c.packages += c.addImport("fmt")
-	//
-	//_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
-	//if err != nil {
-	//	return errors.Wrap(err, "WriteString title")
-	//}
-
 	err = c.makeDBUserTypes(f)
 	if err != nil {
 		return err
 	}
-	packages := strings.Split(c.packages, "\n")
-	logs.StatusLog(c.packages)
-	c.tpl.WriteCreateDatabase(f, packages[1:])
-	//_, err = fmt.Fprintf(f, formatDatabase, c.db.Name, c.db.Schema)
-	//if err != nil {
-	//	return errors.Wrap(err, "WriteString Database")
-	//}
-	//
-	//for name := range c.db.Tables {
-	//	_, err = fmt.Fprintf(f, newTableInstance, strcase.ToCamel(name), name)
-	//	if err != nil {
-	//		return errors.Wrap(err, "WriteNewTable of Database")
-	//	}
-	//}
+	sortList := make([]string, 0, len(c.db.Routines))
 	for name, routine := range c.db.Routines {
 		logs.StatusLog(name, routine.Name(), routine.Params())
+		sortList = append(sortList, name)
 	}
-	for _, name := range append(c.db.FuncsAdded, c.db.FuncsReplaced...) {
+	sort.Strings(sortList)
+	c.WriteCreateDatabase(f, sortList)
+	for _, name := range sortList {
 		r, ok := c.db.Routines[name].(*psql.Routine)
 		if !ok {
 			logs.ErrorLog(dbEngine.ErrNotFoundRoutine{
@@ -131,66 +104,33 @@ func (c *Creator) MakeInterfaceDB() error {
 		}
 
 		logs.StatusLog(r.Type, name, r.ReturnType())
-		camelName := strcase.ToCamel(name)
-		sParams, sParamsTitle, args := c.prepareParams(r, camelName)
-		sql := ""
-		if r.Type == psql.ROUTINE_TYPE_PROC {
-			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
-			if err == nil {
-				_, err = fmt.Fprintf(f, callProcFormat, camelName, sParamsTitle,
-					sql, sParams, name, r.Comment)
+		//camelName := strcase.ToCamel(name)
+		//sParams, sParamsTitle := c.prepareParams(r, camelName)
+		_, _, err := r.BuildSql(dbEngine.ArgsForSelect(make([]any, len(r.Params()))...))
+		if err == nil {
+			if r.Type == psql.ROUTINE_TYPE_PROC {
+				//_, err = fmt.Fprintf(f, callProcFormat, camelName, sParamsTitle,
+				//	sql, sParams, name, r.Comment)
+			} else {
+				//sRecord, sReturn, sResult := c.prepareReturns(r, camelName)
+				//_, err = fmt.Fprintf(f, newFuncFormat, camelName, sParamsTitle, sReturn, sResult,
+				//	sql, sParams, name, r.Comment)
+				//if r.ReturnType() == "record" {
+				//	_, err = fmt.Fprintf(f, newFuncRecordFormat, camelName,
+				//		//todo make Title (export
+				//		strings.ReplaceAll(sReturn, ",", "\n\t\t"),
+				//		sParamsTitle,
+				//		sRecord,
+				//		sql, sParams, name, r.Comment)
+				//}
 			}
-
-		} else {
-			sRecord := ""
-			sReturn, sResult := c.prepareReturns(r, camelName)
-			if len(r.Columns()) > 1 {
-				sRecord = strings.ReplaceAll(strings.TrimSuffix(sResult, ","), "&", "&r.")
-				sResult = fmt.Sprintf(paramsFormat, sResult)
-			} else if len(r.Columns()) == 0 {
-				sReturn, sResult = c.prepareReturn(r)
+			if err != nil {
+				return errors.Wrap(err, "WriteString Function")
 			}
-
-			sql, _, err = r.BuildSql(dbEngine.ArgsForSelect(args...))
-			if err == nil {
-				_, err = fmt.Fprintf(f, newFuncFormat, camelName, sParamsTitle, sReturn, sResult,
-					sql, sParams, name, r.Comment)
-				if r.ReturnType() == "record" {
-					_, err = fmt.Fprintf(f, newFuncRecordFormat, camelName,
-						//todo make Title (export
-						strings.ReplaceAll(sReturn, ",", "\n\t\t"),
-						sParamsTitle,
-						sRecord,
-						sql, sParams, name, r.Comment)
-				}
-			}
-		}
-		if err != nil {
-			return errors.Wrap(err, "WriteString Function")
 		}
 	}
-
-	_, err = f.WriteString(formatDBprivate)
 
 	return err
-}
-
-func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
-	toType := psql.UdtNameToType(r.UdtName)
-	sType := typesExt.Basic(toType).String()
-	switch toType {
-	case types.Invalid:
-		sType = c.chkDefineType(r.UdtName)
-		if sType == "" {
-			sType = "*" + strcase.ToCamel(r.UdtName)
-		}
-
-	case types.UntypedFloat:
-		sType = "float64"
-	default:
-	}
-
-	return "res " + sType + ", ", "&res,"
 }
 
 // when type is tables record or DB  type
@@ -219,8 +159,28 @@ func (c *Creator) chkDefineType(udtName string) string {
 	return ""
 }
 
-func (c *Creator) prepareReturns(r *psql.Routine, name string) (string, string) {
-	sReturn, sResult := "", ""
+func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
+	toType := psql.UdtNameToType(r.UdtName)
+	sType := typesExt.Basic(toType).String()
+	switch toType {
+	case types.Invalid:
+		sType = c.chkDefineType(r.UdtName)
+		if sType == "" {
+			sType = "*" + strcase.ToCamel(r.UdtName)
+		}
+
+	case types.UntypedFloat:
+		sType = "float64"
+	default:
+	}
+
+	return "res " + sType + ", ", "&res,"
+}
+
+func (c *Creator) prepareReturns(r *psql.Routine, name string) (sRecord string, sReturn string, sResult string) {
+	if len(r.Columns()) == 0 {
+		sReturn, sResult = c.prepareReturn(r)
+	}
 	for _, col := range r.Columns() {
 		typeCol, _ := c.chkTypes(col, name)
 		if typeCol == "" {
@@ -233,13 +193,16 @@ func (c *Creator) prepareReturns(r *psql.Routine, name string) (string, string) 
 		sReturn += s + " " + typeCol + ", "
 		sResult += "&" + s + ", "
 	}
-
-	return sReturn, sResult
+	if len(r.Columns()) > 1 {
+		sRecord = strings.ReplaceAll(strings.TrimSuffix(sResult, ","), "&", "&r.")
+		sResult = fmt.Sprintf(paramsFormat, sResult)
+	}
+	return
 }
 
-func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string, args []any) {
-	args = make([]any, len(r.Params()))
-	for i, param := range r.Params() {
+func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string) {
+	//args = make([]any, len(r.Params()))
+	for _, param := range r.Params() {
 		typeCol, _ := c.chkTypes(param, name)
 		s := strcase.ToLowerCamel(param.Name())
 		if param.Default() == nil {
@@ -247,7 +210,7 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 		}
 		sParamsTitle += ", " + s + " " + typeCol
 		sParams += s + `, `
-		args[i] = param
+		//args[i] = param
 	}
 
 	if sParams > "" {
@@ -274,23 +237,8 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}
 	}()
 
-	//fileType, err := os.Create(path.Join(c.dst, table.Name()) + "_types.go")
-	//if err != nil && !os.IsExist(err) {
-	//	// err.(*os.PathError).Err
-	//	return errors.Wrap(err, "creator")
-	//}
-	//
-	//defer fileType.Close()
-	//
-	//_, err = fmt.Fprintf(fileType, title, DB.Name, DB.Schema, c.packages)
-	//if err != nil {
-	//	return errors.Wrap(err, "WriteString title")
-	//}
-
-	c.packages, c.initValues = `"sync"
-`, ""
-	c.packages += c.addImport(moduloPgType)
-	c.packages += c.addImport("bytes")
+	c.packages, c.initValues = make([]string, 0), ""
+	c.addImport(moduloPgType, "bytes", "sync")
 	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
 	for ind, col := range table.Columns() {
 		propName := strcase.ToCamel(col.Name())
@@ -315,7 +263,12 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
-	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, c.packages)
+	packages := ""
+	if len(c.packages) > 0 {
+		packages = `"` + strings.Join(c.packages, `"
+	"`) + `"`
+	}
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -351,7 +304,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 		if typeCol == "" {
 			typeCol = "sql.RawBytes"
 		}
-		c.packages += c.addImport(moduloSql)
+		c.addImport(moduloSql)
 
 	case bTypeCol == types.UntypedFloat:
 		switch col.Type() {
@@ -382,7 +335,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 			typeCol = "any"
 		default:
 			typeCol = "sql.Null" + strcase.ToCamel(typeCol)
-			c.packages += c.addImport(moduloSql)
+			c.addImport(moduloSql)
 		}
 	default:
 	}
@@ -427,7 +380,7 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 func (c *Creator) getTypeCol(col dbEngine.Column) string {
 	switch typeName := col.Type(); typeName {
 	case "inet", "interval":
-		c.packages += c.addImport(moduloPgType)
+		c.addImport(moduloPgType)
 		return strcase.ToCamel(typeName)
 
 	case "json", "jsonb":
@@ -458,11 +411,18 @@ var mapTypes = map[string]string{
 	"Interface": "any",
 }
 
-func (c *Creator) addImport(moduloName string) string {
-	if strings.Contains(c.packages, moduloName) {
-		return ""
-	}
+func (c *Creator) addImport(moduloNames ...string) {
+	for _, name := range moduloNames {
+		isAlready := false
+		for _, n := range c.packages {
+			if n == name {
+				isAlready = true
+				break
+			}
+		}
+		if !isAlready {
+			c.packages = append(c.packages, name)
+		}
 
-	return `"` + moduloName + `"
-	`
+	}
 }

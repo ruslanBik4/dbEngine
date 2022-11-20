@@ -10,8 +10,9 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -80,13 +81,13 @@ func (r *Routine) Columns() []dbEngine.Column {
 }
 
 // Select run sql with Options (deprecated)
-func (r *Routine) Select(ctx context.Context, args ...interface{}) error {
+func (r *Routine) Select(ctx context.Context, args ...any) error {
 	logs.DebugLog(ctx, args)
 	panic("implement me")
 }
 
 // Call procedure
-func (r *Routine) Call(ctx context.Context, args ...interface{}) error {
+func (r *Routine) Call(ctx context.Context, args ...any) error {
 	if r.Type != ROUTINE_TYPE_PROC {
 		return dbEngine.ErrWrongType{Name: r.sName, TypeName: r.Type}
 	}
@@ -135,12 +136,12 @@ func (r *Routine) Params() []dbEngine.Column {
 }
 
 // GetFields implements interface RowScanner
-func (r *Routine) GetFields(columns []dbEngine.Column) []interface{} {
+func (r *Routine) GetFields(columns []dbEngine.Column) []any {
 	row := &PgxRoutineParams{
 		Fnc: r,
 	}
 
-	fields := make([]interface{}, len(columns))
+	fields := make([]any, len(columns))
 	for i, col := range columns {
 		switch col.Name() {
 		case "parameter_name":
@@ -207,7 +208,7 @@ func (r *Routine) SelectAndScanEach(ctx context.Context, each func() error, row 
 }
 
 // BuildSql create sql query & arg for call conn.Select...
-func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []interface{}, error) {
+func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []any, error) {
 	b, err := dbEngine.NewSQLBuilder(r.newTableForSQLBuilder(), Options...)
 	if err != nil {
 		return "", nil, errors.Wrap(err, "setOption")
@@ -240,7 +241,7 @@ func (r *Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (string, []inter
 	}
 }
 
-func (r *Routine) correctName(name string, args []interface{}) string {
+func (r *Routine) correctName(name string, args []any) string {
 	name += "("
 	for i := range args {
 		if i > 0 {
@@ -254,7 +255,7 @@ func (r *Routine) correctName(name string, args []interface{}) string {
 	return name
 }
 
-func (r *Routine) checkArgs(tableName string, args []interface{}) error {
+func (r *Routine) checkArgs(tableName string, args []any) error {
 	if len(r.params) > len(args) {
 		for _, param := range r.params[len(args):] {
 			if param.Default() == nil {
@@ -283,7 +284,7 @@ func (r *Routine) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow
 }
 
 // SelectOneAndScan run sqlof table  with Options & return rows into rowValues
-func (r *Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+func (r *Routine) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	sql, args, err := r.BuildSql(Options...)
 	if err != nil {
 		return err
