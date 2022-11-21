@@ -1,6 +1,7 @@
 {% package _go %}
 {% import (
 	"fmt"
+	"strings"
 
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -33,7 +34,7 @@ import (
 	"golang.org/x/net/context"
 	"github.com/pkg/errors"
 )
-{%- for name, typ := range c.db.Types -%}{%= CreateTypeInterface(typ, strcase.ToCamel(name), name, c.Types[name]) %}{%- endfor -%}
+{%- for name, typ := range c.db.Types -%}{%= c.CreateTypeInterface(typ, strcase.ToCamel(name), name, c.Types[name]) %}{%- endfor -%}
 
 // Database is root interface for operation for %s.%s
 type Database struct {
@@ -91,26 +92,33 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 }
 {% endfunc %}
 
-{%- func CreateTypeInterface(t dbEngine.Types, cName, name, typeCol string) -%}
+{%- func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) -%}
 {%- if len(t.Enumerates) > 0 -%}
 {%- else -%}
-// {%s cName %} create new instance of type {%s name %}
-type {%s cName %} struct {
-{%- for name, tName := range t.Attr -%}
-	{%s= fmt.Sprintf("%-21s\t%-11s\t",  strcase.ToCamel(name), tName) %} `json:"{%s name %}"`
+// {%s typeName %} create new instance of type {%s name %}
+type {%s typeName %} struct {
+{%- for _, tAttr := range t.Attr -%}
+	{%s= fmt.Sprintf("%-21s\t%-13s\t",  strcase.ToCamel(tAttr.Name), tAttr.Type) %} `json:"{%s tAttr.Name %}"`
 {%- endfor -%}
 }
 
-func (dst *{%s cName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
-		*dst = {%s cName %}{}
+		*dst = {%s typeName %}{}
 		return nil
 	}
 	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
-    *dst = {%s cName %}{
-    {%- code i := 0 -%}
-	{%- for name, tName := range t.Attr -%}
-		{%s= fmt.Sprintf(`%-21s: psql.Get%sFromByte(ci, srcPart[%d], "%s")`,  strcase.ToCamel(name), strcase.ToCamel(tName), i, name) %},
+    *dst = {%s typeName %}{
+	{%- for i, tAttr := range t.Attr -%}
+		{%s= fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
+			strcase.ToCamel(tAttr.Name),
+			{%- if strings.HasPrefix(tAttr.Type, "[]") -%}
+			"Array" + strings.ToUpper(strings.TrimPrefix(tAttr.Type, "[]"))
+			{%- else -%}
+			strcase.ToCamel(tAttr.Type)
+			{%- endif -%},
+			i,
+			tAttr.Name) %},
         {%- code i++ -%}
 	{%- endfor -%}
 	}

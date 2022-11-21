@@ -53,14 +53,14 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 }
 
 // MakeInterfaceDB create interface of DB
-func (c *Creator) makeDBUserTypes(f *os.File) error {
+func (c *Creator) makeDBUsersTypes(f *os.File) error {
 	for tName, t := range c.db.Types {
-		initValues := ""
-		for name, tName := range t.Attr {
+		for i, tAttr := range t.Attr {
+			name := tAttr.Name
 			propName := strcase.ToCamel(name)
-			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tName}, propName)
-			initValues += fmt.Sprintf(colFormat, propName, typeCol, name)
-			t.Attr[name] = typeCol
+			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tAttr.Type, DataType: tAttr.Type}, propName)
+			tAttr.Type = typeCol
+			t.Attr[i] = tAttr
 			if len(t.Enumerates) == 0 {
 				c.addImport("bytes", moduloPgType)
 			}
@@ -78,13 +78,12 @@ func (c *Creator) MakeInterfaceDB() error {
 		return errors.Wrap(err, "creator")
 	}
 
-	err = c.makeDBUserTypes(f)
+	err = c.makeDBUsersTypes(f)
 	if err != nil {
 		return err
 	}
 	sortList := make([]string, 0, len(c.db.Routines))
-	for name, routine := range c.db.Routines {
-		logs.StatusLog(name, routine.Name(), routine.Params())
+	for name := range c.db.Routines {
 		sortList = append(sortList, name)
 	}
 	sort.Strings(sortList)
@@ -396,7 +395,7 @@ func (c *Creator) getTypeCol(col dbEngine.Column) string {
 	case "timerange", "tsrange", "_date", "daterange", "_timestamp", "_timestamptz", "_time":
 		return "ArrayTime"
 	default:
-		return "Interface"
+		return "Any"
 	}
 }
 

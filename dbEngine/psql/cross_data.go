@@ -279,20 +279,15 @@ func GetTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
 	return dto.Time
 }
 
+// GetTimeTimeFromByte convert data from src into *time.Time (alias for GetTimeFromByte)
+func GetTimeTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
+	return GetTimeFromByte(ci, src, name)
+}
+
 // GetRefTimeFromByte convert data from src into *time.Time
 func GetRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) *time.Time {
-	if len(src) == 0 {
-		return nil
-	}
-
-	var dto pgtype.Timestamptz
-	err := dto.DecodeText(ci, src)
-	if err != nil {
-		logs.ErrorLog(err, name)
-		return nil
-	}
-
-	return &dto.Time
+	t := GetTimeFromByte(ci, src, name)
+	return &t
 }
 
 // GetArrayTimeFromByte convert data from src into []time.Time

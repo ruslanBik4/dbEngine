@@ -114,21 +114,28 @@ ORDER BY ordinal_position`
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
 	sqlTypesList = `SELECT pg_type.oid, typname, typtype,
-       (select json_object_agg( a.attname,
-                                CASE
-                                    WHEN t.typtype = 'd'::"char" THEN
-                                        CASE
-                                            WHEN bt.typelem <> 0::oid AND bt.typlen = '-1'::integer OR nbt.nspname = 'pg_catalog'::name 
-                                                THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
-                                            ELSE 'USER-DEFINED'::text
-                                            END
-                                    ELSE
-                                        CASE
-                                            WHEN t.typelem <> 0::oid AND t.typlen = '-1'::integer OR nt.nspname = 'pg_catalog'::name 
-                                                THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
-                                            ELSE 'USER-DEFINED'::text
-                                            END
-                                    END::information_schema.character_data
+       (select json_agg( 
+						json_build_object(
+							'name',
+							a.attname,
+						   'type',
+						   CASE
+							WHEN t.typtype = 'd'::"char" THEN
+								CASE
+									WHEN bt.typelem <> 0::oid AND bt.typlen = '-1'::integer OR nbt.nspname = 'pg_catalog'::name 
+										THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
+									ELSE 'USER-DEFINED'::text
+									END
+							ELSE
+								CASE
+									WHEN t.typelem <> 0::oid AND t.typlen = '-1'::integer OR nt.nspname = 'pg_catalog'::name 
+										THEN COALESCE(bt.typname, t.typname)::information_schema.sql_identifier
+									ELSE 'USER-DEFINED'::text
+									END
+							END::information_schema.character_data,
+							'is_not_null'::text,
+							a.attnotnull
+						) order by a.attnum
                    )
         from pg_attribute a
                  JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
