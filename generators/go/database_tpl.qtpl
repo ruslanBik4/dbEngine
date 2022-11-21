@@ -1,7 +1,7 @@
 {% package _go %}
 {% import (
 	"fmt"
-	"strings"
+	"go/types"
 
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -16,6 +16,7 @@
 // versions:
 // 	dbEngine v1.1.6
 // source: %s %s
+
 package db
 
 import (
@@ -110,15 +111,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
     *dst = {%s typeName %}{
 	{%- for i, tAttr := range t.Attr -%}
-		{%s= fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
-			strcase.ToCamel(tAttr.Name),
-			{%- if strings.HasPrefix(tAttr.Type, "[]") -%}
-			"Array" + strings.ToUpper(strings.TrimPrefix(tAttr.Type, "[]"))
-			{%- else -%}
-			strcase.ToCamel(tAttr.Type)
-			{%- endif -%},
-			i,
-			tAttr.Name) %},
+		{%s= c.GetFuncForDecode(tAttr.Name, tAttr.Type, i) %},
         {%- code i++ -%}
 	{%- endfor -%}
 	}
@@ -151,7 +144,18 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 {% case 0 %}
 	{%- code
 		toType := psql.UdtNameToType(r.UdtName)
+	switch toType {
+	case types.Invalid:
+		typeReturn = c.chkDefineType(r.UdtName)
+		if typeReturn == "" {
+			typeReturn = "*" + strcase.ToCamel(r.UdtName)
+		}
+
+	case types.UntypedFloat:
+		typeReturn = "float64"
+	default:
 		typeReturn = typesExt.Basic(toType).String()
+	}
 	-%}
 {% case 1 %}
 	{%- code
@@ -200,9 +204,9 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 	return
 }
 {%- if r.ReturnType() == "record" -%}
-// {%s camelName %} run query with select DB function '{%s name %}'
+// {%s camelName %}Each run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
-// each will get every row from %[1]sRowScanner
+// each will get every row from {%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}Each(ctx context.Context,
 	each func(record *{%s camelName %}RowScanner) error,
 	{%= c.paramsTitle(r) %}
@@ -230,12 +234,12 @@ func (d *Database) {%s camelName %}Each(ctx context.Context,
 		s := strcase.ToLowerCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 	-%}
-		{%s s %} {%s typeCol %},
+	{%s s %} {%s typeCol %},
 	{%- endfor -%}
 {%- endfunc -%}
 {%- func (c *Creator) paramsArgs(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
-		{%s strcase.ToLowerCamel(param.Name()) %},
+	{%s strcase.ToLowerCamel(param.Name()) %},
 	{%- endfor -%}
 {%- endfunc -%}
 {%- func (c *Creator) CreateTableConstructor(cName, name string) -%}

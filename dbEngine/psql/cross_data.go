@@ -33,6 +33,22 @@ func GetDateFromByte(src []byte, name string) time.Time {
 	return time.Time{}
 }
 
+// GetFloat32FromByte convert data from src into float32
+func GetFloat32FromByte(ci *pgtype.ConnInfo, src []byte, name string) float32 {
+	if len(src) == 0 {
+		return 0
+	}
+
+	var float4 pgtype.Float4
+	err := float4.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return -1
+	}
+
+	return float4.Float
+}
+
 // GetFloat64FromByte convert data from src into float64
 func GetFloat64FromByte(ci *pgtype.ConnInfo, src []byte, name string) float64 {
 	if len(src) == 0 {
@@ -47,6 +63,48 @@ func GetFloat64FromByte(ci *pgtype.ConnInfo, src []byte, name string) float64 {
 	}
 
 	return float8.Float
+}
+
+// GetFloat32FromByte convert data from src into float32
+func GetArrayFloat32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []float32 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.Float4Array
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]float32, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.Float
+	}
+
+	return res
+}
+
+// GetFloat64FromByte convert data from src into float64
+func GetArrayFloat64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []float64 {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.Float8Array
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]float64, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = elem.Float
+	}
+
+	return res
 }
 
 // GetInt64FromByte convert data from src into int64
@@ -290,6 +348,11 @@ func GetRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) *time.Time
 	return &t
 }
 
+// GetArrayTimeTimeFromByte convert data from src into []time.Time (alias for GetArrayTimeFromByte)
+func GetArrayTimeTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.Time {
+	return GetArrayTimeFromByte(ci, src, name)
+}
+
 // GetArrayTimeFromByte convert data from src into []time.Time
 func GetArrayTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.Time {
 	if len(src) == 0 {
@@ -306,6 +369,27 @@ func GetArrayTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.T
 	res := make([]time.Time, len(dto.Elements))
 	for i, elem := range dto.Elements {
 		res[i] = elem.Time
+	}
+
+	return res
+}
+
+// GetArrayTimeFromByte convert data from src into []time.Time
+func GetArrayRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []*time.Time {
+	if len(src) == 0 {
+		return nil
+	}
+
+	var dto pgtype.TimestampArray
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+		return nil
+	}
+
+	res := make([]*time.Time, len(dto.Elements))
+	for i, elem := range dto.Elements {
+		res[i] = &elem.Time
 	}
 
 	return res

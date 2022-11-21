@@ -59,6 +59,9 @@ func (c *Creator) makeDBUsersTypes(f *os.File) error {
 			name := tAttr.Name
 			propName := strcase.ToCamel(name)
 			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tAttr.Type, DataType: tAttr.Type}, propName)
+			if typeCol == "" {
+				logs.StatusLog(tAttr)
+			}
 			tAttr.Type = typeCol
 			t.Attr[i] = tAttr
 			if len(t.Enumerates) == 0 {
@@ -142,19 +145,18 @@ func (c *Creator) chkDefineType(udtName string) string {
 		prefix = "[]"
 		logs.StatusLog(prefix, udtName)
 	}
-	for name := range c.db.Tables {
-		if name == udtName {
-			return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
-		}
+
+	if _, ok := c.db.Tables[udtName]; ok {
+		return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
 	}
-	for name, t := range c.db.Types {
-		if name == udtName {
-			if len(t.Enumerates) > 0 {
-				return prefix + "string"
-			}
-			return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(udtName))
+
+	if t, ok := c.db.Types[udtName]; ok {
+		if len(t.Enumerates) > 0 {
+			return prefix + "string"
 		}
+		return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(udtName))
 	}
+
 	return ""
 }
 
@@ -342,6 +344,19 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	return typeCol, defValue
 }
 
+func (c *Creator) GetFuncForDecode(name, tName string, ind int) string {
+	if strings.HasPrefix(tName, "[]") {
+		tName = "Array" + strcase.ToCamel(strings.TrimPrefix(tName, "[]"))
+	} else {
+		tName = strcase.ToCamel(tName)
+	}
+
+	return fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
+		strcase.ToCamel(name),
+		tName,
+		ind,
+		name)
+}
 func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int) string {
 	const decodeFncTmp = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
 	bTypeCol := col.BasicType()

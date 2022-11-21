@@ -5,12 +5,16 @@
 package _go
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/iancoleman/strcase"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 	"github.com/ruslanBik4/dbEngine/dbEngine/csv"
+	"github.com/ruslanBik4/logs"
 )
 
 func TestCreator_MakeStruct(t *testing.T) {
@@ -53,7 +57,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 			// 	return
 			// }
 
-			if err := c.MakeStruct(&dbEngine.DB{Name: "test", Schema: "test"}, tt.args.table); (err != nil) != tt.wantErr {
+			if err := c.MakeStruct(tt.args.table); (err != nil) != tt.wantErr {
 				t.Errorf("MakeStruct() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -73,9 +77,16 @@ func TestNewCreator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, err := NewCreator(tt.args.dst); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
+			if got, err := NewCreator(tt.args.dst, &dbEngine.DB{Name: "test", Schema: "test"}); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
 				t.Errorf("NewCreator() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+func TestStringsUpper(t *testing.T) {
+	logs.StatusLog(fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
+		"Accounts",
+		"Array"+strcase.ToCamel(strings.TrimPrefix("[]int32", "[]")), 1, ""),
+	)
 }
