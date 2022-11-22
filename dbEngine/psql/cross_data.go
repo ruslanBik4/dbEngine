@@ -19,6 +19,24 @@ func TrimQuotes(src []byte) string {
 	return string(bytes.Trim(src, `"`))
 }
 
+func GetTextDecoder[T pgtype.TextDecoder](ci *pgtype.ConnInfo, src []byte, name string, dto T) T {
+	err := dto.DecodeText(ci, src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+	}
+	return dto
+}
+
+// GetInt32FromByte convert data from src into int32
+func GetScanner[T sql.Scanner](ci *pgtype.ConnInfo, src []byte, name string, dto T) T {
+	err := dto.Scan(src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+	}
+
+	return dto
+}
+
 // GetDateFromByte convert date from src into time.Tome
 func GetDateFromByte(src []byte, name string) time.Time {
 	if len(src) > 0 {

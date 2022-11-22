@@ -14,8 +14,6 @@ import (
 	"strings"
 
 	"github.com/jackc/pgtype"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
 	"github.com/ruslanBik4/dbEngine/typesExt"
@@ -60,7 +58,13 @@ func (c *Creator) makeDBUsersTypes() error {
 		for i, tAttr := range t.Attr {
 			name := tAttr.Name
 			propName := strcase.ToCamel(name)
-			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tAttr.Type, DataType: tAttr.Type}, propName)
+			typeCol, _ := c.chkTypes(
+				&psql.Column{
+					UdtName:     tAttr.Type,
+					DataType:    tAttr.Type,
+					UserDefined: &t,
+				},
+				propName)
 			if typeCol == "" {
 				logs.ErrorLog(dbEngine.NewErrNotFoundType(name, tAttr.Type), tAttr)
 			}
@@ -220,7 +224,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 		sTypeField += fmt.Sprintf(scanFormat,
 			c.GetFuncForDecode(&dbEngine.TypesAttr{
-				Name:      propName,
+				Name:      col.Name(),
 				Type:      typeCol,
 				IsNotNull: false,
 			}, ind))
@@ -271,7 +275,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 		if typeCol == "" {
 			name, ok := c.chkDataType(col.Type())
 			if ok {
-				typeCol = fmt.Sprintf("%T", name.Value)
+				typeCol = strings.TrimPrefix(fmt.Sprintf("%T", name.Value), "*")
 			} else {
 				logs.StatusLog(typeCol, col.Type())
 				typeCol = "sql.RawBytes"
@@ -320,68 +324,35 @@ func (c *Creator) chkDataType(typeCol string) (*pgtype.DataType, bool) {
 
 func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
 	tName, name := tAttr.Type, tAttr.Name
-	switch {
-	case strings.HasPrefix(tName, "*pgtype."):
+	switch _, isTypes := c.db.Types[strings.ToLower(tName)]; {
+	case strings.HasPrefix(tName, "sql.Null"):
 		return fmt.Sprintf(
-			`%-21s:	func(src []byte) %s {
-									var dto %[2]s
-									err := dto.DecodeText(ci, src)
-									if err != nil {
-										logs.ErrorLog(err, "%s")
-										return nil
-									}
-									return dto
-								}(srcPart[%d])`,
+			`%-21s:	*(psql.GetScanner(ci, srcPart[%d], "%s", &%s{}))`,
 			strcase.ToCamel(name),
-			tName,
+			ind,
 			name,
-			ind)
+			tName)
+
+	case strings.HasPrefix(tName, "pgtype.") || strings.HasPrefix(tName, "psql.") || isTypes:
+		return fmt.Sprintf(
+			`%-21s:	*(psql.GetTextDecoder(ci, srcPart[%d], "%s", &%s{}))`,
+			strcase.ToCamel(name),
+			ind,
+			name,
+			tName)
+
 	case strings.HasPrefix(tName, "[]"):
 		tName = "Array" + strcase.ToCamel(strings.TrimPrefix(tName, "[]"))
 	default:
 		tName = strcase.ToCamel(tName)
 	}
-
+	logs.StatusLog(name, tName)
 	return fmt.Sprintf(`%-21s:	psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
 		strcase.ToCamel(name),
 		tName,
 		ind,
 		name)
 }
-func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int) string {
-	const decodeFncTmp = `psql.Get%sFromByte(ci, srcPart[%d], "%s")`
-	bTypeCol := col.BasicType()
-	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
-	titleType := cases.Title(language.English).String(typeCol)
-	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
-	if isArray {
-		titleType = "Array" + titleType
-	}
-
-	switch {
-	case bTypeCol == types.Invalid || bTypeCol == types.UnsafePointer:
-		titleType = "RawBytes"
-		//c.packages += c.addImport(moduloSql)
-
-	case bTypeCol == types.UntypedFloat && (col.Type() == "numeric" || col.Type() == "decimal"):
-		titleType = "Numeric"
-
-	case bTypeCol < 0:
-		titleType = c.getTypeCol(col)
-
-	default:
-		if col.IsNullable() && !isArray {
-			return "sql.Null" + titleType + `{
-` + titleType + ":" + fmt.Sprintf(decodeFncTmp, titleType, ind, propName) + `,
-	Valid: true,
-}`
-		}
-
-	}
-
-	return fmt.Sprintf(decodeFncTmp, titleType, ind, propName)
-}
-
 func (c *Creator) udtToReturnType(udtName string) string {
 	toType := psql.UdtNameToType(udtName)
 	switch toType {

@@ -114,7 +114,23 @@ ORDER BY ordinal_position`
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
 	sqlTypesList = `SELECT pg_type.oid, typname, typtype,
-       (select json_agg( 
+       CASE WHEN pg_type.typtype = 'r'
+                THEN (select json_build_array(json_build_object(
+                                            'name',
+                                           'upper',
+                                           'type',
+                                           g.typname
+                                         ),
+                                 json_build_object(
+                                         'name',
+                                         'lower',
+                                         'type',
+                                         g.typname
+                                 ))
+                      from pg_range r JOIN pg_type g ON r.rngsubtype = g.oid
+                                      left join pg_class c1 on c1.relname = typname
+                      where r.rngtypid = pg_type.oid)
+            ELSE (select json_agg( 
 						json_build_object(
 							'name',
 							a.attname,
@@ -142,10 +158,10 @@ ORDER BY ordinal_position`
                  LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid)
                            ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       
         where a.attrelid = c.oid
-        ) as attr,
+        ) END as attr,
        array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
 FROM pg_type LEFT JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
-where typtype = 'e' or (nc.nspname='public' AND c.relkind = 'c')`
+where typtype = 'e' or typtype = 'r' or (nc.nspname='public' AND c.relkind = 'c')`
 
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
