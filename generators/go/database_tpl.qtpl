@@ -1,12 +1,10 @@
 {% package _go %}
 {% import (
 	"fmt"
-	"go/types"
 
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
     "github.com/ruslanBik4/dbEngine/dbEngine/psql"
-	"github.com/ruslanBik4/dbEngine/typesExt"
 )
 %}
 
@@ -128,7 +126,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	sql, _, _ := r.BuildSql(dbEngine.ArgsForSelect(args...))
 	typeReturn:= ""
 -%}
-{%- if r.Type == psql.ROUTINE_TYPE_PROC %}
+{%- if r.Type == psql.ROUTINE_TYPE_PROC -%}
 // {%s camelName %} call procedure '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 func (d *Database) {%s camelName %}(ctx context.Context,
@@ -139,30 +137,66 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 				{%= c.paramsArgs(r) %}
 			)
 }
-{%- else %}
+{%- else -%}
 {%- switch len(r.Columns()) -%}
-{% case 0 %}
-	{%- code
-		toType := psql.UdtNameToType(r.UdtName)
-	switch toType {
-	case types.Invalid:
-		typeReturn = c.chkDefineType(r.UdtName)
-		if typeReturn == "" {
-			typeReturn = "*" + strcase.ToCamel(r.UdtName)
-		}
-
-	case types.UntypedFloat:
-		typeReturn = "float64"
-	default:
-		typeReturn = typesExt.Basic(toType).String()
-	}
-	-%}
-{% case 1 %}
+{%- case 0 -%}
+	{%- code typeReturn = c.udtToReturnType(r.UdtName)-%}
+{%- case 1 -%}
 	{%- code
 		param := r.Columns()[0]
 		typeReturn, _ = c.chkTypes(param, strcase.ToCamel(param.Name()))
 	-%}
 {%- default -%}
+	{%- code typeReturn = fmt.Sprintf("*%sRowScanner", camelName)-%}
+{%= c.CreateRowScanner(r, camelName) %}
+{%- endswitch -%}
+// {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
+// DB comment: '{%s r.Comment %}'
+// ATTENTION! It returns only 1 row {%s typeReturn %}
+func (d *Database) {%s camelName %}(ctx context.Context,
+				{%= c.paramsTitle(r) %}
+) (res {%s typeReturn %}, err error) {
+	err = d.Conn.SelectOneAndScan(ctx,
+				&res,
+				`{%s sql %}
+				FETCH FIRST 1 ROW ONLY`,
+				{%= c.paramsArgs(r) %}
+			)
+
+	return
+}
+{%- if r.ReturnType() == "record" -%}
+// {%s camelName %}Each run query with select DB function '{%s name %}'
+// DB comment: '{%s r.Comment %}'
+// each will get every row from {%s camelName %}sRowScanner
+func (d *Database) {%s camelName %}Each(ctx context.Context,
+	each func(record *{%s camelName %}RowScanner) error,
+	{%= c.paramsTitle(r) %}
+) error {
+	res := &{%s camelName %}RowScanner{}
+	err := d.Conn.SelectAndScanEach(ctx,
+				func () error {
+					defer func () {
+					//	create new record
+						res = &{%s camelName %}RowScanner{}
+					}()
+
+					if each != nil {
+						return each(res)
+					}
+					return nil
+				},
+				res,
+				`{%s sql %}`,
+				{%= c.paramsArgs(r) %}
+		)
+	return err
+}
+{%- endif %}
+{%- endif %}
+{% endfunc %}
+
+{%- func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) -%}
 // {%s camelName %}RowScanner run query with select
 type {%s camelName %}RowScanner struct {
 	{%- for _, param := range r.Columns() -%}
@@ -187,47 +221,8 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 
 	return v
 }
-{%- endswitch -%}
-// {%s camelName %} run query with select DB function '{%s name %}'
-// DB comment: '{%s r.Comment %}'
-// ATTENTION! It returns only 1 row
-func (d *Database) {%s camelName %}(ctx context.Context,
-				{%= c.paramsTitle(r) %}
-) (res {% if len(r.Columns()) > 1 -%}*{%s camelName %}RowScanner{%- else -%}{%s typeReturn %}{%- endif -%}, err error) {
-	err = d.Conn.SelectOneAndScan(ctx,
-				&res,
-				`{%s sql %}
-				FETCH FIRST 1 ROW ONLY`,
-				{%= c.paramsArgs(r) %}
-			)
-
-	return
-}
-{%- if r.ReturnType() == "record" -%}
-// {%s camelName %}Each run query with select DB function '{%s name %}'
-// DB comment: '{%s r.Comment %}'
-// each will get every row from {%s camelName %}sRowScanner
-func (d *Database) {%s camelName %}Each(ctx context.Context,
-	each func(record *{%s camelName %}RowScanner) error,
-	{%= c.paramsTitle(r) %}
-) error {
-	res := &{%s camelName %}RowScanner{}
-	err := d.Conn.SelectAndScanEach(ctx,
-				func () error {
-					if each != nil {
-						return each(res)
-					}
-					return nil
-				},
-				res,
-				`{%s sql %}`,
-				{%= c.paramsArgs(r) %}
-		)
-	return err
-}
-{%- endif %}
-{%- endif %}
 {% endfunc %}
+
 {%- func (c *Creator) paramsTitle(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
 	{%- code
@@ -242,6 +237,7 @@ func (d *Database) {%s camelName %}Each(ctx context.Context,
 	{%s strcase.ToLowerCamel(param.Name()) %},
 	{%- endfor -%}
 {%- endfunc -%}
+
 {%- func (c *Creator) CreateTableConstructor(cName, name string) -%}
 // New{%s cName %} create new instance of table {%s cName %}
 func (d *Database) New{%s cName %}(ctx context.Context) (*{%s cName %}, error) {

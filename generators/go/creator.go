@@ -5,6 +5,7 @@
 package _go
 
 import (
+	"context"
 	"fmt"
 	"go/types"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/jackc/pgtype"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 
@@ -26,7 +28,7 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
-// Creator is interface for generate go-interface according to DB structires (tavles & routibes)
+// Creator is interface for generate go-interface according to DB structures (tables & routines)
 type Creator struct {
 	Types      map[string]string
 	dst        string
@@ -53,14 +55,14 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 }
 
 // MakeInterfaceDB create interface of DB
-func (c *Creator) makeDBUsersTypes(f *os.File) error {
+func (c *Creator) makeDBUsersTypes() error {
 	for tName, t := range c.db.Types {
 		for i, tAttr := range t.Attr {
 			name := tAttr.Name
 			propName := strcase.ToCamel(name)
 			typeCol, _ := c.chkTypes(&psql.Column{UdtName: tAttr.Type, DataType: tAttr.Type}, propName)
 			if typeCol == "" {
-				logs.StatusLog(tAttr)
+				logs.ErrorLog(dbEngine.NewErrNotFoundType(name, tAttr.Type), tAttr)
 			}
 			tAttr.Type = typeCol
 			t.Attr[i] = tAttr
@@ -81,7 +83,7 @@ func (c *Creator) MakeInterfaceDB() error {
 		return errors.Wrap(err, "creator")
 	}
 
-	err = c.makeDBUsersTypes(f)
+	err = c.makeDBUsersTypes()
 	if err != nil {
 		return err
 	}
@@ -91,46 +93,6 @@ func (c *Creator) MakeInterfaceDB() error {
 	}
 	sort.Strings(sortList)
 	c.WriteCreateDatabase(f, sortList)
-	for _, name := range sortList {
-		r, ok := c.db.Routines[name].(*psql.Routine)
-		if !ok {
-			logs.ErrorLog(dbEngine.ErrNotFoundRoutine{
-				Name:  name,
-				SName: "",
-			})
-			continue
-		}
-
-		if r.ReturnType() == "trigger" {
-			continue
-		}
-
-		logs.StatusLog(r.Type, name, r.ReturnType())
-		//camelName := strcase.ToCamel(name)
-		//sParams, sParamsTitle := c.prepareParams(r, camelName)
-		_, _, err := r.BuildSql(dbEngine.ArgsForSelect(make([]any, len(r.Params()))...))
-		if err == nil {
-			if r.Type == psql.ROUTINE_TYPE_PROC {
-				//_, err = fmt.Fprintf(f, callProcFormat, camelName, sParamsTitle,
-				//	sql, sParams, name, r.Comment)
-			} else {
-				//sRecord, sReturn, sResult := c.prepareReturns(r, camelName)
-				//_, err = fmt.Fprintf(f, newFuncFormat, camelName, sParamsTitle, sReturn, sResult,
-				//	sql, sParams, name, r.Comment)
-				//if r.ReturnType() == "record" {
-				//	_, err = fmt.Fprintf(f, newFuncRecordFormat, camelName,
-				//		//todo make Title (export
-				//		strings.ReplaceAll(sReturn, ",", "\n\t\t"),
-				//		sParamsTitle,
-				//		sRecord,
-				//		sql, sParams, name, r.Comment)
-				//}
-			}
-			if err != nil {
-				return errors.Wrap(err, "WriteString Function")
-			}
-		}
-	}
 
 	return err
 }
@@ -143,7 +105,6 @@ func (c *Creator) chkDefineType(udtName string) string {
 		udtName = strings.TrimPrefix(udtName, "_")
 		udtName = strings.TrimSuffix(udtName, "[]")
 		prefix = "[]"
-		logs.StatusLog(prefix, udtName)
 	}
 
 	if _, ok := c.db.Tables[udtName]; ok {
@@ -185,7 +146,7 @@ func (c *Creator) prepareReturns(r *psql.Routine, name string) (sRecord string, 
 	for _, col := range r.Columns() {
 		typeCol, _ := c.chkTypes(col, name)
 		if typeCol == "" {
-			logs.StatusLog(col.BasicType())
+			logs.ErrorLog(dbEngine.NewErrNotFoundType(col.Type(), col.Name()), name)
 		}
 		s := strings.Trim(col.Name(), "_")
 		if s == "type" {
@@ -300,12 +261,22 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	case bTypeCol == types.UnsafePointer:
 		typeCol = "[]byte"
 
-	case bTypeCol == types.Invalid:
+	case bTypeCol == types.Invalid || bTypeCol < 0:
 		typeCol = c.chkDefineType(col.Type())
 		if typeCol == "" {
-			typeCol = "sql.RawBytes"
+			name, ok := c.chkDataType(col.Type())
+			if ok {
+				typeCol = fmt.Sprintf("%T", name.Value)
+			} else {
+				logs.StatusLog(typeCol, col.Type())
+				typeCol = "sql.RawBytes"
+				c.addImport(moduloSql)
+			}
 		}
-		c.addImport(moduloSql)
+		if strings.HasPrefix(typeCol, "*") {
+			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("&%s{}", strings.TrimPrefix(typeCol, "*")))
+			defValue = nil
+		}
 
 	case bTypeCol == types.UntypedFloat:
 		switch col.Type() {
@@ -320,28 +291,26 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 			}
 		}
 
-	case bTypeCol < 0:
-		typeCol = mapTypes[c.getTypeCol(col)]
-		if typeCol == "*time.Time" {
-			c.initValues += fmt.Sprintf(initFormat, propName, "&time.Time{}")
-			defValue = nil
-		}
-
 	case isArray:
 		typeCol = "[]" + typeCol
 
 	case col.IsNullable():
-		switch bTypeCol {
-		case types.Invalid:
-			typeCol = "any"
-		default:
-			typeCol = "sql.Null" + strcase.ToCamel(typeCol)
-			c.addImport(moduloSql)
-		}
+		typeCol = "sql.Null" + strcase.ToCamel(typeCol)
+		c.addImport(moduloSql)
 	default:
 	}
 
 	return typeCol, defValue
+}
+
+func (c *Creator) chkDataType(typeCol string) (*pgtype.DataType, bool) {
+	conn, err := c.db.Conn.(*psql.Conn).Acquire(context.TODO())
+	if err != nil {
+		logs.ErrorLog(err)
+		return nil, false
+	}
+	defer conn.Release()
+	return conn.Conn().ConnInfo().DataTypeForName(typeCol)
 }
 
 func (c *Creator) GetFuncForDecode(name, tName string, ind int) string {
@@ -391,6 +360,35 @@ func (c *Creator) getFuncForDecode(col dbEngine.Column, propName string, ind int
 	return fmt.Sprintf(decodeFncTmp, titleType, ind, propName)
 }
 
+func (c *Creator) udtToReturnType(udtName string) string {
+	toType := psql.UdtNameToType(udtName)
+	switch toType {
+	case types.UnsafePointer:
+		return "[]byte"
+	case types.Invalid, typesExt.TMap, typesExt.TStruct:
+		typeReturn := c.chkDefineType(udtName)
+		if typeReturn == "" {
+			name, ok := c.chkDataType(udtName)
+			if ok {
+				typeReturn = fmt.Sprintf("%T", name.Value)
+			} else {
+				typeReturn = "*" + strcase.ToCamel(udtName)
+			}
+		}
+		return typeReturn
+
+	case types.UntypedFloat:
+		return "float64"
+
+	default:
+		s := typesExt.Basic(toType).String()
+		if s == "" {
+			logs.StatusLog(udtName)
+		}
+		return s
+	}
+}
+
 func (c *Creator) getTypeCol(col dbEngine.Column) string {
 	switch typeName := col.Type(); typeName {
 	case "inet", "interval":
@@ -422,7 +420,7 @@ var mapTypes = map[string]string{
 	"RefTime":   "*time.Time",
 	"Time":      "time.Time",
 	"ArrayTime": "[]time.Time",
-	"Interface": "any",
+	"Any":       "any",
 }
 
 func (c *Creator) addImport(moduloNames ...string) {
