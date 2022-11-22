@@ -218,7 +218,12 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 			}
 		}
 
-		sTypeField += fmt.Sprintf(initFormat, propName, c.getFuncForDecode(col, propName, ind))
+		sTypeField += fmt.Sprintf(scanFormat,
+			c.GetFuncForDecode(&dbEngine.TypesAttr{
+				Name:      propName,
+				Type:      typeCol,
+				IsNotNull: false,
+			}, ind))
 
 		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
 		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
@@ -313,14 +318,31 @@ func (c *Creator) chkDataType(typeCol string) (*pgtype.DataType, bool) {
 	return conn.Conn().ConnInfo().DataTypeForName(typeCol)
 }
 
-func (c *Creator) GetFuncForDecode(name, tName string, ind int) string {
-	if strings.HasPrefix(tName, "[]") {
+func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
+	tName, name := tAttr.Type, tAttr.Name
+	switch {
+	case strings.HasPrefix(tName, "*pgtype."):
+		return fmt.Sprintf(
+			`%-21s:	func(src []byte) %s {
+									var dto %[2]s
+									err := dto.DecodeText(ci, src)
+									if err != nil {
+										logs.ErrorLog(err, "%s")
+										return nil
+									}
+									return dto
+								}(srcPart[%d])`,
+			strcase.ToCamel(name),
+			tName,
+			name,
+			ind)
+	case strings.HasPrefix(tName, "[]"):
 		tName = "Array" + strcase.ToCamel(strings.TrimPrefix(tName, "[]"))
-	} else {
+	default:
 		tName = strcase.ToCamel(tName)
 	}
 
-	return fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
+	return fmt.Sprintf(`%-21s:	psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
 		strcase.ToCamel(name),
 		tName,
 		ind,

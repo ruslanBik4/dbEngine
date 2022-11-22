@@ -139,6 +139,17 @@ func GetInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) int32 {
 	return dto.Int
 }
 
+// GetInt32FromByte convert data from src into int32
+func GetSqlNullInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.NullInt32 {
+	var dto sql.NullInt32
+	err := dto.Scan(src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+	}
+
+	return dto
+}
+
 // GetArrayInt16FromByte convert data from src into []int16
 func GetArrayInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int16 {
 	if len(src) == 0 {
@@ -293,7 +304,7 @@ func GetStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) string {
 		return ""
 	}
 
-	// todo: split accroding psql text type (varchar, bchar, etc.)
+	// todo: split according psql text type (varchar, bchar, etc.)
 	var dto pgtype.Text
 	err := dto.DecodeText(ci, src)
 	if err != nil {
@@ -302,6 +313,17 @@ func GetStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) string {
 	}
 
 	return dto.String
+}
+
+// GetStringFromByte convert data (As Text!) from src into string
+func GetSqlNullStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.NullString {
+	var dto sql.NullString
+	err := dto.Scan(src)
+	if err != nil {
+		logs.ErrorLog(err, name)
+	}
+
+	return dto
 }
 
 // GetJsonFromByte convert data from src into json
@@ -410,7 +432,12 @@ func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgty
 	return
 }
 
-// GetRawBytesFromByte convert data from src into []time.Time
+// GetArrayByteFromByte convert data from src into sql.RawBytes
+func GetArrayByteFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
+	return GetRawBytesFromByte(ci, src, name)
+}
+
+// GetRawBytesFromByte convert data from src into sql.RawBytes
 func GetRawBytesFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
 	if len(src) == 0 {
 		return

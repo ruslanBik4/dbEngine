@@ -129,6 +129,7 @@ func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScan
 `
 	colFormat    = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
 	initFormat   = "\n\t\t%-21s:\t%s,"
+	scanFormat   = "\n\t\t%s,"
 	paramsFormat = `
 				[]any{
 					%s
