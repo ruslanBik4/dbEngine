@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
+
 	"github.com/ruslanBik4/logs"
 )
 
@@ -60,6 +61,24 @@ func NewErrNotFoundColumn(table string, column string) *ErrNotFoundColumn {
 func (err ErrNotFoundColumn) Error() string {
 
 	return fmt.Sprintf("Not field `%s` for table `%s` in schema ", err.Column, err.Table)
+
+}
+
+// ErrNotFoundColumn if not found in table {Table} field by name {Column}
+type ErrNotFoundType struct {
+	Name string
+	Type string
+}
+
+// NewErrNotFoundColumn create new error
+func NewErrNotFoundType(name string, sType string) *ErrNotFoundType {
+	return &ErrNotFoundType{Name: name, Type: sType}
+}
+
+// Error implement error interface
+func (err ErrNotFoundType) Error() string {
+
+	return fmt.Sprintf("Not field type `%s` (`%s`) in schema ", err.Name, err.Type)
 
 }
 

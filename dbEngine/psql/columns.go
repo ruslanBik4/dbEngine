@@ -184,16 +184,13 @@ func UdtNameToType(udtName string) types.BasicKind {
 		return types.Float32
 	case "float8", "_float8", "money", "_money", "double precision":
 		return types.Float64
-	case "numeric", "decimal":
+	case "numeric", "decimal", "_numeric", "_decimal":
 		// todo add check field length
-		return types.Float64
+		return types.UntypedFloat
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
 		return typesExt.TStruct
 	case "json", "jsonb":
-		return typesExt.TMap
-	case "_numeric":
-		// todo add check ranges
-		return typesExt.TArray
+		return types.UnsafePointer
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
 		"character varying", "_character varying", "bpchar", "_bpchar":
 		return types.String

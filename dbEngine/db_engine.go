@@ -1,10 +1,14 @@
 package dbEngine
 
 import (
+	"bytes"
+	"encoding/json"
 	"go/types"
 
+	"github.com/jackc/pgtype"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 )
 
@@ -33,16 +37,54 @@ type Connection interface {
 }
 
 // Types consists of parameters of DB types
+type TypesAttr struct {
+	Name      string
+	Type      string
+	IsNotNull bool
+}
+
+func (dst *TypesAttr) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	if len(src) == 0 {
+		*dst = TypesAttr{}
+		return nil
+	}
+
+	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
+	*dst = TypesAttr{
+		Name:      gotools.BytesToString(bytes.Trim(srcPart[0], `\"`)),
+		Type:      gotools.BytesToString(bytes.Trim(srcPart[1], `\"`)),
+		IsNotNull: gotools.BytesToString(bytes.Trim(srcPart[2], `\"`)) == "true",
+	}
+	return nil
+}
+
+type TypesAttrs []TypesAttr
+
+func (dst *TypesAttrs) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	if len(src) == 0 {
+		*dst = TypesAttrs{}
+		return nil
+	}
+	err := json.Unmarshal(src, dst)
+	if err != nil {
+		logs.ErrorLog(err)
+		return err
+	}
+
+	return nil
+}
+
+// Types consists of parameters of DB types
 type Types struct {
 	Id         uint32
 	Name       string
 	Type       rune
-	Attr       map[string]string
+	Attr       TypesAttrs
 	Enumerates []string
 }
 
 func NewTypes() *Types {
-	return &Types{Attr: make(map[string]string)}
+	return &Types{}
 }
 
 func (t *Types) GetFields(columns []Column) []any {
