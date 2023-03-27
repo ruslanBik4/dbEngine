@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,7 +31,7 @@ type CfgDB struct {
 	Url        string
 	GetSchema  *struct{}
 	CfgCreator *CfgCreatorDB
-	//obsolete - change on CfgCreatorDB properties
+	// obsolete - change on CfgCreatorDB properties
 	PathCfg  *string
 	TestInit *string
 }
@@ -143,7 +142,7 @@ func (db *DB) runTestInitScript(name string) {
 		name = filepath.Join("cfg/DB", "test_init.ddl")
 	}
 
-	ddl, err := ioutil.ReadFile(name)
+	ddl, err := os.ReadFile(name)
 	if err != nil {
 		logs.ErrorLog(err, "db.Conn.ExecDDL")
 	} else {
@@ -166,7 +165,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 	case ".ddl":
 		fileName := filepath.Base(path)
 		tableName := strings.TrimSuffix(fileName, ext)
-		ddl, err := ioutil.ReadFile(path)
+		ddl, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -232,7 +231,7 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	case ".ddl":
 		fileName := filepath.Base(path)
 		tableName := strings.TrimSuffix(fileName, ext)
-		ddl, err := ioutil.ReadFile(path)
+		ddl, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -277,18 +276,18 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 			return nil
 		}
 
-		ddl, err := ioutil.ReadFile(path)
+		ddl, err := os.ReadFile(path)
 		if err == nil {
 			ddlType := string(ddl)
 			// this local err - not return for parent method
 			err := db.Conn.ExecDDL(db.ctx, ddlType)
 			if err == nil {
-				logs.StatusLog("New types added to DB", typeName)
+				logs.StatusLog("New types added to DB", ddlType)
 				return nil
 			}
 
 			if IsErrorAlreadyExists(err) {
-				err = db.alterType(typeName, strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1))))
+				err = db.alterType(fileName, typeName, strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1))))
 			} else if IsErrorForReplace(err) {
 				logError(err, ddlType, fileName)
 				err = nil
@@ -308,9 +307,9 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 
 var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
 
-//var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
+// var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
-func (db *DB) alterType(typeName, ddl string) error {
+func (db *DB) alterType(fileName, typeName, ddl string) error {
 	fields := regTypeAttr.FindStringSubmatch(ddl)
 
 	for i, name := range regTypeAttr.SubexpNames() {
@@ -321,9 +320,9 @@ func (db *DB) alterType(typeName, ddl string) error {
 
 				ddlAlterType := "alter type " + typeName
 				ddlType := ddlAlterType + " add attribute " + name
-				err := db.Conn.ExecDDL(context.TODO(), ddlType)
+				err := db.Conn.ExecDDL(db.ctx, ddlType)
 				if err == nil {
-					logs.StatusLog(prefix, ddlType)
+					logInfo(prefix, fileName, ddlType, 1)
 				} else if IsErrorAlreadyExists(err) {
 					p := strings.Split(strings.TrimSpace(name), " ")
 					if len(p) < 2 {
@@ -337,15 +336,14 @@ func (db *DB) alterType(typeName, ddl string) error {
 						for _, val := range p[1:] {
 							ddlAlterType += " " + val
 						}
-						err = db.Conn.ExecDDL(context.TODO(), ddlAlterType)
+						err = db.Conn.ExecDDL(db.ctx, ddlAlterType)
 						if err == nil {
-							logs.StatusLog(prefix, ddlAlterType)
+							logInfo(prefix, fileName, ddlAlterType, 1)
 						}
 					}
 				}
 
 				if err != nil {
-					logs.ErrorLog(err, name, ddlAlterType)
 					return err
 				}
 			}
@@ -370,7 +368,7 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 	case ".ddl":
 		fileName := filepath.Base(path)
 		funcName := strings.TrimSuffix(fileName, ext)
-		ddl, err := ioutil.ReadFile(path)
+		ddl, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
@@ -414,8 +412,8 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 }
 
 func logError(err error, ddlSQL string, fileName string) {
-	pgErr, ok := err.(*pgconn.PgError)
-	if ok {
+
+	if pgErr, ok := err.(*pgconn.PgError); ok {
 		pos := int(pgErr.Position - 1)
 		if pos <= 0 {
 			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1

@@ -199,7 +199,7 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 				t, ok := types[column.UdtName]
 				if ok {
 					column.UserDefined = &t
-					logs.StatusLog(column.name, column.UserDefined)
+					logs.DebugLog("USER-DEFINED type '%s': %+v", column.name, column.UserDefined)
 				}
 			}
 			for _, key := range column.Constraints {
@@ -227,7 +227,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 			// use only func knows types
 			rType := values[2]
 			if rType == nil {
-				//not use
+				// not use
 				return nil
 			}
 
@@ -316,7 +316,7 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 	return table, nil
 }
 
-//SelectAndPerformRaw  run sql with args & run each every row
+// SelectAndPerformRaw  run sql with args & run each every row
 func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...any) error {
 	conn, err := c.Acquire(ctx)
 	if err != nil {
@@ -552,7 +552,7 @@ func sliceForScan[T any](arr []T) []any {
 func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error) {
 
 	rows := make(map[string]any)
-	//todo: chande on selectScan with map
+	// todo: chande on selectScan with map
 	err := c.selectAndRunEach(ctx,
 		func(values []any, columns []dbEngine.Column) error {
 			for i, val := range values {
@@ -681,7 +681,7 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 		} else {
 			columns[i] = &Column{name: string(col.Name)}
 		}
-		//logs.StatusLog(fields)
+		// logs.StatusLog(fields)
 	}
 
 	return columns

@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
-
 	"github.com/ruslanBik4/logs"
 )
 
@@ -207,8 +205,6 @@ func (p *ParserTableDDL) runDDL(ddl string, args ...interface{}) {
 	}
 }
 
-var regView = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+as\s+select`)
-
 func (p *ParserTableDDL) updateView(ddl string) bool {
 	fields := regView.FindStringSubmatch(strings.ToLower(ddl))
 	if len(fields) == 0 {
@@ -228,12 +224,12 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 				return false
 			}
 
-			err := p.DB.Conn.ExecDDL(context.TODO(), ddl)
+			err := p.DB.Conn.ExecDDL(p.DB.ctx, ddl)
 			if err != nil {
 				if IsErrorCntChgView(err) {
-					err = p.DB.Conn.ExecDDL(context.TODO(), "DROP VIEW "+p.Name()+" CASCADE")
+					err = p.DB.Conn.ExecDDL(p.DB.ctx, "DROP VIEW "+p.Name()+" CASCADE")
 					if err == nil {
-						err = p.DB.Conn.ExecDDL(context.TODO(), ddl)
+						err = p.DB.Conn.ExecDDL(p.DB.ctx, ddl)
 					}
 				}
 
@@ -265,7 +261,7 @@ func (p *ParserTableDDL) updateTable(ddl string) bool {
 		case "":
 		case "name":
 			if fields[i] != p.Name() {
-				p.err = errors.New("bad table name! " + fields[i])
+				p.err = errors.Errorf("bad table name '%s'", fields[i])
 				return false
 			}
 		case "builderOpts":
@@ -352,8 +348,8 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, hasDefault := fs.Default().(string)
-	if len(defaults) > 1 && (!hasDefault || strings.ToLower(colDef) != strings.Trim(defaults[1], "'")) {
-		logs.DebugLog(colDef, defaults[1])
+	if len(defaults) > 1 && (!hasDefault || strings.ToLower(colDef) != strings.Trim(defaults[1], "'\n")) {
+		logs.DebugLog(hasDefault, strings.ToLower(colDef), defaults[1])
 		err = p.alterColumn(" set "+defaults[0], fieldName, title, fs)
 		if err != nil {
 			logs.ErrorLog(err, defaults, title, colDef)
@@ -361,10 +357,10 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 		fs.SetDefault(defaults[1])
 	}
 
-	//err = ErrNotFoundColumn{
+	// err = ErrNotFoundColumn{
 	//	Table:  p.Name(),
 	//	Column: fieldName,
-	//}
+	// }
 	for _, token := range res {
 
 		switch token {
@@ -380,7 +376,7 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 		case MustNotNull:
 			err = p.alterColumn(" set not null", fieldName, title, fs)
 			if IsErrorNullValues(err) && hasDefault {
-				//set defult value into ALL null the column
+				// set defult value into ALL null the column
 				ddl := fmt.Sprintf(`UPDATE %s SET %s=$1 WHERE %[2]s is null`, p.Name(), fieldName)
 				p.runDDL(ddl, colDef)
 				if p.err != nil {
@@ -460,7 +456,7 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 			logInfo(prefix, p.filename,
 				fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, pInd.Expr),
 				p.line)
-			logs.StatusLog(pInd)
+			logs.DebugLog(pInd)
 			return true
 		}
 
@@ -555,9 +551,9 @@ func (p ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 				return nil, ErrNotFoundColumn{p.Name(), token}
 			}
 
-			//if strings.Join(ind.Columns, ",") != token {
+			// if strings.Join(ind.Columns, ",") != token {
 			//	ind.Expr = token
-			//}
+			// }
 		case "unique":
 			ind.Unique = token == name
 		default:

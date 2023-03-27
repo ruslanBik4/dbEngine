@@ -49,7 +49,7 @@ func (b SQLBuilder) InsertSql() (string, error) {
 }
 
 func (b SQLBuilder) insertSql() string {
-	return "INSERT INTO " + b.Table.Name() + "(" + b.Select() + ") VALUES (" + b.values() + ")" + b.OnConflict()
+	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) %s", b.Table.Name(), b.Select(), b.values(), b.OnConflict())
 }
 
 // UpdateSql construct update sql
@@ -141,7 +141,7 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
 	lenFilter := len(b.filter) + strings.Count(b.Table.Name(), "$")
 	if lenFilter != len(b.Args) {
-		//rm from counter filter without params
+		// rm from counter filter without params
 		for _, name := range b.filter {
 			yes, hasTempl := b.isComplexCondition(name)
 			if yes && !hasTempl {
@@ -498,11 +498,14 @@ func Values(values ...any) BuildSqlOptions {
 
 // WhereForSelect set columns for WHERE clause
 // may consisted first symbol as conditions rule:
-//    '>', '<', '$', '~', '^', '@', '&', '+', '-', '*'
+//
+//	'>', '<', '$', '~', '^', '@', '&', '+', '-', '*'
+//
 // that will replace equals condition, instead:
-//  field_name = $1
-//  write:
-//  field_name > $1, field_name < $1, etc
+//
+//	field_name = $1
+//	write:
+//	field_name > $1, field_name < $1, etc
 func WhereForSelect(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 

@@ -167,7 +167,7 @@ func (c *Creator) prepareReturns(r *psql.Routine, name string) (sRecord string, 
 }
 
 func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, sParamsTitle string) {
-	//args = make([]any, len(r.Params()))
+	// args = make([]any, len(r.Params()))
 	for _, param := range r.Params() {
 		typeCol, _ := c.chkTypes(param, name)
 		s := strcase.ToLowerCamel(param.Name())
@@ -176,7 +176,7 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 		}
 		sParamsTitle += ", " + s + " " + typeCol
 		sParams += s + `, `
-		//args[i] = param
+		// args[i] = param
 	}
 
 	if sParams > "" {
@@ -244,7 +244,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		return errors.Wrap(err, "WriteString title")
 	}
 
-	//todo: add Type to interface Table
+	// todo: add Type to interface Table
 	_, err = fmt.Fprintf(f, formatTable, name, fields, table.Name(), table.Comment(), table.(*psql.Table).Type)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
@@ -346,7 +346,7 @@ func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
 	default:
 		tName = strcase.ToCamel(tName)
 	}
-	logs.StatusLog(name, tName)
+
 	return fmt.Sprintf(`%-21s:	psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
 		strcase.ToCamel(name),
 		tName,
