@@ -436,7 +436,7 @@ func (b *SQLBuilder) values() string {
 
 func isOperatorPre(s uint8) bool {
 	switch s {
-	case '=', '>', '<', '&', '|':
+	case '=', '>', '<', '&', '|', '#':
 		return true
 	default:
 		return false
@@ -446,7 +446,7 @@ func isOperatorPre(s uint8) bool {
 
 func isOperator(s uint8) bool {
 	switch s {
-	case '>', '<', '$', '~', '^', '@', '&', '+', '-', '*':
+	case '>', '<', '$', '~', '^', '@', '&', '+', '-', '*', '#':
 		return true
 	default:
 		return false
