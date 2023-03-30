@@ -32,7 +32,7 @@ var (
 	regField            = regexp.MustCompile(`(\w+)\s+((?:[\w\s]+(?:\(\s*\d+(?:,\s*\d+)?\))?(?:\[\d*\])*)?(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?)`)
 	regFieldName        = regexp.MustCompile(`^\w+$`)
 	regDefault          = regexp.MustCompile(`default\s+(\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)`)
-	regView             = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(WITH\s*\([\w,=\s]+\)\s*)?(?P<name>\w+)\s+as\s+select`)
+	regView             = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+(with\s*\([\w,=\s]+\)\s*)?as\s+select`)
 	regRelationNotExist = regexp.MustCompile(`relation\s+"(\w+)" does not exist`)
 	regTypeNotExist     = regexp.MustCompile(`type\s+"(\w+)"\s+does not exist`)
 )
