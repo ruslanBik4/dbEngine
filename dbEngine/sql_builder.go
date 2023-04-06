@@ -10,7 +10,6 @@ import (
 
 	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
-
 	"github.com/ruslanBik4/logs"
 )
 
@@ -376,6 +375,11 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 		pgtype.ArrayType, pgtype.Int2Array, pgtype.Int4Array, pgtype.Int8Array,
 		pgtype.Float4Array, pgtype.Float8Array, pgtype.NumericArray, pgtype.BPCharArray, pgtype.TextArray:
 		// todo: chk column type
+		if table := b.Table; table != nil {
+			if col, ok := table.FindColumn(name).(interface{ IsArray() bool }); ok && col.IsArray() {
+				return fmt.Sprintf("%s@>$%d", name, b.posFilter)
+			}
+		}
 		cond = "ANY($%[1]d)"
 	case nil:
 		cond = "is null"

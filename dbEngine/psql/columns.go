@@ -219,7 +219,7 @@ var dataTypeAlias = map[string][]string{
 	"double precision":            {"float", "real"},
 	"timestamp without time zone": {"timestamp"},
 	"timestamp with time zone":    {"timestamptz"},
-	//todo: add check user-defined types
+	// todo: add check user-defined types
 	"USER-DEFINED": {"timerange"},
 	"ARRAY":        {"integer[]", "character varying[]", "citext[]", "bpchar[]", "char"},
 }
@@ -288,6 +288,11 @@ func (c *Column) Primary() bool {
 // Type of column (psql native)
 func (c *Column) Type() string {
 	return c.UdtName
+}
+
+// IsArray of column (psql native)
+func (c *Column) IsArray() bool {
+	return strings.HasPrefix(c.UdtName, "_")
 }
 
 // Required return true if column need a value
