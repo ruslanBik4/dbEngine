@@ -448,7 +448,7 @@ func (d *Database) `)
 			qw422016.E().S(r.Comment)
 //line database_tpl.qtpl:168
 			qw422016.N().S(`'
-// each will get every row from `)
+// each will get every row from &`)
 //line database_tpl.qtpl:169
 			qw422016.E().S(camelName)
 //line database_tpl.qtpl:169
@@ -478,7 +478,7 @@ func (d *Database) `)
 				func () error {
 					defer func () {
 					//	create new record
-						res = &`)
+						*res = `)
 //line database_tpl.qtpl:179
 			qw422016.E().S(camelName)
 //line database_tpl.qtpl:179
@@ -575,9 +575,21 @@ type `)
 //line database_tpl.qtpl:205
 		qw422016.E().S(s)
 //line database_tpl.qtpl:205
-		qw422016.N().S(` `)
+		qw422016.N().S(`    `)
 //line database_tpl.qtpl:205
 		qw422016.E().S(typeCol)
+//line database_tpl.qtpl:205
+		qw422016.N().S(`  `)
+//line database_tpl.qtpl:205
+		qw422016.N().S("`")
+//line database_tpl.qtpl:205
+		qw422016.N().S(`json:"`)
+//line database_tpl.qtpl:205
+		qw422016.E().S(param.Name())
+//line database_tpl.qtpl:205
+		qw422016.N().S(`"`)
+//line database_tpl.qtpl:205
+		qw422016.N().S("`")
 //line database_tpl.qtpl:205
 		qw422016.N().S(`
 `)

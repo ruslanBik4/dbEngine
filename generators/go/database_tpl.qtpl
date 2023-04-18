@@ -166,7 +166,7 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 {%- if r.ReturnType() == "record" -%}
 // {%s camelName %}Each run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
-// each will get every row from {%s camelName %}sRowScanner
+// each will get every row from &{%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}Each(ctx context.Context,
 	each func(record *{%s camelName %}RowScanner) error,
 	{%= c.paramsTitle(r) %}
@@ -176,7 +176,7 @@ func (d *Database) {%s camelName %}Each(ctx context.Context,
 				func () error {
 					defer func () {
 					//	create new record
-						res = &{%s camelName %}RowScanner{}
+						*res = {%s camelName %}RowScanner{}
 					}()
 
 					if each != nil {
@@ -202,7 +202,7 @@ type {%s camelName %}RowScanner struct {
 			s := strcase.ToCamel(param.Name())
 			typeCol, _ := c.chkTypes(param, s)
 		-%}
-	{%s s %} {%s typeCol %}
+	{%s s %}    {%s typeCol %}  `json:"{%s param.Name()%}"`
 	{%- endfor -%}
 }
 // GetFields implement dbEngine.RowScanner interface
