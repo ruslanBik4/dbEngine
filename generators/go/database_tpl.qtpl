@@ -164,19 +164,20 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 	return
 }
 {%- if r.ReturnType() == "record" -%}
+	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName)-%}
 // {%s camelName %}Each run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 // each will get every row from &{%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}Each(ctx context.Context,
-	each func(record *{%s camelName %}RowScanner) error,
+	each func(record *{%s typeReturn %}) error,
 	{%= c.paramsTitle(r) %}
 ) error {
-	res := &{%s camelName %}RowScanner{}
+	res := &{%s typeReturn %}{}
 	err := d.Conn.SelectAndScanEach(ctx,
 				func () error {
 					defer func () {
 					//	create new record
-						*res = {%s camelName %}RowScanner{}
+						*res = {%s typeReturn %}{}
 					}()
 
 					if each != nil {
@@ -190,7 +191,29 @@ func (d *Database) {%s camelName %}Each(ctx context.Context,
 		)
 	return err
 }
+// {%s camelName %}All run query with select DB function '{%s name %}'
+// DB comment: '{%s r.Comment %}'
+// each will get every row from &{%s camelName %}sRowScanner
+func (d *Database) {%s camelName %}All(ctx context.Context,
+	{%= c.paramsTitle(r) %}
+) (res []{%s typeReturn %}, err error) {
+	buf := {%s typeReturn %}{}
+	err := d.Conn.SelectAndScanEach(ctx,
+				func () error {
+					res = append(res, buf)
+					//	create new record
+					buf = {%s typeReturn %}{}
+
+					return nil
+				},
+				&buf,
+				`{%s sql %}`,
+				{%= c.paramsArgs(r) %}
+		)
+	return err
+}
 {%- endif %}
+
 {%- endif %}
 {% endfunc %}
 
