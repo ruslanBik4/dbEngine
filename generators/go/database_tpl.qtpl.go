@@ -552,7 +552,7 @@ func (d *Database) `)
 			qw422016.E().S(typeReturn)
 //line database_tpl.qtpl:200
 			qw422016.N().S(`{}
-	err := d.Conn.SelectAndScanEach(ctx,
+	err = d.Conn.SelectAndScanEach(ctx,
 				func () error {
 					res = append(res, buf)
 					//	create new record
@@ -582,7 +582,7 @@ func (d *Database) `)
 //line database_tpl.qtpl:211
 			qw422016.N().S(`
 		)
-	return err
+	return
 }
 `)
 //line database_tpl.qtpl:215

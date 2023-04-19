@@ -198,7 +198,7 @@ func (d *Database) {%s camelName %}All(ctx context.Context,
 	{%= c.paramsTitle(r) %}
 ) (res []{%s typeReturn %}, err error) {
 	buf := {%s typeReturn %}{}
-	err := d.Conn.SelectAndScanEach(ctx,
+	err = d.Conn.SelectAndScanEach(ctx,
 				func () error {
 					res = append(res, buf)
 					//	create new record
@@ -210,7 +210,7 @@ func (d *Database) {%s camelName %}All(ctx context.Context,
 				`{%s sql %}`,
 				{%= c.paramsArgs(r) %}
 		)
-	return err
+	return
 }
 {%- endif %}
 
