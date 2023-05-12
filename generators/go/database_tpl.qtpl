@@ -23,6 +23,7 @@ import (
 	{%- for _, lib := range c.packages -%}"{%s lib %}"
     {%- endfor -%}
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgconn"
 
 	"github.com/ruslanBik4/logs"
@@ -39,19 +40,113 @@ type Database struct {
 	*dbEngine.DB
 	CreateAt time.Time
 }
+type CitextArray struct {
+	pgtype.TextArray
+}
+
+func (dst CitextArray) MarshalJSON() ([]byte, error) {
+	buf := bytes.NewBufferString("[")
+	for i, text := range dst.Elements {
+		if i > 0 {
+			buf.WriteString(",")
+		}
+
+		buf.WriteString(text.String)
+	}
+
+	buf.WriteString("]")
+
+	return buf.Bytes(), nil
+}
+
+var customTypes = map[string]*pgtype.DataType{
+	"citext": &pgtype.DataType{
+		Value: &pgtype.Text{},
+		Name:  "citext",
+	},
+	"_citext": &pgtype.DataType{
+		Value: &pgtype.TextArray{}, // (*pgtype.ArrayType)(nil),
+		Name:  "[]string",
+	},
+}
+var initCustomTypes bool
+
+const sqlGetTypes = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
+
+func getOidCustomTypes(ctx context.Context, conn *pgx.Conn) error {
+	params := make([]string, 0, len(customTypes))
+	for name := range customTypes {
+		params = append(params, name)
+	}
+
+	rows, err := conn.Query(ctx, sqlGetTypes, params)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var name string
+		var oid uint32
+		err = rows.Scan(&name, &oid)
+		if err != nil {
+			return err
+		}
+		if c, ok := customTypes[name]; ok && c.Value == (*pgtype.ArrayType)(nil) {
+			c.Value = pgtype.NewArrayType(name, oid, func() pgtype.ValueTranscoder {
+				return &pgtype.Text{}
+			}).NewTypeValue()
+			c.OID = oid
+			logs.DebugLog(c)
+		} else if ok {
+			customTypes[name].OID = oid
+		}
+	}
+
+	if rows.Err() != nil {
+		logs.ErrorLog(rows.Err(), " cannot get oid for customTypes")
+	}
+
+	return err
+}
+
+// AfterConnect create need types & register on conn
+func AfterConnect(ctx context.Context, conn *pgx.Conn) error {
+	// Override registered handler for point
+	if !initCustomTypes {
+		err := getOidCustomTypes(ctx, conn)
+		if err != nil {
+			return err
+		}
+
+		initCustomTypes = true
+	}
+
+	mess := "DB registered type (name, oid): "
+	for name, val := range customTypes {
+		conn.ConnInfo().RegisterDataType(*val)
+		mess += fmt.Sprintf("(%s,%v, %T) ", name, val.OID, val.Value)
+	}
+
+	logs.StatusLog(conn.PgConn().Conn().LocalAddr().String(), mess)
+
+	return nil
+}
+
 // NewDatabase create new Database with minimal necessary handlers
 func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
 	if noticeHandler == nil {
 		noticeHandler = printNotice
 	}
-	conn := psql.NewConn(nil, nil, noticeHandler, channels...)
-	if channelHandler != nil {
-		conn.ChannelHandler = channelHandler
-	}
+	conn := psql.NewConnWithOptions(
+		psql.AfterConnect(AfterConnect),
+		psql.NoticeHandler(noticeHandler),
+		psql.ChannelHandler(channelHandler),
+		psql.Channels(channels...),
+	)
 
 	DB, err := dbEngine.NewDB(ctx, conn)
 	if err != nil {
-		logs.ErrorLog(err, "")
+		logs.ErrorLog(err, "new DB")
 		return nil, err
 	}
 
@@ -71,7 +166,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 
 	switch {
     case n.Code == "42P07" || strings.Contains(n.Message, "skipping") :
-		logs.DebugLog("skip operation: %%s", n.Message)
+		logs.DebugLog("skip operation: %s", n.Message)
 
 	case n.Severity == "INFO" :
 		logs.StatusLog(n.Message)

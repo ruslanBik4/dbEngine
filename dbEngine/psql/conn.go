@@ -22,15 +22,53 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
-type fncConn func(context.Context, *pgx.Conn) error
-type fncAcqu func(context.Context, *pgx.Conn) bool
+type FncConn func(context.Context, *pgx.Conn) error
+type FncAcqu func(context.Context, *pgx.Conn) bool
+
+// BuildRouteOptions implement 'Functional Option' pattern for ApiRoute settings
+type BuildConnOptions func(route *Conn)
+
+// AfterConnect set custom AfterConnect method on ApiRoute
+func AfterConnect(fnc FncConn) BuildConnOptions {
+	return func(c *Conn) {
+		c.AfterConnect = fnc
+	}
+}
+
+// BeforeAcquire set same custom method on ApiRoute
+func BeforeAcquire(fnc FncAcqu) BuildConnOptions {
+	return func(c *Conn) {
+		c.BeforeAcquire = fnc
+	}
+}
+
+// ChannelHandler set same custom method on ApiRoute
+func ChannelHandler(fnc pgconn.NotificationHandler) BuildConnOptions {
+	return func(c *Conn) {
+		c.ChannelHandler = fnc
+	}
+}
+
+// NoticeHandler set same custom method on ApiRoute
+func NoticeHandler(fnc pgconn.NoticeHandler) BuildConnOptions {
+	return func(c *Conn) {
+		c.NoticeHandler = fnc
+	}
+}
+
+// NoticeHandler set same custom method on ApiRoute
+func Channels(channels ...string) BuildConnOptions {
+	return func(c *Conn) {
+		c.channels = channels
+	}
+}
 
 // Conn implement connection to DB over pgx
 type Conn struct {
 	*pgxpool.Pool
 	*pgxpool.Config
-	AfterConnect   fncConn
-	BeforeAcquire  fncAcqu
+	AfterConnect   FncConn
+	BeforeAcquire  FncAcqu
 	ChannelHandler pgconn.NotificationHandler
 	NoticeHandler  pgconn.NoticeHandler
 	NoticeMap      map[uint32]*pgconn.Notice
@@ -38,19 +76,29 @@ type Conn struct {
 	ctxPool        context.Context
 	lastComTag     pgconn.CommandTag
 	Cancel         context.CancelFunc
-	lock           *sync.RWMutex
+	lock           sync.RWMutex
 }
 
 // NewConn create new instance
-func NewConn(afterConnect fncConn, beforeAcquire fncAcqu, noticeHandler pgconn.NoticeHandler, channels ...string) *Conn {
+func NewConn(afterConnect FncConn, beforeAcquire FncAcqu, noticeHandler pgconn.NoticeHandler, channels ...string) *Conn {
 	return &Conn{
 		AfterConnect:  afterConnect,
 		BeforeAcquire: beforeAcquire,
 		NoticeHandler: noticeHandler,
 		NoticeMap:     make(map[uint32]*pgconn.Notice, 0),
 		channels:      channels,
-		lock:          &sync.RWMutex{},
 	}
+}
+
+// NewConnWithOptions create new instance
+func NewConnWithOptions(options ...BuildConnOptions) *Conn {
+	c := &Conn{
+		NoticeMap: make(map[uint32]*pgconn.Notice, 0),
+	}
+	for _, opt := range options {
+		opt(c)
+	}
+	return c
 }
 
 // InitConn create pool of connection

@@ -212,16 +212,19 @@ const (
 
 var dataTypeAlias = map[string][]string{
 	"character varying":           {"varchar(255)", "varchar"},
+	"bpchar":                      {"char"},
 	"character":                   {"char"},
-	"integer":                     {"serial", "int"},
+	"varchar":                     {"character varying"},
+	"int4":                        {"serial", "int", "integer"},
 	"smallint":                    {"smallserial"},
-	"bigint":                      {"bigserial"},
+	"bigint":                      {"bigserial", "biginteger", "int8"},
+	"int8":                        {"bigserial", "biginteger"},
 	"double precision":            {"float", "real"},
 	"timestamp without time zone": {"timestamp"},
 	"timestamp with time zone":    {"timestamptz"},
 	// todo: add check user-defined types
 	"USER-DEFINED": {"timerange"},
-	"ARRAY":        {"integer[]", "character varying[]", "citext[]", "bpchar[]", "char"},
+	//"ARRAY":        {"integer[]", "character varying[]", "citext[]", "bpchar[]", "char"},
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
@@ -237,13 +240,17 @@ func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	// todo: add check arrays
 	lenCol := c.CharacterMaximumLength()
 	udtName := c.UdtName
-	if strings.HasPrefix(udtName, "_") {
-		udtName = strings.TrimPrefix(udtName, "_") + "[]"
+	a, isArray := strings.CutPrefix(udtName, "_")
+	if isArray {
+		udtName = a + "[]"
 	}
-	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType) ||
-		strings.HasPrefix(fieldDefine, udtName)
+	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType) || strings.HasPrefix(fieldDefine, udtName)
 	if !isTypeValid {
-		for _, alias := range dataTypeAlias[c.DataType] {
+		t := c.UdtName
+		if isArray {
+			t = a
+		}
+		for _, alias := range dataTypeAlias[t] {
 			isTypeValid = strings.HasPrefix(fieldDefine, alias)
 			if isTypeValid {
 				break
@@ -255,10 +262,11 @@ func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 		if strings.HasPrefix(c.DataType, "character") &&
 			(lenCol > 0) &&
 			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", lenCol)) {
-			res = append(res, dbEngine.ChangeLength)
+			res = append(res, dbEngine.ChgLength)
 		}
 	} else {
-		res = append(res, dbEngine.ChangeType)
+		logs.DebugLog(fieldDefine, c.name, c.DataType, udtName)
+		res = append(res, dbEngine.ChgType)
 		logs.DebugLog(c.DataType, c.UdtName, lenCol)
 	}
 

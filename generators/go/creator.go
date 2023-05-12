@@ -91,12 +91,12 @@ func (c *Creator) MakeInterfaceDB() error {
 	if err != nil {
 		return err
 	}
-	sortList := make([]string, 0, len(c.db.Routines))
+	routines := make([]string, 0, len(c.db.Routines))
 	for name := range c.db.Routines {
-		sortList = append(sortList, name)
+		routines = append(routines, name)
 	}
-	sort.Strings(sortList)
-	c.WriteCreateDatabase(f, sortList)
+	sort.Strings(routines)
+	c.WriteCreateDatabase(f, routines)
 
 	return err
 }

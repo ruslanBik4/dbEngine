@@ -54,17 +54,17 @@ func main() {
 		return
 	}
 
-	err = creator.MakeInterfaceDB()
-	if err != nil {
-		logs.ErrorLog(errors.Wrap(err, "make DB interface"))
-		return
-	}
-
 	for name, table := range db.Tables {
 		err = creator.MakeStruct(table)
 		if err != nil {
 			logs.ErrorLog(errors.Wrap(err, "makeStruct - "+name))
 		}
+	}
+
+	err = creator.MakeInterfaceDB()
+	if err != nil {
+		logs.ErrorLog(errors.Wrap(err, "make DB interface"))
+		return
 	}
 }
 

@@ -14,7 +14,6 @@ import (
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 	"github.com/ruslanBik4/dbEngine/dbEngine/csv"
-	"github.com/ruslanBik4/logs"
 )
 
 func TestCreator_MakeStruct(t *testing.T) {
@@ -85,8 +84,9 @@ func TestNewCreator(t *testing.T) {
 }
 
 func TestStringsUpper(t *testing.T) {
-	logs.StatusLog(fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
+	s := fmt.Sprintf(`%-21s:    psql.Get%sFromByte(ci, srcPart[%d], "%s")`,
 		"Accounts",
-		"Array"+strcase.ToCamel(strings.TrimPrefix("[]int32", "[]")), 1, ""),
-	)
+		"Array"+strcase.ToCamel(strings.TrimPrefix("[]int32", "[]")), 1, "")
+
+	assert.Equal(t, t, `Accounts             :    psql.GetArrayInt32FromByte(ci, srcPart[1], "")`, s)
 }

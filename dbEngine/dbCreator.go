@@ -6,10 +6,10 @@ package dbEngine
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
+
 	"github.com/ruslanBik4/logs"
 )
 
@@ -140,39 +140,36 @@ func (p *ParserTableDDL) performsUpdate(ddl string) bool {
 }
 
 func (p *ParserTableDDL) addComment(ddl string) bool {
-	switch lwrDdl := strings.ToLower(ddl); {
-	case !strings.Contains(lwrDdl, "comment"):
+	switch lowDdl := strings.ToLower(ddl); {
+	case !strings.Contains(lowDdl, "comment"):
 		return false
-	case strings.Contains(lwrDdl, "table") && strings.Contains(ddl, "'"+p.Table.Comment()+"'"):
+	case strings.Contains(lowDdl, "table") && strings.Contains(ddl, "'"+p.Table.Comment()+"'") ||
+		strings.Contains(lowDdl, "view") && strings.Contains(ddl, "'"+p.Table.Comment()+"'"):
 		return true
-	case strings.Contains(lwrDdl, "view") && strings.Contains(ddl, "'"+p.Table.Comment()+"'"):
-		return true
-	case strings.Contains(lwrDdl, "column"):
-		posP := strings.Index(lwrDdl, ".")
-		posI := strings.Index(lwrDdl, " is ")
-		if posP < 1 || posI < 1 {
-			logError(&ErrUnknownSql{Line: p.line, Msg: "not found column name"}, ddl, p.filename)
+	default:
+		res := regCommentColumn.FindAllStringSubmatch(ddl, -1)
+		if len(res) == 0 {
+			return false
+		}
+		tokens := res[0]
+		if tokens[1] != p.Table.Name() {
+			logError(errors.Errorf(errWrongTableName.Error(), tokens[1]), ddl, p.filename)
 			return true
 		}
-
-		colName := strings.TrimSpace(lwrDdl[posP+1 : posI])
+		colName := strings.ToLower(tokens[2])
 		col := p.Table.FindColumn(colName)
 		if col == nil {
 			logError(&ErrUnknownSql{Line: p.line, Msg: "not found column " + colName}, ddl, p.filename)
 			return true
 		}
 
-		if col.Comment() > "" && strings.Contains(ddl, "'"+col.Comment()+"'") {
-			return true
+		if col.Comment() != strings.ReplaceAll(tokens[3], "''", "'") {
+			logs.StatusLog(col.Comment(), tokens[3])
+			p.runDDL(ddl)
 		}
+		return true
 	}
-
-	p.runDDL(ddl)
-
-	return true
 }
-
-var regPartitionTable = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
 
 func (p *ParserTableDDL) skipPartition(ddl string) bool {
 	fields := regPartitionTable.FindStringSubmatch(strings.ToLower(ddl))
@@ -220,7 +217,7 @@ func (p *ParserTableDDL) updateView(ddl string) bool {
 		case "":
 		case "name":
 			if fields[i] != p.Name() {
-				p.err = errors.New("bad table name! " + fields[i])
+				p.err = errors.Errorf(errWrongTableName.Error(), fields[i])
 				return false
 			}
 
@@ -324,7 +321,7 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string, res []FlagC
 	for _, token := range res {
 
 		// change type
-		if token == ChangeType {
+		if token == ChgType {
 			attr := strings.Split(fieldDefine, " ")
 			if attr[0] == "double" {
 				attr[0] += " " + attr[1]
@@ -344,7 +341,7 @@ func (p *ParserTableDDL) checkPrimary(fs Column, fieldDefine string, res []FlagC
 	}
 }
 
-func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (err error) {
+func (p *ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (err error) {
 	fieldName := fs.Name()
 	defaults := regDefault.FindStringSubmatch(strings.ToLower(title))
 	colDef, hasDefault := fs.Default().(string)
@@ -365,11 +362,11 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 
 		switch token {
 		// change length
-		case ChangeLength:
+		case ChgLength:
 			err = p.alterColumnsLength(fs, title, fieldName)
 
 		// change type
-		case ChangeType:
+		case ChgType:
 			err = p.alterColumnsType(fs, title, fieldName)
 
 		// set not nullable
@@ -406,7 +403,7 @@ func (p ParserTableDDL) checkColumn(fs Column, title string, res []FlagColumn) (
 	return err
 }
 
-func (p ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) error {
+func (p *ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) error {
 	attr := strings.Split(title, " ")
 	typeDef := attr[0]
 	if typeDef == "double" ||
@@ -425,7 +422,7 @@ func (p ParserTableDDL) alterColumnsType(fs Column, title, fieldName string) err
 	return p.alterColumn(sql, fieldName, title, fs)
 }
 
-func (p ParserTableDDL) alterColumnsLength(fs Column, title, fieldName string) error {
+func (p *ParserTableDDL) alterColumnsLength(fs Column, title, fieldName string) error {
 	attr := strings.Split(title, " ")
 
 	typeDef := attr[0]
@@ -503,7 +500,7 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 	return true
 }
 
-func (p ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
+func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 
 	regIndex := ddlIndex
 	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
@@ -565,7 +562,7 @@ func (p ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 	return &ind, nil
 }
 
-func (p ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs Column) error {
+func (p *ParserTableDDL) alterColumn(sAlter string, fieldName, title string, fs Column) error {
 	ddl := "ALTER TABLE " + p.Name() + " ALTER COLUMN " + fieldName + sAlter
 	p.runDDL(ddl)
 	if p.err == nil {

@@ -375,7 +375,7 @@ func TestConn_GetNotice(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -410,7 +410,7 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -451,7 +451,7 @@ func TestConn_GetSchema(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -505,7 +505,7 @@ func TestConn_GetStat(t *testing.T) {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
 		Notice        *pgconn.Notice
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -541,7 +541,7 @@ func TestConn_GetTablesProp(t *testing.T) {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
 		Notice        *pgconn.Notice
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -582,7 +582,7 @@ func TestConn_InitConn(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -624,7 +624,7 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -665,7 +665,7 @@ func TestConn_SelectAndScanEach(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -707,7 +707,7 @@ func TestConn_StartChannels(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -739,7 +739,7 @@ func TestConn_addNoticeToErrLog(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -778,7 +778,7 @@ func TestConn_listen(t *testing.T) {
 	type fields struct {
 		Pool          *pgxpool.Pool
 		Config        *pgxpool.Config
-		AfterConnect  fncConn
+		AfterConnect  FncConn
 		BeforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 		ctxPool       context.Context
@@ -872,7 +872,7 @@ func TestNewColumnPone(t *testing.T) {
 
 func TestNewConn(t *testing.T) {
 	type args struct {
-		afterConnect  fncConn
+		afterConnect  FncConn
 		beforeAcquire func(context.Context, *pgx.Conn) bool
 		channels      []string
 	}
