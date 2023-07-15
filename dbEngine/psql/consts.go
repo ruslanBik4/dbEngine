@@ -99,23 +99,23 @@ ORDER BY ordinal_position`
 							COALESCE(character_set_name, '') as character_set_name,
 							COALESCE(character_maximum_length, -1) as character_maximum_length, 
 							udt_name,
-  		(select json_object_agg( k.constraint_name,
+  							(select json_object_agg( k.constraint_name,
 								CASE WHEN kcu.table_name IS NULL THEN NULL
 								   ELSE json_build_object('parent', kcu.table_name, 'column', kcu.column_name,
 								   'update_rule', rc.update_rule, 'delete_rule', rc.delete_rule)
 							    END)
-			FROM  INFORMATION_SCHEMA.key_column_usage k
-				LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
-				LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
-			WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)
-		) as keys,
+							FROM  INFORMATION_SCHEMA.key_column_usage k
+								LEFT JOIN INFORMATION_SCHEMA.referential_constraints rc using(constraint_name)
+								LEFT JOIN INFORMATION_SCHEMA.key_column_usage kcu ON rc.unique_constraint_name = kcu.constraint_name
+							WHERE ( k.table_name=c.table_name AND k.column_name = c.column_name)
+							) as keys,
 							COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), c.ordinal_position::int), '')
 							   AS column_comment
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
-	sqlTypesList = `SELECT pg_type.oid, typname, typtype,
-       CASE WHEN pg_type.typtype = 'r'
-                THEN (select json_build_array(json_build_object(
+	sqlTypesList = `SELECT pg_type.oid,  typname, typtype,
+		CASE pg_type.typtype
+          WHEN 'r' THEN (select json_build_array(json_build_object(
                                             'name',
                                            'upper',
                                            'type',
@@ -130,7 +130,12 @@ ORDER BY ordinal_position`
                       from pg_range r JOIN pg_type g ON r.rngsubtype = g.oid
                                       left join pg_class c1 on c1.relname = typname
                       where r.rngtypid = pg_type.oid)
-            ELSE (select json_agg( 
+        WHEN 'd' THEN (select json_build_array(json_build_object(
+                                            'name', 'domain',
+                                            'type', (select bt.typname FROM pg_type bt where  pg_type.typbasetype = bt.oid)
+                                 )))
+            
+		ELSE (select json_agg( 
 						json_build_object(
 							'name',
 							a.attname,
@@ -153,15 +158,15 @@ ORDER BY ordinal_position`
 							a.attnotnull
 						) order by a.attnum
                    )
-        from pg_attribute a
+        	from pg_attribute a
                  JOIN (pg_type t JOIN pg_namespace nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid
                  LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid)
                            ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       
-        where a.attrelid = c.oid
-        ) END as attr,
+        	where a.attrelid = c.oid
+        ) END as attr, relkind,
        array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
 FROM pg_type LEFT JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
-where typtype = 'e' or typtype = 'r' or (nc.nspname='public' AND c.relkind = 'c')`
+where typtype = ANY(array['e','d']) or (nc.nspname='public' AND c.relkind = ANY(array['d','c']))`
 
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,

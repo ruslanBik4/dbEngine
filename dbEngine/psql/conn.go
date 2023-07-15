@@ -189,6 +189,21 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
+	for name, r := range routines {
+		for _, column := range r.(*Routine).columns {
+			if column.DataType == "USER-DEFINED" {
+				t, ok := types[column.UdtName]
+				if ok {
+					column.UserDefined = &t
+					logs.DebugLog("USER-DEFINED type '%s': %+v", column.name, column.UserDefined)
+				} else {
+					logs.StatusLog(name, column)
+
+				}
+			}
+		}
+	}
+
 	database := make(map[string]*string)
 	err = c.SelectOneAndScan(ctx, database,
 		`SELECT current_database() as db_name, current_schema() as db_schema,
@@ -248,6 +263,9 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 				if ok {
 					column.UserDefined = &t
 					logs.DebugLog("USER-DEFINED type '%s': %+v", column.name, column.UserDefined)
+				} else {
+					logs.StatusLog(column)
+
 				}
 			}
 			for _, key := range column.Constraints {

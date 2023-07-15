@@ -101,32 +101,6 @@ func (d *Database) %[1]s(ctx context.Context%s) (%serr error) {
 	return
 }
 `
-	newFuncRecordFormat = `// %sRowScanner run query with select
-type %[1]sRowScanner struct {
-		 %s
-}
-// GetFields implement dbEngine.RowScanner interface
-func (r *%[1]sRowScanner) GetFields(columns []dbEngine.Column) []any {
-	return []any{ 
-			 %[4]s 
-			}
-}
-// %[1]s run query with select DB function '%[7]s'
-// DB comment: '%s'
-// each will get every row from %[1]sRowScanner
-func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScanner) error%[3]s) (err error) {
-	res := &%[1]sRowScanner{}
-	err = d.Conn.SelectAndScanEach(ctx,
-				func () error {
-					return each(res)
-				},
-				res,
-				"%[5]s",
-				%s)
-	
-	return
-}
-`
 	colFormat    = "\n\t%-21s\t%-13s\t`json:\"%s\"`"
 	initFormat   = "\n\t\t%-21s:\t%s,"
 	scanFormat   = "\n\t\t%s,"
@@ -142,28 +116,6 @@ func (d *Database) %[1]sEach(ctx context.Context, each func(record *%[1]sRowScan
 	case "%s":
 		return r.%s
 `
-	formatDBprivate = `// printNotice logging some psql messages (invoked command 'RAISE ...')
-func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
-
-	switch {
-    case n.Code == "42P07" || strings.Contains(n.Message, "skipping") :
-		logs.DebugLog("skip operation: %%s", n.Message)
-
-	case n.Severity == "INFO" :
-		logs.StatusLog(n.Message)
-
-	case n.Code > "00000" :
-		err := (*pgconn.PgError)(n)
-		logs.CustomLog(logs.CRITICAL, "DB_EXEC",  err.File, int(err.Line),
-			fmt.Sprintf("%v, hint: %s, where: %s, %s %s", err, n.Hint, n.Where,  err.SQLState(), err.Routine), logs.FgErr)
-
-	case strings.HasPrefix(n.Message, "[[ERROR]]") :
-		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
-
-	default: // DEBUG
-		logs.DebugLog("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
-	}
-}`
 	formatTable = `// %s implement operations for %[5]s 
 // DB comment: '%[4]s'
 type %[1]s struct {

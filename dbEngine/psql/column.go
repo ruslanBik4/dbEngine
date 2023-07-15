@@ -9,6 +9,8 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/typesExt"
@@ -153,14 +155,21 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
-	b := UdtNameToType(c.UdtName)
-	if b == types.Invalid {
-		if c.UserDefined != nil {
-			if len(c.UserDefined.Enumerates) > 0 {
-				return types.String
+	if c.UserDefined != nil {
+		if len(c.UserDefined.Enumerates) > 0 {
+			return types.String
+		}
+		for _, tAttr := range c.UserDefined.Attr {
+			if tAttr.Name == "domain" {
+				logs.StatusLog(c.name, c.UdtName, c.UserDefined)
+				return UdtNameToType(tAttr.Type)
 			}
 		}
-		logs.StatusLog(c.name, c.UdtName, c.UserDefined)
+	}
+	b := UdtNameToType(c.UdtName)
+	if b == types.Invalid {
+		logs.StatusLog(c, c.UdtName, c.UserDefined)
+		logs.ErrorStack(errors.New("test"))
 	}
 	return b
 }

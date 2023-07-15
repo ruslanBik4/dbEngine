@@ -509,6 +509,14 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
+		"simple where with ~name": {
+			[]interface{}{1},
+			nil,
+			[]string{"~name"},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
 		"case": {
 			[]interface{}{1},
 			nil,
@@ -669,6 +677,11 @@ func TestSQLBuilder_Where(t *testing.T) {
 		{
 			"simple where with <id",
 			" WHERE  id < $1",
+			assert.Equal,
+		},
+		{
+			"simple where with ~name",
+			" WHERE  name ~ $1",
 			assert.Equal,
 		},
 		{

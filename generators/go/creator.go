@@ -57,14 +57,18 @@ func (c *Creator) makeDBUsersTypes() error {
 	for tName, t := range c.db.Types {
 		for i, tAttr := range t.Attr {
 			name := tAttr.Name
-			propName := strcase.ToCamel(name)
+			ud := &t
+			if tAttr.Name == "domain" {
+				logs.StatusLog("%s, %c %v", tName, t.Type, tAttr)
+				ud = nil
+			}
 			typeCol, _ := c.chkTypes(
 				&psql.Column{
 					UdtName:     tAttr.Type,
 					DataType:    tAttr.Type,
-					UserDefined: &t,
+					UserDefined: ud,
 				},
-				propName)
+				strcase.ToCamel(name))
 			if typeCol == "" {
 				logs.ErrorLog(dbEngine.NewErrNotFoundType(name, tAttr.Type), tAttr)
 			}
@@ -118,6 +122,18 @@ func (c *Creator) chkDefineType(udtName string) string {
 	if t, ok := c.db.Types[udtName]; ok {
 		if len(t.Enumerates) > 0 {
 			return prefix + "string"
+		}
+		for _, tAttr := range t.Attr {
+			if tAttr.Name == "domain" {
+				typeCol, _ := c.chkTypes(
+					&psql.Column{
+						UdtName:     tAttr.Type,
+						DataType:    tAttr.Type,
+						UserDefined: nil,
+					},
+					strcase.ToCamel(tAttr.Name))
+				return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(typeCol))
+			}
 		}
 		return fmt.Sprintf("%s%s", prefix, strcase.ToCamel(udtName))
 	}
@@ -263,6 +279,13 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	bTypeCol := col.BasicType()
 	defValue := col.Default()
+	if ud := col.UserDefinedType(); ud != nil {
+		for _, tAttr := range ud.Attr {
+			if tAttr.Name == "domain" {
+				return tAttr.Type, defValue
+			}
+		}
+	}
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
 
