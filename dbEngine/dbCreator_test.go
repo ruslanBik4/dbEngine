@@ -124,8 +124,8 @@ func TestParserTableDDL_alterColumn(t *testing.T) {
 	type args struct {
 		sAlter    string
 		fieldName string
-		title     string
-		fs        Column
+		colDefine string
+		col       Column
 	}
 	tests := []struct {
 		name    string
@@ -146,7 +146,7 @@ func TestParserTableDDL_alterColumn(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			if err := p.alterColumn(tt.args.sAlter, tt.args.fieldName, tt.args.title, tt.args.fs); (err != nil) != tt.wantErr {
+			if err := p.alterColumn(tt.args.col.Name(), tt.args.sAlter); (err != nil) != tt.wantErr {
 				t.Errorf("alterColumn() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -203,9 +203,9 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 		isCreateDone bool
 	}
 	type args struct {
-		fs    Column
-		title string
-		res   []FlagColumn
+		col       Column
+		colDefine string
+		flags     []FlagColumn
 	}
 	tests := []struct {
 		name    string
@@ -226,7 +226,7 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			if err := p.checkColumn(tt.args.fs, tt.args.title, tt.args.res); (err != nil) != tt.wantErr {
+			if err := p.checkColumn(tt.args.col, tt.args.colDefine, tt.args.flags); (err != nil) != tt.wantErr {
 				t.Errorf("checkColumn() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -244,9 +244,9 @@ func TestParserTableDDL_checkPrimary(t *testing.T) {
 		isCreateDone bool
 	}
 	type args struct {
-		fs          Column
-		fieldDefine string
-		res         []FlagColumn
+		col       Column
+		colDefine string
+		flags     []FlagColumn
 	}
 	tests := []struct {
 		name   string
@@ -266,7 +266,7 @@ func TestParserTableDDL_checkPrimary(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			p.checkPrimary(tt.args.fs, tt.args.fieldDefine, tt.args.res)
+			p.checkPrimary(tt.args.col, tt.args.colDefine, tt.args.flags)
 		})
 	}
 }

@@ -265,4 +265,4 @@ func (err *ErrUnknownSql) Error() string {
 	return fmt.Sprintf("unknow sql `%s` for DB migration ", err.sql)
 }
 
-var errWrongTableName = errors.New("wrong table name '%v ")
+var errWrongTableName = errors.New("wrong table name '%v' %s")

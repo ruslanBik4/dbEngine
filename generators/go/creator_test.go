@@ -24,7 +24,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 		table dbEngine.Table
 	}
 
-	table, err := csv.NewTable("/Users/ruslan/work/src/github.com/ruslanBik4/polymer/data/polymers.csv")
+	table, err := csv.NewTable("/Users/ruslan_bik/GolandProjects/polymer/data/polymers.csv")
 	if !assert.Nil(t, err) {
 		t.FailNow()
 	}
@@ -88,5 +88,5 @@ func TestStringsUpper(t *testing.T) {
 		"Accounts",
 		"Array"+strcase.ToCamel(strings.TrimPrefix("[]int32", "[]")), 1, "")
 
-	assert.Equal(t, t, `Accounts             :    psql.GetArrayInt32FromByte(ci, srcPart[1], "")`, s)
+	assert.Equal(t, `Accounts             :    psql.GetArrayInt32FromByte(ci, srcPart[1], "")`, s)
 }

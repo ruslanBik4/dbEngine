@@ -179,7 +179,8 @@ func (r *Routine) GetParams(ctx context.Context) error {
 
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
-			if strings.HasPrefix(r.tempParam.colDefault.(string), "NULL") {
+
+			if s, ok := r.tempParam.colDefault.(string); ok && strings.HasPrefix(s, "NULL") {
 				r.tempParam.colDefault = nil
 			}
 			if strings.HasPrefix(r.paramMode, "IN") {

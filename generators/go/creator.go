@@ -220,7 +220,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	}()
 
 	c.packages, c.initValues = make([]string, 0), ""
-	c.addImport(moduloPgType, "bytes", "sync")
+	c.addImport(moduloPgType, "sync")
 	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
 	for ind, col := range table.Columns() {
 		propName := strcase.ToCamel(col.Name())
@@ -255,7 +255,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		packages = `"` + strings.Join(c.packages, `"
 	"`) + `"`
 	}
-	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, packages)
+	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, table.Name(), packages)
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -268,10 +268,7 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
 
-	_, err = fmt.Fprintf(f, formatType, name, sTypeField)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
+	NewColumnType(name, table.Name(), table.Columns()).WriteColumnType(f)
 
 	return err
 }

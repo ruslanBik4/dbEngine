@@ -23,7 +23,7 @@ type Column struct {
 	table                  *Table
 	name                   string
 	DataType               string
-	colDefault             interface{}
+	colDefault             any
 	isNullable             bool
 	CharacterSetName       string
 	comment                string
@@ -91,8 +91,8 @@ func (c *Column) Copy() *Column {
 }
 
 // GetFields implement RowColumn interface
-func (c *Column) GetFields(columns []dbEngine.Column) []interface{} {
-	v := make([]interface{}, len(columns))
+func (c *Column) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
 	for i, col := range columns {
 		v[i] = c.RefColValue(col.Name())
 	}
@@ -110,7 +110,7 @@ func NewColumn(
 	table *Table,
 	name string,
 	dataType string,
-	colDefault interface{},
+	colDefault any,
 	isNullable bool,
 	characterSetName string,
 	comment string,
@@ -217,6 +217,7 @@ func UdtNameToType(udtName string) types.BasicKind {
 
 const (
 	isNotNullable = "not null"
+	isDefineArray = "[]"
 )
 
 var dataTypeAlias = map[string][]string{
@@ -237,15 +238,8 @@ var dataTypeAlias = map[string][]string{
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
-	fieldDefine = strings.ToLower(fieldDefine)
-	isNotNull := strings.Contains(fieldDefine, isNotNullable)
-	if c.isNullable && isNotNull {
-		res = append(res, dbEngine.MustNotNull)
-	} else if !c.isNullable && !isNotNull {
-		res = append(res, dbEngine.Nullable)
-	}
-
+func (c *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
+	colDefine = strings.ToLower(colDefine)
 	// todo: add check arrays
 	lenCol := c.CharacterMaximumLength()
 	udtName := c.UdtName
@@ -253,14 +247,14 @@ func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	if isArray {
 		udtName = a + "[]"
 	}
-	isTypeValid := strings.HasPrefix(fieldDefine, c.DataType) || strings.HasPrefix(fieldDefine, udtName)
+	isTypeValid := strings.HasPrefix(colDefine, c.DataType) || strings.HasPrefix(colDefine, udtName)
 	if !isTypeValid {
 		t := c.UdtName
 		if isArray {
 			t = a
 		}
 		for _, alias := range dataTypeAlias[t] {
-			isTypeValid = strings.HasPrefix(fieldDefine, alias)
+			isTypeValid = strings.HasPrefix(colDefine, alias)
 			if isTypeValid {
 				break
 			}
@@ -268,15 +262,26 @@ func (c *Column) CheckAttr(fieldDefine string) (res []dbEngine.FlagColumn) {
 	}
 
 	if isTypeValid {
-		if strings.HasPrefix(c.DataType, "character") &&
-			(lenCol > 0) &&
-			!strings.Contains(fieldDefine, fmt.Sprintf("char(%d)", lenCol)) {
-			res = append(res, dbEngine.ChgLength)
+		if isArray != strings.Contains(colDefine, isDefineArray) {
+			logs.StatusLog(isArray, colDefine)
+			flags = append(flags, dbEngine.ChgToArray)
+		}
+		if strings.HasPrefix(c.DataType, "character") && (lenCol > 0) &&
+			!strings.Contains(colDefine, fmt.Sprintf("char(%d)", lenCol)) {
+
+			flags = append(flags, dbEngine.ChgLength)
 		}
 	} else {
-		logs.DebugLog(fieldDefine, c.name, c.DataType, udtName)
-		res = append(res, dbEngine.ChgType)
+		logs.DebugLog(colDefine, c.name, c.DataType, udtName)
+		flags = append(flags, dbEngine.ChgType)
 		logs.DebugLog(c.DataType, c.UdtName, lenCol)
+	}
+
+	isNotNull := strings.Contains(colDefine, isNotNullable)
+	if c.isNullable && isNotNull {
+		flags = append(flags, dbEngine.MustNotNull)
+	} else if !c.isNullable && !isNotNull {
+		flags = append(flags, dbEngine.Nullable)
 	}
 
 	return
@@ -323,12 +328,12 @@ func (c *Column) SetNullable(f bool) {
 }
 
 // Default return default value of column
-func (c *Column) Default() interface{} {
+func (c *Column) Default() any {
 	return c.colDefault
 }
 
 // SetDefault set default value into column
-func (c *Column) SetDefault(d interface{}) {
+func (c *Column) SetDefault(d any) {
 	str, ok := d.(string)
 	if !ok {
 		c.colDefault = nil
@@ -361,7 +366,7 @@ func (c *Column) SetDefault(d interface{}) {
 }
 
 // RefColValue referral of column property 'name'
-func (c *Column) RefColValue(name string) interface{} {
+func (c *Column) RefColValue(name string) any {
 	switch name {
 	case "data_type":
 		return &c.DataType

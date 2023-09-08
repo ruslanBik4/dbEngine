@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
+
 	"github.com/ruslanBik4/logs"
 )
 
@@ -48,7 +49,7 @@ func (b SQLBuilder) InsertSql() (string, error) {
 }
 
 func (b SQLBuilder) insertSql() string {
-	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s) %s", b.Table.Name(), b.Select(), b.values(), b.OnConflict())
+	return fmt.Sprintf(`INSERT INTO %s(%s) VALUES (%s) %s`, b.Table.Name(), b.Select(), b.values(), b.OnConflict())
 }
 
 // UpdateSql construct update sql
@@ -421,10 +422,10 @@ func (b *SQLBuilder) OnConflict() string {
 	}
 
 	if b.onConflict == "DO NOTHING" {
-		return " ON CONFLICT " + b.onConflict
+		return "ON CONFLICT " + b.onConflict
 	}
 
-	return " ON CONFLICT (" + b.onConflict + ")"
+	return "ON CONFLICT (" + b.onConflict + ")"
 }
 
 func (b *SQLBuilder) values() string {

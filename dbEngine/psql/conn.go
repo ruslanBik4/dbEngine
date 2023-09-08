@@ -195,7 +195,6 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 				t, ok := types[column.UdtName]
 				if ok {
 					column.UserDefined = &t
-					logs.DebugLog("USER-DEFINED type '%s': %+v", column.name, column.UserDefined)
 				} else {
 					logs.StatusLog(name, column)
 
@@ -262,10 +261,8 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 				t, ok := types[column.UdtName]
 				if ok {
 					column.UserDefined = &t
-					logs.DebugLog("USER-DEFINED type '%s': %+v", column.name, column.UserDefined)
 				} else {
 					logs.StatusLog(column)
-
 				}
 			}
 			for _, key := range column.Constraints {

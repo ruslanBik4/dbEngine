@@ -262,7 +262,7 @@ func TestTable_InitConn(t1 *testing.T) {
 			},
 			args{
 				ctx:      context.Background(),
-				filePath: "/Users/ruslan/work/src/github.com/ruslanBik4/polymer/data/polymers.csv",
+				filePath: "/Users/ruslan_bik/GolandProjects/polymer/data/polymers.csv",
 			},
 			false,
 		},

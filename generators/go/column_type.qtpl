@@ -1,0 +1,134 @@
+{% package _go %}
+{% import (
+	"github.com/iancoleman/strcase"
+	"github.com/ruslanBik4/dbEngine/dbEngine"
+)
+%}
+
+{% code
+type ColumnType struct {
+    name string
+    sName string
+    columns []dbEngine.Column
+}
+
+func NewColumnType(name, sName string, columns []dbEngine.Column) *ColumnType {
+    return &ColumnType{
+        name: name,
+        sName: sName,
+        columns: columns,
+    }
+} 
+%}
+{% func (c *ColumnType) ColumnType() %}
+// {%s c.name %}PsqlType interface for reading data from psql connection
+type (
+	{%s c.name %}PsqlType struct {
+		{%s c.name %}Fields
+		Status      pgtype.Status 
+		convertErrs []string
+	}
+)
+
+// GetFields implement dbEngine.RowScanner interface
+func (r *{%s c.name %}PsqlType) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
+	for i, col := range columns {
+		switch name:= col.Name(); name {
+		case "{%s c.sName %}":
+			v[i] = r
+		default:
+			v[i] = r.RefColValue(name)
+		}
+	}
+
+	return v
+}
+// Set implement pgtype.Value interface
+func (dst *{%s c.name %}PsqlType) Set(src any) error {
+	switch value := src.(type) {
+	// untyped nil and typed nil interfaces are different
+	case nil:
+		*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
+		return nil
+	case {%s c.name %}PsqlType:
+		*dst = {%s c.name %}PsqlType{
+			{%s c.name %}Fields: value.{%s c.name %}Fields,
+			Status:          pgtype.Present,
+		}
+		return nil
+
+	default:
+		return nil
+	}
+}
+// Get implement pgtype.Value interface
+func (dst *{%s c.name %}PsqlType) Get() any {
+	switch dst.Status {
+	case pgtype.Present:
+		return *dst
+	case pgtype.Null:
+		return nil
+	default:
+		return dst.Status
+	}
+}
+// AssignTo implement pgtype.Value interface
+func (src *{%s c.name %}PsqlType) AssignTo(dst any) error {
+	switch src.Status {
+	case pgtype.Present:
+		switch v := dst.(type) {
+		case *{%s c.name %}PsqlType:
+			(*v).{%s c.name %}Fields = src.{%s c.name %}Fields
+			return nil
+
+		default:
+			if nextDst, retry := pgtype.GetAssignToDstType(dst); retry {
+				return src.AssignTo(nextDst)
+			}
+		}
+		return nil
+
+	case pgtype.Null:
+		return pgtype.NullAssignTo(dst)
+
+	default:
+		return errors.Errorf("cannot decode %%v into %%T", src, dst)
+	}
+}
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *{%s c.name %}PsqlType) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
+	if len(src) == 0 {
+		return nil
+	}
+
+	c := pgtype.NewCompositeTextScanner(ci, src)
+
+	return dst.scanAll(c)
+}
+// DecodeBinary implement pgtype.DecodeBinary interface
+func (dst *{%s c.name %}PsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
+	*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
+	if len(src) == 0 {
+		return nil
+	}
+
+	c := pgtype.NewCompositeBinaryScanner(ci, src)
+
+	return dst.scanAll(c)
+}
+
+func (dst *{%s c.name %}PsqlType) scanAll(c scanError) error {
+	{%- for _, col := range c.columns -%}
+	c.ScanValue(&dst.{%s strcase.ToCamel(col.Name()) %})
+	if err := c.Err(); err != nil {
+		logs.ErrorLog(err, "{%s col.Name() %}")
+		return err
+	}
+	{%- endfor -%}
+	dst.Status = pgtype.Present
+
+	return nil
+}
+{% endfunc %}

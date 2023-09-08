@@ -89,7 +89,7 @@ ORDER BY ordinal_position`
 	sqlGetFuncParams = `SELECT coalesce(parameter_name, 'noName') as parameter_name, data_type, udt_name,
 								COALESCE(character_set_name, '') as character_set_name,
 								COALESCE(character_maximum_length, -1) as character_maximum_length, 
-								COALESCE(parameter_default, '') as parameter_default,
+								parameter_default as parameter_default,
 								ordinal_position, parameter_mode
 						FROM INFORMATION_SCHEMA.parameters
 						WHERE specific_schema='public' AND specific_name=$1`

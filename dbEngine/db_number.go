@@ -18,6 +18,14 @@ func NewNumberColumn(name, comment string, req bool) *NumberColumn {
 	return &NumberColumn{comment: comment, name: name, req: req}
 }
 
+func (c *NumberColumn) UserDefinedType() *Types {
+	return nil
+}
+
+func (c *NumberColumn) Table() Table {
+	return TableString{}
+}
+
 // BasicType return GoLangs type of column
 func (c *NumberColumn) BasicType() types.BasicKind {
 	return types.Int

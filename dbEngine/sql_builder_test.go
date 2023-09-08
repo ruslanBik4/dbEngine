@@ -16,7 +16,7 @@ import (
 
 func TestArgsForSelect(t *testing.T) {
 	type args struct {
-		args []interface{}
+		args []any
 	}
 	tests := []struct {
 		name string
@@ -56,7 +56,7 @@ func TestColumnsForSelect(t *testing.T) {
 
 func TestSQLBuilder_InsertSql(t *testing.T) {
 	type fields struct {
-		Args      []interface{}
+		Args      []any
 		columns   []string
 		filter    []string
 		posFilter int
@@ -72,7 +72,7 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 		{
 			"simple insert",
 			fields{
-				[]interface{}{time.Now()},
+				[]any{time.Now()},
 				[]string{"last_login"},
 				nil,
 				0,
@@ -84,31 +84,31 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 		{
 			"two columns insert",
 			fields{
-				[]interface{}{1, "ruslan"},
+				[]any{1, "ruslan"},
 				[]string{"last_login", "name"},
 				nil,
 				0,
 				TableString{name: "StringTable"},
 			},
-			"INSERT INTO StringTable(last_login,name) VALUES ($1,$2)",
+			`INSERT INTO StringTable(last_login,name) VALUES ($1,$2)`,
 			false,
 		},
 		{
 			"two columns insert according two filter columns",
 			fields{
-				[]interface{}{"ruslan", time.Now()},
+				[]any{"ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				nil,
 				0,
 				TableString{name: "StringTable"},
 			},
-			"INSERT INTO StringTable(last_login,name) VALUES ($1,$2)",
+			`INSERT INTO StringTable(last_login,name) VALUES ($1,$2)`,
 			false,
 		},
 		{
 			"two columns insert according two filter columns & wrong args",
 			fields{
-				[]interface{}{1, "ruslan", time.Now()},
+				[]any{1, "ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				0,
@@ -132,16 +132,14 @@ func TestSQLBuilder_InsertSql(t *testing.T) {
 				t.Errorf("InsertSql() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("InsertSql() got = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, strings.TrimSpace(got), "InsertSql() got = %v, want %v")
 		})
 	}
 }
 
 func TestSQLBuilder_Select(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
+		Args          []any
 		columns       []string
 		filter        []string
 		posFilter     int
@@ -157,7 +155,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 		{
 			"simple insert",
 			fields{
-				[]interface{}{1, time.Now()},
+				[]any{1, time.Now()},
 				[]string{"last_login"},
 				[]string{"id"},
 				0,
@@ -169,7 +167,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 		{
 			"two columns update",
 			fields{
-				[]interface{}{1, "ruslan", time.Now()},
+				[]any{1, "ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				[]string{"id"},
 				0,
@@ -181,7 +179,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 		{
 			"two columns update according two filter columns",
 			fields{
-				[]interface{}{1, 2, "ruslan", time.Now()},
+				[]any{1, 2, "ruslan", time.Now()},
 				[]string{"last_login", "count(*) as allCount"},
 				[]string{"id", "id_roles"},
 				0,
@@ -193,7 +191,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 		{
 			"two columns update according four filter columns",
 			fields{
-				[]interface{}{1, "ruslan", time.Now()},
+				[]any{1, "ruslan", time.Now()},
 				[]string{"last_login", "name", "id", "id_roles"},
 				nil,
 				0,
@@ -221,7 +219,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 
 func TestSQLBuilder_SelectSql(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
+		Args          []any
 		columns       []string
 		filter        []string
 		orderBy       []string
@@ -253,7 +251,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"select full columns",
 			fields{
-				[]interface{}{1},
+				[]any{1},
 				nil,
 				[]string{"id"},
 				[]string{"id"},
@@ -267,7 +265,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"one columns &one filter select",
 			fields{
-				[]interface{}{1},
+				[]any{1},
 				[]string{"last_login"},
 				[]string{"id"},
 				[]string{"last_login"},
@@ -281,7 +279,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"two columns select",
 			fields{
-				[]interface{}{1},
+				[]any{1},
 				[]string{"last_login", "name"},
 				[]string{"id"},
 				[]string{"last_login", "name"},
@@ -295,7 +293,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"two columns select according two filter columns",
 			fields{
-				[]interface{}{1, 2},
+				[]any{1, 2},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				nil,
@@ -309,7 +307,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"two columns select according two filter columns & wrong args",
 			fields{
-				[]interface{}{1},
+				[]any{1},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				nil,
@@ -323,7 +321,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		{
 			"two columns select according two filter columns & fetch & offset",
 			fields{
-				[]interface{}{1, 2},
+				[]any{1, 2},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				nil,
@@ -360,7 +358,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 
 func TestSQLBuilder_Set(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
+		Args          []any
 		columns       []string
 		filter        []string
 		posFilter     int
@@ -394,7 +392,7 @@ func TestSQLBuilder_Set(t *testing.T) {
 
 func TestSQLBuilder_UpdateSql(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
+		Args          []any
 		columns       []string
 		filter        []string
 		posFilter     int
@@ -411,7 +409,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 		{
 			"simple update",
 			fields{
-				[]interface{}{1, time.Now()},
+				[]any{1, time.Now()},
 				[]string{"last_login"},
 				[]string{"id"},
 				0,
@@ -424,7 +422,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 		{
 			"two columns update",
 			fields{
-				[]interface{}{1, "ruslan", time.Now()},
+				[]any{1, "ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				[]string{"id"},
 				0,
@@ -437,7 +435,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 		{
 			"two columns update according two filter columns",
 			fields{
-				[]interface{}{1, 2, "ruslan", time.Now()},
+				[]any{1, 2, "ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				0,
@@ -450,7 +448,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 		{
 			"two columns update according two filter columns & wrong args",
 			fields{
-				[]interface{}{1, "ruslan", time.Now()},
+				[]any{1, "ruslan", time.Now()},
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				0,
@@ -483,7 +481,7 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 }
 
 type builderOpts struct {
-	Args          []interface{}
+	Args          []any
 	columns       []string
 	filter        []string
 	posFilter     int
@@ -494,7 +492,7 @@ type builderOpts struct {
 var (
 	testFields = map[string]builderOpts{
 		"simple where with id": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"id"},
 			0,
@@ -502,7 +500,7 @@ var (
 			nil,
 		},
 		"simple where with <id": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"<id"},
 			0,
@@ -510,7 +508,7 @@ var (
 			nil,
 		},
 		"simple where with ~name": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"~name"},
 			0,
@@ -518,7 +516,7 @@ var (
 			nil,
 		},
 		"case": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END"},
 			0,
@@ -526,7 +524,7 @@ var (
 			nil,
 		},
 		"case with included param": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = %s ELSE true END"},
 			0,
@@ -534,7 +532,7 @@ var (
 			nil,
 		},
 		"some params with OR condition one of them included param": {
-			[]interface{}{"name", 1, 3},
+			[]any{"name", 1, 3},
 			nil,
 			[]string{
 				"name",
@@ -546,7 +544,7 @@ var (
 			nil,
 		},
 		"null": {
-			[]interface{}{nil, "is not null", "is null"},
+			[]any{nil, "is not null", "is null"},
 			nil,
 			[]string{"id_parent", "id", "name"},
 			0,
@@ -554,7 +552,7 @@ var (
 			nil,
 		},
 		"null with other simples arguments": {
-			[]interface{}{nil, 0, "is not null", 4, "is null"},
+			[]any{nil, 0, "is not null", 4, "is null"},
 			nil,
 			[]string{"id_parent", "id", "temp is null", "name", "id_user", "comment"},
 			0,
@@ -562,7 +560,7 @@ var (
 			nil,
 		},
 		"borrowed > repaid": {
-			[]interface{}{1},
+			[]any{1},
 			[]string{
 				"borrowed > repaid",
 			},
@@ -612,7 +610,7 @@ var (
 			nil,
 		},
 		"or": {
-			[]interface{}{1},
+			[]any{1},
 			nil,
 			[]string{"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)"},
 			0,
@@ -620,7 +618,7 @@ var (
 			nil,
 		},
 		"one columns & one filter select": {
-			[]interface{}{1},
+			[]any{1},
 			[]string{"last_login"},
 			[]string{">id"},
 			0,
@@ -628,7 +626,7 @@ var (
 			nil,
 		},
 		"two columns": {
-			[]interface{}{1},
+			[]any{1},
 			[]string{"last_login", "name"},
 			[]string{"id", "$name"},
 			0,
@@ -636,7 +634,7 @@ var (
 			nil,
 		},
 		"two column with <, >": {
-			[]interface{}{1, 2},
+			[]any{1, 2},
 			[]string{"last_login", "name"},
 			[]string{"<id", ">id_roles"},
 			0,
@@ -644,7 +642,7 @@ var (
 			nil,
 		},
 		"two column with array": {
-			[]interface{}{[]int8{1, 3}, 2},
+			[]any{[]int8{1, 3}, 2},
 			[]string{"last_login", "name"},
 			[]string{"id", ">id_roles"},
 			0,
@@ -652,7 +650,7 @@ var (
 			nil,
 		},
 		"two column with wrong args": {
-			[]interface{}{1, 3},
+			[]any{1, 3},
 			[]string{"last_login", "name"},
 			[]string{"~name", "^name"},
 			0,
@@ -666,7 +664,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 	tests := []struct {
 		name string
 		want string
-		fnc  func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
+		fnc  func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool
 	}{
 		// TODO: Add test cases.
 		{
@@ -732,14 +730,14 @@ func TestSQLBuilder_Where(t *testing.T) {
 		{
 			"two column with <, >",
 			" WHERE  id < $1 AND id_roles > $2",
-			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+			func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool {
 				return assert.Equal(t, expected, actual, msgAndArgs...)
 			},
 		},
 		{
 			"two column with array",
 			" WHERE  id=ANY($1) AND id_roles > $2",
-			func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool {
+			func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool {
 				return assert.Equal(t, expected, actual, msgAndArgs...)
 			},
 		},
@@ -766,7 +764,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 
 func TestSQLBuilder_values(t *testing.T) {
 	type fields struct {
-		Args          []interface{}
+		Args          []any
 		columns       []string
 		filter        []string
 		posFilter     int
@@ -799,7 +797,7 @@ func TestSQLBuilder_values(t *testing.T) {
 func TestWhereForSelect(t *testing.T) {
 	tests := []struct {
 		name string
-		fnc  func(t assert.TestingT, expected, actual interface{}, msgAndArgs ...interface{}) bool
+		fnc  func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool
 	}{
 		// TODO: Add test cases.
 		{
@@ -842,7 +840,7 @@ func TestWhereForSelect(t *testing.T) {
 
 func TestSQLBuilder_UpsertSql(t *testing.T) {
 	type fields struct {
-		Args       []interface{}
+		Args       []any
 		columns    []string
 		posFilter  int
 		Table      Table
@@ -919,7 +917,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"simple table",
 			fields{
-				[]interface{}{time.Now(), "ruslan", 2, "222"},
+				[]any{time.Now(), "ruslan", 2, "222"},
 				[]string{"last_login", "name", "id_roles", "blob"},
 				0,
 				simpleTable,
@@ -931,7 +929,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"simple insert",
 			fields{
-				[]interface{}{1, time.Now()},
+				[]any{1, time.Now()},
 				columns,
 				0,
 				testTable,
@@ -943,7 +941,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"two columns update",
 			fields{
-				[]interface{}{1, time.Now(), "ruslan"},
+				[]any{1, time.Now(), "ruslan"},
 				threeColumns,
 				0,
 				testTable,
@@ -955,7 +953,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"two columns update according two filter columns",
 			fields{
-				[]interface{}{1, time.Now(), "ruslan"},
+				[]any{1, time.Now(), "ruslan"},
 				threeColumns,
 				0,
 				testTable,
@@ -967,7 +965,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"two columns update according four filter columns",
 			fields{
-				[]interface{}{1, time.Now(), "ruslan", 2},
+				[]any{1, time.Now(), "ruslan", 2},
 				[]string{"id", "last_login", "name", "id_roles"},
 				0,
 				testTable,
@@ -979,7 +977,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"two columns update according four filter columns & unique index",
 			fields{
-				[]interface{}{1, time.Now(), "ruslan", 2},
+				[]any{1, time.Now(), "ruslan", 2},
 				[]string{"last_login", "name", "id_roles", "blob"},
 				0,
 				testTable,
@@ -991,7 +989,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		{
 			"two columns update according four filter columns & unique index",
 			fields{
-				[]interface{}{1, time.Now(), "ruslan", 2},
+				[]any{1, time.Now(), "ruslan", 2},
 				[]string{"candidate_id", "vacancy_id", "id_roles", "blob"},
 				0,
 				testTwoColumns,
