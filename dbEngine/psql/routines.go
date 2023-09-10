@@ -24,15 +24,6 @@ type PgxRoutineParams struct {
 	Position int32
 }
 
-// Type of routines param
-func (p *PgxRoutineParams) Type() string {
-	if p.DataType == "ARRAY" {
-		return p.UdtName[1:] + "[]"
-	}
-
-	return p.UdtName
-}
-
 // Routine consist data of DB routine and operation for reading it and perform query
 type Routine struct {
 	conn      *Conn

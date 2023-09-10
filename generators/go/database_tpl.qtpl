@@ -286,15 +286,14 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 // {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
 // DB comment: '{%s r.Comment %}'
 // ATTENTION! It returns only 1 row {%s typeReturn %}
-func (d *Database) {%s camelName %}(ctx context.Context,
-				{%= c.paramsTitle(r) %}
-) (res {%s typeReturn %}, err error) {
+func (d *Database) {%s camelName %}(
+	ctx context.Context,
+{%= c.paramsTitle(r) %}) (res {%s typeReturn %}, err error) {
 	err = d.Conn.SelectOneAndScan(ctx,
-				&res,
-				`{%s sql %}
-				FETCH FIRST 1 ROW ONLY`,
-				{%= c.paramsArgs(r) %}
-			)
+		&res,
+		`{%s sql %}
+		FETCH FIRST 1 ROW ONLY`,
+		{%= c.paramsArgs(r) %}      )
 
 	return
 }
@@ -303,48 +302,48 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 // {%s camelName %}Each run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 // each will get every row from &{%s camelName %}sRowScanner
-func (d *Database) {%s camelName %}Each(ctx context.Context,
+func (d *Database) {%s camelName %}Each(
+	ctx context.Context,
 	each func(record *{%s typeReturn %}) error,
-	{%= c.paramsTitle(r) %}
-) error {
+{%= c.paramsTitle(r) %}) error {
 	res := &{%s typeReturn %}{}
 	err := d.Conn.SelectAndScanEach(ctx,
-				func () error {
-					defer func () {
-					//	create new record
-						*res = {%s typeReturn %}{}
-					}()
+		func () error {
+			defer func () {
+			//	create new record
+				*res = {%s typeReturn %}{}
+			}()
 
-					if each != nil {
-						return each(res)
-					}
-					return nil
-				},
-				res,
-				`{%s sql %}`,
-				{%= c.paramsArgs(r) %}
-		)
+			if each != nil {
+				return each(res)
+			}
+			return nil
+		},
+		res,
+		`{%s sql %}`,
+{%= c.paramsArgs(r) %}      )
+
 	return err
 }
 // {%s camelName %}All run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 // each will get every row from &{%s camelName %}sRowScanner
-func (d *Database) {%s camelName %}All(ctx context.Context,
-	{%= c.paramsTitle(r) %}
-) (res []{%s typeReturn %}, err error) {
+func (d *Database) {%s camelName %}All(
+	ctx context.Context,
+{%= c.paramsTitle(r) %}) (res []{%s typeReturn %}, err error) {
 	buf := {%s typeReturn %}{}
 	err = d.Conn.SelectAndScanEach(ctx,
-				func () error {
-					res = append(res, buf)
-					//	create new record
-					buf = {%s typeReturn %}{}
+		func () error {
+			res = append(res, buf)
+			//	create new record
+			buf = {%s typeReturn %}{}
 
-					return nil
-				},
-				&buf,
-				`{%s sql %}`,
-				{%= c.paramsArgs(r) %}
-		)
+			return nil
+		},
+		&buf,
+		`{%s sql %}`,
+{%= c.paramsArgs(r) %}      )
+
 	return
 }
 {%- endif %}
@@ -360,7 +359,7 @@ type {%s camelName %}RowScanner struct {
 			s := strcase.ToCamel(param.Name())
 			typeCol, _ := c.chkTypes(param, s)
 		-%}
-	{%s s %}    {%s typeCol %}  `json:"{%s param.Name()%}"`
+	{%s s %}{%s "\t\t"%}{%s typeCol %}{%s "\t\t"%}`json:"{%s param.Name()%}"`
 	{%- endfor -%}
 }
 // GetFields implement dbEngine.RowScanner interface
@@ -385,12 +384,12 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 		s := strcase.ToLowerCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 	-%}
-	{%s s %} {%s typeCol %},
+	{%s s %}{%s "\t\t"%}{%s typeCol %},
 	{%- endfor -%}
 {%- endfunc -%}
 {%- func (c *Creator) paramsArgs(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
-	{%s strcase.ToLowerCamel(param.Name()) %},
+		{%s strcase.ToLowerCamel(param.Name()) %},
 	{%- endfor -%}
 {%- endfunc -%}
 

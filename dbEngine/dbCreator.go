@@ -412,24 +412,25 @@ func (p *ParserTableDDL) checkColumn(col Column, colDefine string, flags []FlagC
 func (p *ParserTableDDL) alterColumnsType(col Column, colDefine string, toArray bool) string {
 	attr := strings.Split(colDefine, " ")
 	typeDef := attr[0]
+	colType := col.Type()
 	switch typeDef {
 	case "serial":
 		typeDef = "integer"
 	case "bigserial":
 		typeDef = "bigint"
 	case "money":
-		if col.Type() == "double precision" {
+		if colType == "double precision" {
 			typeDef = "numeric::" + typeDef
 		}
-		typeDef = "bigint"
 	case "character":
 		if strings.HasPrefix(attr[1], "varying") {
 			typeDef += " " + attr[1]
 		}
 	case "double":
-		if strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")") {
-			typeDef += " " + attr[1]
+		if colType == "money" {
+			typeDef = "numeric::" + typeDef
 		}
+		typeDef += " " + attr[1]
 	}
 
 	if toArray {

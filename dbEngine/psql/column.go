@@ -169,7 +169,7 @@ func (c *Column) BasicType() types.BasicKind {
 	b := UdtNameToType(c.UdtName)
 	if b == types.Invalid {
 		logs.StatusLog(c, c.UdtName, c.UserDefined)
-		logs.ErrorStack(errors.New("test"))
+		logs.ErrorStack(errors.New("invalid type"), c.UdtName)
 	}
 	return b
 }
@@ -196,7 +196,8 @@ func UdtNameToType(udtName string) types.BasicKind {
 	case "numeric", "decimal", "_numeric", "_decimal":
 		// todo add check field length
 		return types.UntypedFloat
-	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange":
+	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange",
+		"numrange":
 		return typesExt.TStruct
 	case "json", "jsonb":
 		return types.UnsafePointer

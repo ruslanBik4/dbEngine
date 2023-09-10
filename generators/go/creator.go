@@ -318,6 +318,13 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 			} else {
 				c.initValues += fmt.Sprintf(initFormat, propName, "psql.NewNumericNull()")
 			}
+		case "_numeric", "_decimal", "numeric[]", "decimal[]":
+			typeCol = "[]psql.Numeric"
+		default:
+			logs.ErrorLog(dbEngine.ErrNotFoundColumn{
+				Table:  propName,
+				Column: col.Type(),
+			}, col)
 		}
 
 	case isArray:

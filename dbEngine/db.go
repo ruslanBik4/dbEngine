@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
@@ -409,33 +408,6 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 	default:
 		return nil
 	}
-}
-
-func logError(err error, ddlSQL string, fileName string) {
-
-	if pgErr, ok := err.(*pgconn.PgError); ok {
-		pos := int(pgErr.Position - 1)
-		if pos <= 0 {
-			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1
-		}
-		line := strings.Count(ddlSQL[:pos], "\n") + 1
-		msg := fmt.Sprintf("%s: %s", pgErr.Message, pgErr.Detail)
-		if pgErr.Where > "" {
-			msg += "(" + pgErr.Where + ")"
-		}
-		if pgErr.Hint > "" {
-			msg += "'" + pgErr.Hint + "'"
-		}
-		printError(fileName, line, msg)
-	} else if e, ok := err.(*ErrUnknownSql); ok {
-		printError(fileName, e.Line, e.Msg+e.sql)
-	} else {
-		printError(fileName, 1, err.Error())
-	}
-}
-
-func printError(fileName string, line int, msg string) {
-	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
 }
 
 func logInfo(prefix, fileName, msg string, line int) {

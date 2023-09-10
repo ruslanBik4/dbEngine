@@ -256,19 +256,19 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 	}
 
 	for _, table := range tables {
-		for _, column := range table.(*Table).columns {
-			if column.DataType == "USER-DEFINED" {
-				t, ok := types[column.UdtName]
-				if ok {
-					column.UserDefined = &t
-				} else {
-					logs.StatusLog(column)
+		for _, col := range table.(*Table).columns {
+			if col.DataType == "USER-DEFINED" {
+
+				if t, ok := types[col.UdtName]; ok {
+					col.UserDefined = &t
+					//	todo: research how to determinate CITEXT on database
+				} else if col.UdtName != "citext" {
+					logs.StatusLog(col)
 				}
 			}
-			for _, key := range column.Constraints {
+			for _, key := range col.Constraints {
 				if key != nil && key.ForeignCol == nil {
-					p, ok := tables[key.Parent]
-					if ok {
+					if p, ok := tables[key.Parent]; ok {
 						key.ForeignCol = p.FindColumn(key.Column)
 					}
 				}
