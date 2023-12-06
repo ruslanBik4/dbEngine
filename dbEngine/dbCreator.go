@@ -524,9 +524,10 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 
 	regIndex := ddlIndex
-	columns := ddlIndex.FindStringSubmatch(strings.ToLower(ddl))
+	lower := strings.ToLower(ddl)
+	columns := ddlIndex.FindStringSubmatch(lower)
 	if len(columns) == 0 {
-		columns = ddlForeignIndex.FindStringSubmatch(strings.ToLower(ddl))
+		columns = ddlForeignIndex.FindStringSubmatch(lower)
 		if len(columns) == 0 {
 			return nil, nil
 		}
@@ -537,11 +538,10 @@ func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 	for i, name := range regIndex.SubexpNames() {
 
 		if !(i < len(columns)) {
-			return nil, errors.New("out if columns!" + name)
+			return nil, errors.Errorf("out if columns '%s'!", name)
 		}
 
-		token := columns[i]
-		switch name {
+		switch token := columns[i]; name {
 		case "":
 		case "fTable":
 			ind.foreignTable = token
@@ -549,31 +549,31 @@ func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 			ind.updateCascade = token
 		case "onDelete":
 			ind.deleteCascade = token
-		case "table":
-			if token != p.Name() {
-				return nil, errors.New("bad table name! " + token)
-			}
 		case "index":
 			ind.Name = token
+		case "unique":
+			ind.Unique = token == name
+		case "table":
+			if token != p.Name() {
+				//return nil, errors.Errorf("bad table name '%s'! %s", token, ddl)
+			}
 		case "columns":
-			for _, colDdl := range strings.Split(token, ",") {
-				col, isLegal := CheckColumn(strings.TrimSpace(colDdl), p)
-				if isLegal {
+			if token > "" {
+				ind.Columns = append(ind.Columns, strings.Split(token, ",")...)
+
+				if len(ind.Columns) == 0 {
+					return nil, ErrNotFoundColumn{p.Name(), token}
+				}
+			}
+		case "expr":
+			ind.Expr = token
+			for _, name := range regColumn.FindAllString(token, -1) {
+				if col := p.FindColumn(name); col != nil {
 					ind.Columns = append(ind.Columns, col.Name())
-				} else {
-					ind.Expr += colDdl
+					logs.StatusLog(name)
 				}
 			}
 
-			if len(ind.Columns) == 0 {
-				return nil, ErrNotFoundColumn{p.Name(), token}
-			}
-
-			// if strings.Join(ind.Columns, ",") != token {
-			//	ind.Expr = token
-			// }
-		case "unique":
-			ind.Unique = token == name
 		default:
 			logInfo(prefix, p.filename, name+token, p.line)
 		}

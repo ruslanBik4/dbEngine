@@ -25,7 +25,7 @@ func NewTableString(name string, comment string, columns []Column, indexes Index
 	return &TableString{columns: columns, indexes: indexes, name: name, comment: comment, Rows: rows}
 }
 
-// GetIndexes collect index of table
+// Indexes collect index of table
 func (t TableString) Indexes() Indexes {
 	return t.indexes
 }
@@ -53,7 +53,12 @@ func (t TableString) FindColumn(name string) Column {
 
 // FindIndex get index according to name
 func (t TableString) FindIndex(name string) *Index {
-	panic("implement me")
+	for _, ind := range t.indexes {
+		if ind.Name == name {
+			return ind
+		}
+	}
+	return nil
 }
 
 // GetColumns получение значений полей для форматирования данных

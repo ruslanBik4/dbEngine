@@ -296,8 +296,11 @@ func (b *SQLBuilder) SetUpsert() (string, error) {
 
 loop_columns:
 	for _, name := range b.columns {
-		for _, col := range b.filter {
-			if col == name {
+		if c := b.onConflict; c == name || b.chkFilter(c, name) {
+			continue loop_columns
+		}
+		for _, f := range b.filter {
+			if f == name || b.chkFilter(f, name) {
 				continue loop_columns
 			}
 		}
@@ -306,6 +309,18 @@ loop_columns:
 	}
 
 	return s, nil
+}
+
+func (b *SQLBuilder) chkFilter(filter, name string) bool {
+	if parts := regColumn.FindAllString(filter, -1); len(parts) > 0 {
+		for _, part := range parts {
+			if name == part {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 // Where return where-clause of sql query

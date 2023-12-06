@@ -868,8 +868,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 	testTable := TableString{
 		name: "StringTable",
 		columns: append(
-			// todo column blob change!
-			SimpleColumns("last_login", "name", "id_roles", "blob"),
+			SimpleColumns("last_login", "name", "id_roles", "blob", "id_props"),
 			&StringColumn{
 				comment: "id",
 				name:    "id",
@@ -877,11 +876,16 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 			}),
 		indexes: Indexes{
 			{
-				Name: "photos_test",
-				//Expr: "",
+				Name:    "photos_test",
 				Expr:    "digest(blob, 'sha1')",
 				Unique:  true,
 				Columns: []string{"blob", "name"},
+			},
+			{
+				Name:    "props_test",
+				Expr:    "",
+				Unique:  true,
+				Columns: []string{"name", "id_props"},
 			},
 		},
 	}
@@ -911,7 +915,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		name    string
 		fields  fields
 		want    string
-		wantErr bool
+		wantErr assert.ErrorAssertionFunc
 	}{
 		// TODO: Add test cases.
 		{
@@ -924,7 +928,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			"INSERT INTO simpleTable(last_login,name,id_roles,blob) VALUES ($1,$2,$3,$4)",
-			false,
+			assert.NoError,
 		},
 		{
 			"simple insert",
@@ -936,7 +940,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			fmt.Sprintf(sqlTmpl2Columns, columns[0], columns[1], "$1,$2"),
-			false,
+			assert.NoError,
 		},
 		{
 			"two columns update",
@@ -948,7 +952,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name",
-			false,
+			assert.NoError,
 		},
 		{
 			"two columns update according two filter columns",
@@ -960,7 +964,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			"INSERT INTO StringTable(id,last_login,name) VALUES ($1,$2,$3) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name",
-			false,
+			assert.NoError,
 		},
 		{
 			"two columns update according four filter columns",
@@ -972,7 +976,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			"INSERT INTO StringTable(id,last_login,name,id_roles) VALUES ($1,$2,$3,$4) ON CONFLICT (id) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
-			false,
+			assert.NoError,
 		},
 		{
 			"two columns update according four filter columns & unique index",
@@ -983,11 +987,11 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				testTable,
 				"",
 			},
-			"INSERT INTO StringTable(last_login,name,id_roles,blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles",
-			false,
+			`INSERT INTO StringTable(last_login,name,id_roles,blob) VALUES ($1,$2,$3,$4) ON CONFLICT (digest(blob, 'sha1')) DO UPDATE SET last_login=EXCLUDED.last_login, name=EXCLUDED.name, id_roles=EXCLUDED.id_roles`,
+			assert.NoError,
 		},
 		{
-			"two columns update according four filter columns & unique index",
+			"two columns update according four filter columns & primary index",
 			fields{
 				[]any{1, time.Now(), "ruslan", 2},
 				[]string{"candidate_id", "vacancy_id", "id_roles", "blob"},
@@ -996,7 +1000,19 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				"",
 			},
 			fmt.Sprintf(sqlTmpl3Columns, "candidate_id,vacancy_id", "id_roles", "blob", "$1,$2,$3,$4"),
-			false,
+			assert.NoError,
+		},
+		{
+			"two columns update according four filter columns & unique index",
+			fields{
+				[]any{1, time.Now(), "ruslan", 2},
+				[]string{"name", "id_props", "last_login", "id_roles"},
+				0,
+				testTable,
+				"name,id_props",
+			},
+			fmt.Sprintf(sqlTmpl3Columns, "name,id_props", "last_login", "id_roles", "$1,$2,$3,$4"),
+			assert.NoError,
 		},
 	}
 	for _, tt := range tests {
@@ -1009,10 +1025,10 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 				onConflict: tt.fields.onConflict,
 			}
 			got, err := b.UpsertSql()
-			if !assert.True(t, tt.wantErr == (err != nil)) {
+			if !tt.wantErr(t, err) {
 				return
 			}
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want, strings.TrimSpace(got))
 		})
 	}
 }

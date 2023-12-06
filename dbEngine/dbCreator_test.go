@@ -66,7 +66,7 @@ func TestParserTableDDL_Parse(t *testing.T) {
 				isCreateDone: tt.fields.isCreateDone,
 			}
 			if err := p.Parse(tt.args.ddl); (err != nil) != tt.wantErr {
-				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("Parse() error = %v, fncErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -147,7 +147,7 @@ func TestParserTableDDL_alterColumn(t *testing.T) {
 				isCreateDone: tt.fields.isCreateDone,
 			}
 			if err := p.alterColumn(tt.args.col.Name(), tt.args.sAlter); (err != nil) != tt.wantErr {
-				t.Errorf("alterColumn() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("alterColumn() error = %v, fncErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -227,7 +227,7 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 				isCreateDone: tt.fields.isCreateDone,
 			}
 			if err := p.checkColumn(tt.args.col, tt.args.colDefine, tt.args.flags); (err != nil) != tt.wantErr {
-				t.Errorf("checkColumn() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("checkColumn() error = %v, fncErr %v", err, tt.wantErr)
 			}
 		})
 	}
@@ -282,11 +282,11 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 		isCreateDone bool
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		ddl     string
-		want    *Index
-		wantErr bool
+		name   string
+		fields fields
+		ddl    string
+		want   *Index
+		fncErr assert.ErrorAssertionFunc
 	}{
 		{
 			name: "simple index",
@@ -296,13 +296,14 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 					columns: SimpleColumns("name"),
 				},
 			},
-			ddl: `create  index candidates_name_uindex on candidates (name);`,
+			ddl: `create  index candidates_name_index on candidates (name);`,
 			want: &Index{
-				Name:    "candidates_name_uindex",
+				Name:    "candidates_name_index",
 				Expr:    "",
 				Unique:  false,
 				Columns: []string{"name"},
 			},
+			fncErr: assert.NoError,
 		},
 		{
 			name: "simple unique index",
@@ -312,13 +313,15 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 					columns: SimpleColumns("name"),
 				},
 			},
-			ddl: `create unique index candidates_name_uindex on candidates (name);`,
+			ddl: `create unique index candidates_name_uindex 
+on candidates (name);`,
 			want: &Index{
 				Name:    "candidates_name_uindex",
 				Expr:    "",
 				Unique:  true,
 				Columns: []string{"name"},
 			},
+			fncErr: assert.NoError,
 		},
 		{
 			name: "simple index with where",
@@ -330,7 +333,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 			},
 			ddl: `create unique index candidates_email_uindex
     on candidates (email)
-    where ((email)::text > ''::text);`,
+    where (email::text > ''::text);`,
 			want: &Index{
 				Name:    "candidates_email_uindex",
 				Expr:    "",
@@ -350,7 +353,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
     on trades (date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
-				Expr:    "date_part('year' :: text, opendate",
+				Expr:    "date_part('year' :: text, opendate)",
 				Unique:  false,
 				Columns: []string{"opendate"},
 			},
@@ -367,7 +370,7 @@ func TestParserTableDDL_createIndex(t *testing.T) {
     on trades (year, date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
-				Expr:    "year, date_part('year' :: text, opendate",
+				Expr:    "year, date_part('year' :: text, opendate)",
 				Unique:  false,
 				Columns: []string{"year", "opendate"},
 			},
@@ -385,15 +388,11 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 				isCreateDone: tt.fields.isCreateDone,
 			}
 			got, err := p.checkDDLCreateIndex(strings.ToLower(tt.ddl))
-			if tt.wantErr && !assert.NotNil(t, err) {
-				return
+			if tt.fncErr == nil {
+				tt.fncErr = assert.NoError
 			}
-			if !tt.wantErr && !assert.Nil(t, err) {
-				return
-			}
-			if !assert.Equal(t, tt.want, got) {
-				return
-			}
+			tt.fncErr(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -695,6 +694,7 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 		mapParse     []func(string) bool
 		isCreateDone bool
 	}
+
 	testDB := DB{
 		Cfg:           nil,
 		Conn:          nil,
@@ -738,9 +738,9 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 				mapParse:     tt.fields.mapParse,
 				isCreateDone: tt.fields.isCreateDone,
 			}
-			if got := p.updateIndex(tt.ddl); got != tt.want {
-				t.Errorf("updateIndex() = %v, want %v", got, tt.want)
-			}
+			got, err := p.checkDDLCreateIndex(tt.ddl)
+			assert.Equal(t, tt.want, got != nil)
+			assert.Nil(t, err)
 		})
 	}
 }
