@@ -178,7 +178,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 		typeBuf,
 		sqlTypesList)
 	if err != nil {
-		logs.ErrorLog(err, "during getting settings")
+		logs.ErrorLog(err, "during getting databases types")
 	}
 
 	tables, err := c.GetTablesProp(ctx, types)
@@ -190,25 +190,22 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
 	for name, r := range routines {
-		for _, column := range r.(*Routine).columns {
-			if column.DataType == "USER-DEFINED" {
-				t, ok := types[column.UdtName]
+		for _, col := range r.(*Routine).columns {
+			if col.DataType == "USER-DEFINED" {
+				t, ok := types[col.UdtName]
 				if ok {
-					column.UserDefined = &t
+					col.UserDefined = &t
+				} else if _, ok := tables[col.UdtName]; ok {
 				} else {
-					logs.StatusLog(name, column)
-
+					logs.DebugLog("Routine %s use unknown type %s for params %s", name, col.UdtName, col.Name())
 				}
 			}
 		}
 	}
 
 	database := make(map[string]*string)
-	err = c.SelectOneAndScan(ctx, database,
-		`SELECT current_database() as db_name, current_schema() as db_schema,
-       current_setting('work_mem') as work_mem, current_setting('datestyle') as datestyle,
-       current_setting('port') as db_port,
-       current_user as db_user`)
+
+	err = c.SelectOneAndScan(ctx, database, sqlDBSetting)
 	if err != nil {
 		logs.ErrorLog(err, "during getting settings")
 	}
@@ -263,7 +260,10 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 					col.UserDefined = &t
 					//	todo: research how to determinate CITEXT on database
 				} else if col.UdtName != "citext" {
-					logs.StatusLog(col)
+					logs.ErrorLog(dbEngine.ErrNotFoundType{
+						Name: col.UdtName,
+						Type: col.DataType,
+					})
 				}
 			}
 			for _, key := range col.Constraints {

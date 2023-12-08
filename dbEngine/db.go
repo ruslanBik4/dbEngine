@@ -414,6 +414,10 @@ func logInfo(prefix, fileName, msg string, line int) {
 	logs.CustomLog(logs.NOTICE, prefix, fileName, line, msg, logs.FgInfo)
 }
 
+func logWarning(prefix, fileName, msg string, line int) {
+	logs.CustomLog(logs.WARNING, prefix, fileName, line, msg, logs.FgInfo)
+}
+
 func timeLogFormat() string {
 	hh, mm, ss := time.Now().Clock()
 	return fmt.Sprintf("%.2d:%.2d:%.2d", hh, mm, ss)

@@ -306,6 +306,23 @@ func TestParserTableDDL_createIndex(t *testing.T) {
 			fncErr: assert.NoError,
 		},
 		{
+			name: "two columns index",
+			fields: fields{
+				Table: TableString{
+					name:    "candidates",
+					columns: SimpleColumns("name", "email"),
+				},
+			},
+			ddl: `create  index candidates_name_index on candidates (name, email);`,
+			want: &Index{
+				Name:    "candidates_name_index",
+				Expr:    "",
+				Unique:  false,
+				Columns: []string{"name", "email"},
+			},
+			fncErr: assert.NoError,
+		},
+		{
 			name: "simple unique index",
 			fields: fields{
 				Table: TableString{
@@ -355,6 +372,40 @@ on candidates (name);`,
 				Name:    "trades_years",
 				Expr:    "date_part('year' :: text, opendate)",
 				Unique:  false,
+				Columns: nil,
+			},
+		},
+		{
+			name: "composite index (column + expr)",
+			fields: fields{
+				Table: TableString{
+					name:    "trades",
+					columns: SimpleColumns("year", "opendate"),
+				},
+			},
+			ddl: `create index if not exists trades_years
+    on trades (opendate, (year::date))`,
+			want: &Index{
+				Name:    "trades_years",
+				Expr:    "(year::date)",
+				Unique:  false,
+				Columns: []string{"opendate"},
+			},
+		},
+		{
+			name: "composite index (expr+column)",
+			fields: fields{
+				Table: TableString{
+					name:    "trades",
+					columns: SimpleColumns("year", "opendate"),
+				},
+			},
+			ddl: `create index if not exists trades_years
+    on trades ((year::date), opendate)`,
+			want: &Index{
+				Name:    "trades_years",
+				Expr:    "(year::date)",
+				Unique:  false,
 				Columns: []string{"opendate"},
 			},
 		},
@@ -370,9 +421,9 @@ on candidates (name);`,
     on trades (year, date_part('year' :: text, opendate))`,
 			want: &Index{
 				Name:    "trades_years",
-				Expr:    "year, date_part('year' :: text, opendate)",
+				Expr:    "date_part('year' :: text, opendate)",
 				Unique:  false,
-				Columns: []string{"year", "opendate"},
+				Columns: []string{"year"},
 			},
 		},
 	}
@@ -719,7 +770,7 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 				Table: &TableString{
 					columns: nil,
 					indexes: nil,
-					name:    "test",
+					name:    "candidates",
 					comment: "",
 				},
 			},

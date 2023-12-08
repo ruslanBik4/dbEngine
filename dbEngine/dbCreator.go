@@ -469,47 +469,62 @@ func (p *ParserTableDDL) updateIndex(ddl string) bool {
 		return false
 	}
 
-	if pInd := p.FindIndex(ind.Name); pInd != nil {
-		if pInd.Expr != ind.Expr {
+	if oldInd := p.FindIndex(ind.Name); oldInd != nil {
+		columns := oldInd.Columns
+		hasChanges := !(len(columns) == len(ind.Columns))
+		if hasChanges {
 			logInfo(prefix, p.filename,
-				fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, pInd.Expr),
+				fmt.Sprintf("index columns '%v' exists! New columns '%v'", oldInd.Columns, ind.Columns),
 				p.line)
-			logs.DebugLog(pInd)
-			return true
+
+		}
+		for i, name := range ind.Columns {
+
+			hasChanges = !(i < len(columns) && columns[i] == name)
+			if !hasChanges {
+				continue
+			}
+
+			logInfo(prefix, p.filename,
+				fmt.Sprintf("index '%s' exists! New column '%s'", oldInd.Name, name),
+				p.line)
 		}
 
-		columns := pInd.Columns
-		hasChanges := !(len(columns) == len(ind.Columns))
-		if !hasChanges {
-			for i, name := range ind.Columns {
-
-				hasChanges = !(i < len(columns) && columns[i] == name)
-				if !hasChanges {
-					continue
-				}
-
-				logInfo(prefix, p.filename,
-					fmt.Sprintf("index '%s' exists! New column '%s'", pInd.Name, name),
+		if oldInd.Expr != ind.Expr {
+			if strings.Replace(oldInd.Expr, ")", "", -1) == strings.Replace(ind.Expr, ")", "", -1) {
+				logWarning(prefix, p.filename,
+					fmt.Sprintf("index '%s' exists & expr: '%s' diff with config:'%s' but this is some index expression", ind.Name, ind.Expr, oldInd.Expr),
 					p.line)
-			}
-			if !hasChanges && ind.foreignTable > "" && ind.deleteCascade == "set null" {
+			} else {
 				logInfo(prefix, p.filename,
-					fmt.Sprintf("reference to '%s' exists! Update  '%s' delete '%s'", ind.foreignTable,
-						ind.updateCascade, ind.deleteCascade),
-					p.line)
-			}
-
-			if !hasChanges && pInd.Unique != ind.Unique {
-				logInfo(prefix, p.filename,
-					fmt.Sprintf("New unique condition '%v' exists! Old  '%v'", ind.Unique, pInd.Unique),
+					fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, oldInd.Expr),
 					p.line)
 				hasChanges = true
 			}
 		}
 
+		if ind.foreignTable > "" && ind.deleteCascade == "set null" {
+			logInfo(prefix, p.filename,
+				fmt.Sprintf("reference to '%s' exists! Update  '%s' delete '%s'", ind.foreignTable,
+					ind.updateCascade, ind.deleteCascade),
+				p.line)
+		}
+
+		if oldInd.Unique != ind.Unique {
+			logInfo(prefix, p.filename,
+				fmt.Sprintf("New unique condition '%v' exists! Old  '%v'", ind.Unique, oldInd.Unique),
+				p.line)
+			hasChanges = true
+		}
+		//}
+
 		if hasChanges {
 			logs.StatusLog(ind)
-			p.runDDL("DROP INDEX " + pInd.Name)
+			if ind.foreignColumn > "" {
+				p.runDDL("DROP CONSTRAINT " + oldInd.Name)
+			} else {
+				p.runDDL("DROP INDEX " + oldInd.Name)
+			}
 			p.runDDL(ddl)
 		}
 
@@ -553,31 +568,47 @@ func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 			ind.Name = token
 		case "unique":
 			ind.Unique = token == name
+		case "where":
+			ind.Where = token
+
 		case "table":
 			if token != p.Name() {
-				//return nil, errors.Errorf("bad table name '%s'! %s", token, ddl)
+				return nil, errors.Errorf("bad table name '%s'! %s", token, ddl)
 			}
-		case "columns":
-			if token > "" {
-				ind.Columns = append(ind.Columns, strings.Split(token, ",")...)
 
-				if len(ind.Columns) == 0 {
-					return nil, ErrNotFoundColumn{p.Name(), token}
-				}
-			}
 		case "expr":
-			ind.Expr = token
-			for _, name := range regColumn.FindAllString(token, -1) {
+			expr := make([]string, 0)
+			for _, name := range regExprSeparetor.FindAllString(token, -1) {
+				expr = append(expr, regColumn.FindAllString(name, -1)...)
+				//for _, name := range expr {
 				if col := p.FindColumn(name); col != nil {
-					ind.Columns = append(ind.Columns, col.Name())
-					logs.StatusLog(name)
+					ind.AddColumn(name)
+				} else {
+
+					//if len(expr) > 1 {
+					if ind.Expr > "" {
+						ind.Expr += ", " + name
+					} else {
+						ind.Expr += name
+					}
+				}
+				//}
+			}
+			if len(ind.Columns) == 0 {
+				if len(expr) > 0 {
+					//we must add ONLY first column
+					if col := p.FindColumn(expr[0]); col != nil {
+						ind.AddColumn(col.Name())
+					}
+				} else if ind.Expr == "" {
+					logs.StatusLog(token)
+					return nil, ErrNotFoundColumn{p.Name(), token}
 				}
 			}
 
 		default:
 			logInfo(prefix, p.filename, name+token, p.line)
 		}
-
 	}
 
 	return &ind, nil

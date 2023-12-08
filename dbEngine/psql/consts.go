@@ -11,6 +11,10 @@ const (
 )
 
 const (
+	sqlDBSetting = `SELECT current_database() as db_name, current_schema() as db_schema,
+       current_setting('work_mem') as work_mem, current_setting('datestyle') as datestyle,
+       current_setting('port') as db_port,
+       current_user as db_user`
 	sqlTableList = `SELECT table_name, table_type,
 						COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
 							AS comment

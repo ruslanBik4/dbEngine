@@ -181,8 +181,21 @@ type Index struct {
 	foreignTable, foreignColumn  string
 	updateCascade, deleteCascade string
 	Expr                         string
+	Where                        string
 	Unique                       bool
 	Columns                      []string
+}
+
+func (ind *Index) AddColumn(name string) bool {
+	for _, col := range ind.Columns {
+		if col == name {
+			return false
+		}
+	}
+
+	ind.Columns = append(ind.Columns, name)
+
+	return true
 }
 
 // GetFields implements interface RowScanner
