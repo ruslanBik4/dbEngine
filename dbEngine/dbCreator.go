@@ -578,26 +578,25 @@ func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 
 		case "expr":
 			expr := make([]string, 0)
-			for _, name := range regExprSeparetor.FindAllString(token, -1) {
+			for _, name := range regExprSeparator.FindAllString(token, -1) {
 				expr = append(expr, regColumn.FindAllString(name, -1)...)
-				//for _, name := range expr {
 				if col := p.FindColumn(name); col != nil {
 					ind.AddColumn(name)
+				} else if ind.Expr > "" {
+					ind.Expr += ", " + name
 				} else {
-
-					//if len(expr) > 1 {
-					if ind.Expr > "" {
-						ind.Expr += ", " + name
-					} else {
-						ind.Expr += name
-					}
+					ind.Expr += name
 				}
-				//}
 			}
+
 			if len(ind.Columns) == 0 {
 				if len(expr) > 0 {
 					//we must add ONLY first column
-					if col := p.FindColumn(expr[0]); col != nil {
+					name := expr[0]
+					if isColFunc(name) {
+						name = expr[1]
+					}
+					if col := p.FindColumn(name); col != nil {
 						ind.AddColumn(col.Name())
 					}
 				} else if ind.Expr == "" {
@@ -612,6 +611,10 @@ func (p *ParserTableDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 	}
 
 	return &ind, nil
+}
+
+func isColFunc(name string) bool {
+	return name == "digest"
 }
 
 func (p *ParserTableDDL) alterColumn(colName string, sAlter ...string) error {

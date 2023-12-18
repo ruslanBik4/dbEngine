@@ -123,7 +123,8 @@ ORDER BY ordinal_position`
                                             'name',
                                            'upper',
                                            'type',
-                                           g.typname
+                                           g.typname,
+                                                'obj', json_build_array(g.*)
                                          ),
                                  json_build_object(
                                          'name',
@@ -169,9 +170,17 @@ ORDER BY ordinal_position`
         	where a.attrelid = c.oid
         ) END as attr, relkind,
        array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
-FROM pg_type LEFT JOIN (pg_class c JOIN pg_namespace nc ON c.relnamespace = nc.oid) on relname = typname
-where typtype = ANY(array['e','d']) or (nc.nspname='public' AND c.relkind = ANY(array['d','c']))`
-
+FROM pg_type JOIN pg_namespace nc ON typnamespace = nc.oid LEFT JOIN pg_class c  on relname = typname
+where nc.nspname='public' AND (typtype = ANY(array['e','d','r']) or c.relkind = ANY(array['d','c']))`
+	//	FROM pg_attribute a,
+	//pg_class c,
+	//pg_namespace nc,
+	//pg_type t
+	//JOIN pg_namespace nt ON t.typnamespace = nt.oid
+	//LEFT JOIN (pg_type bt
+	//JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid) ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid
+	//WHERE a.attrelid = c.oid AND a.atttypid = t.oid AND nc.oid = c.relnamespace AND a.attnum > 0 AND NOT a.attisdropped
+	//AND (c.relkind = ANY (ARRAY['r'::"char", 'v'::"char", 'f'::"char", 'p'::"char"])) AND pg_has_role(COALESCE(bt.typowner, t.typowner), 'USAGE'::text)
 	sqlGetIndexes = `SELECT i.relname as index_name,
 	   COALESCE( pg_get_expr( ix.indexprs, ix.indrelid ), '') as ind_expr,
        ix.indisunique as ind_unique,

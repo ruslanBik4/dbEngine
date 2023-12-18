@@ -5,7 +5,6 @@
 package dbEngine
 
 import (
-	"bytes"
 	"fmt"
 	"io/fs"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 )
 
@@ -266,8 +266,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		return nil
 	}
 
-	ext := filepath.Ext(path)
-	switch ext {
+	switch ext := filepath.Ext(path); ext {
 	case ".ddl":
 		fileName := filepath.Base(path)
 		typeName := strings.TrimSuffix(fileName, ext)
@@ -277,7 +276,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 
 		ddl, err := os.ReadFile(path)
 		if err == nil {
-			ddlType := string(ddl)
+			ddlType := gotools.BytesToString(ddl)
 			// this local err - not return for parent method
 			err := db.Conn.ExecDDL(db.ctx, ddlType)
 			if err == nil {
@@ -286,7 +285,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 			}
 
 			if IsErrorAlreadyExists(err) {
-				err = db.alterType(fileName, typeName, strings.ToLower(string(bytes.Replace(ddl, []byte("\n"), []byte(""), -1))))
+				err = db.alterType(fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
 			} else if IsErrorForReplace(err) {
 				logError(err, ddlType, fileName)
 				err = nil
@@ -295,13 +294,12 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 			if err != nil {
 				logError(err, ddlType, fileName)
 			}
-
 		}
+		return err
+
 	default:
 		return nil
 	}
-
-	return err
 }
 
 var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)

@@ -24,7 +24,7 @@ const prefix = "DB_CONFIG"
 var (
 	regColumns       = regexp.MustCompile(`\(([^():]+)`)
 	regColumn        = regexp.MustCompile(`'?\b[^'():,]+\b`)
-	regExprSeparetor = regexp.MustCompile(`[^(\s]*\([^)]*\)|[^'():,\s]+`)
+	regExprSeparator = regexp.MustCompile(`[^(\s]*\([^)]*\)|[^'():,\s]+`)
 )
 
 // regexp const for parsing DDL

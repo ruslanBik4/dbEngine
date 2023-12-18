@@ -23,6 +23,7 @@ package db
 
 import (
 	"fmt"
+	"errors"
 	"time"
 	"strings"
 	{%- for _, lib := range c.packages -%}"{%s lib %}"
@@ -36,7 +37,6 @@ import (
     "github.com/ruslanBik4/dbEngine/dbEngine/psql"
 
 	"golang.org/x/net/context"
-	"github.com/pkg/errors"
 )
 type scanError interface{
 	ScanValue(d any)
@@ -200,9 +200,13 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 {%- else -%}
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
-{%- for _, attr := range t.Attr -%}
+	{%- for _, attr := range t.Attr -%}
 	{%s= fmt.Sprintf("%-21s\t%-13s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %}"`
-{%- endfor -%}
+	{%- endfor -%}
+	{%- if t.Type == 'r' -%}
+	LowerType pgtype.BoundType
+	UpperType pgtype.BoundType
+	{%- endif -%}
 }
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
@@ -210,20 +214,51 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 		*dst = {%s typeName %}{}
 		return nil
 	}
+	{%- if t.Type == 'r' -%}
+	utr, err := pgtype.ParseUntypedTextRange(gotools.BytesToString(src))
+	if err != nil {
+		return err
+	}
+	{%- else -%}
 	c := pgtype.NewCompositeTextScanner(ci, src)
+	{%- endif -%}
     *dst = {%s typeName %}{}
-	{%- for i, attr := range t.Attr -%}
-//		{%s= c.GetFuncForDecode(&attr, i) %},
+	var scanErrors error
+
+	{%- if t.Type == 'r' -%}
+    	dst.LowerType = utr.LowerType
+    	dst.UpperType = utr.UpperType
+
+    	if dst.LowerType == pgtype.Empty {
+    		return nil
+    	}
+
+    	var scanErrors error
+    	if dst.LowerType == pgtype.Inclusive || dst.LowerType == pgtype.Exclusive {
+    		if err := dst.Lower.DecodeText(ci, gotools.StringToBytes(utr.Lower)); err != nil {
+    			scanErrors = errors.Join(scanErrors, err)
+    		}
+    	}
+
+    	if dst.UpperType == pgtype.Inclusive || dst.UpperType == pgtype.Exclusive {
+    		if err := dst.Upper.DecodeText(ci, gotools.StringToBytes(utr.Upper)); err != nil {
+    			scanErrors = errors.Join(scanErrors, err)
+    		}
+    	}
+	{%- else -%}
+
+	{%- for _, attr := range t.Attr -%}
 	{% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} c.ScanDecoder
 	{%- else -%} c.ScanValue {%- endif -%}
 	(&dst.{%s strcase.ToCamel(attr.Name) %})
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
-		return err
+		scanErrors = errors.Join(scanErrors, err)
 	}
 	{%- endfor -%}
+	{%- endif -%}
 
-	return nil
+	return scanError
 }
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
@@ -231,26 +266,70 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 		*dst = {%s typeName %}{}
 		return nil
 	}
+
+	{%- if t.Type == 'r' -%}
+	utr, err := pgtype.ParseUntypedBinaryRange(src)
+	if err != nil {
+		return err
+	}
+	{%- else -%}
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 	countFields := c.FieldCount()
+	{%- endif -%}
     *dst = {%s typeName %}{}
+	var scanErrors error
+
+	{%- if t.Type == 'r' -%}
+    	dst.LowerType = utr.LowerType
+    	dst.UpperType = utr.UpperType
+
+    	if dst.LowerType == pgtype.Empty {
+    		return nil
+    	}
+
+    	if dst.LowerType == pgtype.Inclusive || dst.LowerType == pgtype.Exclusive {
+    		if err := dst.Lower.DecodeBinary(ci, utr.Lower); err != nil {
+    			scanErrors = errors.Join(scanErrors, err)
+    		}
+    	}
+
+    	if dst.UpperType == pgtype.Inclusive || dst.UpperType == pgtype.Exclusive {
+    		if err := dst.Upper.DecodeBinary(ci, utr.Upper); err != nil {
+    			scanErrors = errors.Join(scanErrors, err)
+    		}
+    	}
+	{%- else -%}
 	{%- for i, attr := range t.Attr -%}
-	if {%d i+1 %} > countFields || !c.Next(){
-//	    rich end of elements
+	//	    rich end of elements
+	if  countFields < {%d i+1 %} || !c.Next(){
 		return nil
 	}
 	if err := {% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} &dst.{%s strcase.ToCamel(attr.Name) %}.DecodeBinary(ci, c.Bytes())
-	{%- else -%} ci.Scan(c.OID(), pgtype.BinaryFormatCode, c.Bytes(), &dst.{%s strcase.ToCamel(attr.Name) %}) {%- endif -%} ;
-	err != nil {
+	{%- else -%} ci.Scan(c.OID(), pgtype.BinaryFormatCode, c.Bytes(), &dst.{%s strcase.ToCamel(attr.Name) %}) {%- endif -%}; err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
-		return err
+		scanErrors = errors.Join(scanErrors, err)
 	}
 	{%- endfor -%}
+	{%- endif -%}
 
-	return nil
+	return scanErrors
+}
+// Scan implement sql.Scanner interface
+func (dst *{%s typeName %}) Scan(src any) error {
+	switch src := src.(type) {
+	case nil:
+		*dst = {%s typeName %}{}
+	case string:
+		return dst.DecodeText(nil, gotools.StringToBytes(src))
+	case []byte:
+		return dst.DecodeText(nil, src)
+	default:
+		return fmt.Errorf("cannot scan %T", src)
+	}
 }
 {%- endif -%}
 {%- endfunc -%}
+end CreateTypeInterface
 
 {%- func (c *Creator) CreateRoutinesInvoker(r *psql.Routine, name string) -%}
 {%- code
