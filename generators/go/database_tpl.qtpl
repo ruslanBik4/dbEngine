@@ -31,6 +31,7 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgconn"
+	"github.com/jackc/pgtype"
 
 	"github.com/ruslanBik4/logs"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -45,11 +46,6 @@ type scanError interface{
 
 {%- for name, typ := range c.db.Types -%}{%= c.CreateTypeInterface(typ, strcase.ToCamel(name), name, c.Types[name]) %}{%- endfor -%}
 
-// Database is root interface for operation for %s.%s
-type Database struct {
-	*dbEngine.DB
-	CreateAt time.Time
-}
 type CitextArray struct {
 	pgtype.TextArray
 }
@@ -142,6 +138,11 @@ func afterConnect(ctx context.Context, conn *pgx.Conn) error {
 	return nil
 }
 
+// Database is root interface for operation for %s.%s
+type Database struct {
+	*dbEngine.DB
+	CreateAt time.Time
+}
 // NewDatabase create new Database with minimal necessary handlers
 func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
 	if noticeHandler == nil {
