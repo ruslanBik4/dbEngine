@@ -1,6 +1,5 @@
 {% package _go %}
 {% import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -23,6 +22,7 @@ source: %s %s
 package db
 
 import (
+	"bytes"
 	"fmt"
 	"errors"
 	"time"

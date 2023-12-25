@@ -43,23 +43,24 @@ source: %s %s
 package db
 
 import (
+	"bytes"
 	"fmt"
 	"errors"
 	"time"
 	"strings"
 `)
-//line database_tpl.qtpl:29
+//line database_tpl.qtpl:30
 	for _, lib := range c.packages {
-//line database_tpl.qtpl:29
+//line database_tpl.qtpl:30
 		qw422016.N().S(`"`)
-//line database_tpl.qtpl:29
+//line database_tpl.qtpl:30
 		qw422016.E().S(lib)
-//line database_tpl.qtpl:29
+//line database_tpl.qtpl:30
 		qw422016.N().S(`"
 `)
-//line database_tpl.qtpl:30
+//line database_tpl.qtpl:31
 	}
-//line database_tpl.qtpl:30
+//line database_tpl.qtpl:31
 	qw422016.N().S(`
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgconn"
@@ -77,13 +78,13 @@ type scanError interface{
 }
 
 `)
-//line database_tpl.qtpl:47
+//line database_tpl.qtpl:48
 	for name, typ := range c.db.Types {
-//line database_tpl.qtpl:47
+//line database_tpl.qtpl:48
 		c.StreamCreateTypeInterface(qw422016, typ, strcase.ToCamel(name), name, c.Types[name])
-//line database_tpl.qtpl:47
+//line database_tpl.qtpl:48
 	}
-//line database_tpl.qtpl:47
+//line database_tpl.qtpl:48
 	qw422016.N().S(`
 type CitextArray struct {
 	pgtype.TextArray
@@ -210,19 +211,19 @@ func (d *Database) PsqlConn() *psql.Conn {
 	return (d.Conn).(*psql.Conn)
 }
 `)
-//line database_tpl.qtpl:173
+//line database_tpl.qtpl:174
 	for name := range c.db.Tables {
-//line database_tpl.qtpl:173
+//line database_tpl.qtpl:174
 		c.StreamCreateTableConstructor(qw422016, strcase.ToCamel(name), name)
-//line database_tpl.qtpl:173
-	}
 //line database_tpl.qtpl:174
+	}
+//line database_tpl.qtpl:175
 	for _, name := range listRoutines {
-//line database_tpl.qtpl:174
+//line database_tpl.qtpl:175
 		c.StreamCreateRoutinesInvoker(qw422016, c.db.Routines[name].(*psql.Routine), name)
-//line database_tpl.qtpl:174
+//line database_tpl.qtpl:175
 	}
-//line database_tpl.qtpl:174
+//line database_tpl.qtpl:175
 	qw422016.N().S(`// printNotice logging some psql messages (invoked command 'RAISE ...')
 func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 
@@ -246,132 +247,132 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	}
 }
 `)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 }
 
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 func (c *Creator) WriteCreateDatabase(qq422016 qtio422016.Writer, listRoutines []string) {
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	c.StreamCreateDatabase(qw422016, listRoutines)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 }
 
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 func (c *Creator) CreateDatabase(listRoutines []string) string {
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	c.WriteCreateDatabase(qb422016, listRoutines)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 	return qs422016
-//line database_tpl.qtpl:197
+//line database_tpl.qtpl:198
 }
 
-//line database_tpl.qtpl:199
-func (c *Creator) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
 //line database_tpl.qtpl:200
+func (c *Creator) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
+//line database_tpl.qtpl:201
 	if len(t.Enumerates) > 0 {
-//line database_tpl.qtpl:201
+//line database_tpl.qtpl:202
 	} else {
-//line database_tpl.qtpl:201
+//line database_tpl.qtpl:202
 		qw422016.N().S(`// `)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:203
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:203
 		qw422016.N().S(` create new instance of type `)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:203
 		qw422016.E().S(name)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:203
 		qw422016.N().S(`
 type `)
-//line database_tpl.qtpl:203
+//line database_tpl.qtpl:204
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:203
+//line database_tpl.qtpl:204
 		qw422016.N().S(` struct {
 `)
-//line database_tpl.qtpl:204
+//line database_tpl.qtpl:205
 		for _, attr := range t.Attr {
-//line database_tpl.qtpl:204
+//line database_tpl.qtpl:205
 			qw422016.N().S(`	`)
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S(fmt.Sprintf("%-21s\t%-13s\t", strcase.ToCamel(attr.Name), attr.Type))
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S(` `)
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S("`")
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S(`json:"`)
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.E().S(attr.Name)
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S(`"`)
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S("`")
-//line database_tpl.qtpl:205
+//line database_tpl.qtpl:206
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:206
+//line database_tpl.qtpl:207
 		}
-//line database_tpl.qtpl:207
+//line database_tpl.qtpl:208
 		if t.Type == 'r' {
-//line database_tpl.qtpl:207
+//line database_tpl.qtpl:208
 			qw422016.N().S(`	LowerType pgtype.BoundType
 	UpperType pgtype.BoundType
 `)
-//line database_tpl.qtpl:210
+//line database_tpl.qtpl:211
 		}
-//line database_tpl.qtpl:210
+//line database_tpl.qtpl:211
 		qw422016.N().S(`}
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *`)
-//line database_tpl.qtpl:213
+//line database_tpl.qtpl:214
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:213
+//line database_tpl.qtpl:214
 		qw422016.N().S(`) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
 		*dst = `)
-//line database_tpl.qtpl:215
+//line database_tpl.qtpl:216
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:215
+//line database_tpl.qtpl:216
 		qw422016.N().S(`{}
 		return nil
 	}
 `)
-//line database_tpl.qtpl:218
+//line database_tpl.qtpl:219
 		if t.Type == 'r' {
-//line database_tpl.qtpl:218
+//line database_tpl.qtpl:219
 			qw422016.N().S(`	utr, err := pgtype.ParseUntypedTextRange(gotools.BytesToString(src))
 	if err != nil {
 		return err
 	}
 `)
-//line database_tpl.qtpl:223
+//line database_tpl.qtpl:224
 		} else {
-//line database_tpl.qtpl:223
+//line database_tpl.qtpl:224
 			qw422016.N().S(`	c := pgtype.NewCompositeTextScanner(ci, src)
 `)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:226
 		}
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:226
 		qw422016.N().S(`    *dst = `)
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:227
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:227
 		qw422016.N().S(`{}
 	var scanErrors error
 
 `)
-//line database_tpl.qtpl:229
+//line database_tpl.qtpl:230
 		if t.Type == 'r' {
-//line database_tpl.qtpl:229
+//line database_tpl.qtpl:230
 			qw422016.N().S(`    	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
 
@@ -392,97 +393,97 @@ func (dst *`)
     		}
     	}
 `)
-//line database_tpl.qtpl:249
+//line database_tpl.qtpl:250
 		} else {
-//line database_tpl.qtpl:249
+//line database_tpl.qtpl:250
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:251
+//line database_tpl.qtpl:252
 			for _, attr := range t.Attr {
-//line database_tpl.qtpl:251
+//line database_tpl.qtpl:252
 				qw422016.N().S(`	`)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:253
 				if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:253
 					qw422016.N().S(`c.ScanDecoder
 `)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:254
 				} else {
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:254
 					qw422016.N().S(`c.ScanValue`)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:254
 				}
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:254
 				qw422016.N().S(`	(&dst.`)
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:255
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:255
 				qw422016.N().S(`)
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "`)
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:257
 				qw422016.E().S(typeName)
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:257
 				qw422016.N().S(`.`)
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:257
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:257
 				qw422016.N().S(`")
 		scanErrors = errors.Join(scanErrors, err)
 	}
 `)
-//line database_tpl.qtpl:259
+//line database_tpl.qtpl:260
 			}
-//line database_tpl.qtpl:260
+//line database_tpl.qtpl:261
 		}
-//line database_tpl.qtpl:260
+//line database_tpl.qtpl:261
 		qw422016.N().S(`
 	return scanError
 }
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *`)
-//line database_tpl.qtpl:265
+//line database_tpl.qtpl:266
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:265
+//line database_tpl.qtpl:266
 		qw422016.N().S(`) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
 		*dst = `)
-//line database_tpl.qtpl:267
+//line database_tpl.qtpl:268
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:267
+//line database_tpl.qtpl:268
 		qw422016.N().S(`{}
 		return nil
 	}
 
 `)
-//line database_tpl.qtpl:271
+//line database_tpl.qtpl:272
 		if t.Type == 'r' {
-//line database_tpl.qtpl:271
+//line database_tpl.qtpl:272
 			qw422016.N().S(`	utr, err := pgtype.ParseUntypedBinaryRange(src)
 	if err != nil {
 		return err
 	}
 `)
-//line database_tpl.qtpl:276
+//line database_tpl.qtpl:277
 		} else {
-//line database_tpl.qtpl:276
+//line database_tpl.qtpl:277
 			qw422016.N().S(`	c := pgtype.NewCompositeBinaryScanner(ci, src)
 	countFields := c.FieldCount()
 `)
-//line database_tpl.qtpl:279
+//line database_tpl.qtpl:280
 		}
-//line database_tpl.qtpl:279
+//line database_tpl.qtpl:280
 		qw422016.N().S(`    *dst = `)
-//line database_tpl.qtpl:280
+//line database_tpl.qtpl:281
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:280
+//line database_tpl.qtpl:281
 		qw422016.N().S(`{}
 	var scanErrors error
 
 `)
-//line database_tpl.qtpl:283
+//line database_tpl.qtpl:284
 		if t.Type == 'r' {
-//line database_tpl.qtpl:283
+//line database_tpl.qtpl:284
 			qw422016.N().S(`    	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
 
@@ -502,73 +503,73 @@ func (dst *`)
     		}
     	}
 `)
-//line database_tpl.qtpl:302
+//line database_tpl.qtpl:303
 		} else {
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:304
 			for i, attr := range t.Attr {
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:304
 				qw422016.N().S(`	//	    rich end of elements
 	if  countFields < `)
-//line database_tpl.qtpl:305
+//line database_tpl.qtpl:306
 				qw422016.N().D(i + 1)
-//line database_tpl.qtpl:305
+//line database_tpl.qtpl:306
 				qw422016.N().S(` || !c.Next(){
 		return nil
 	}
 	if err := `)
-//line database_tpl.qtpl:308
+//line database_tpl.qtpl:309
 				if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
-//line database_tpl.qtpl:308
+//line database_tpl.qtpl:309
 					qw422016.N().S(`&dst.`)
-//line database_tpl.qtpl:308
+//line database_tpl.qtpl:309
 					qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:308
+//line database_tpl.qtpl:309
 					qw422016.N().S(`.DecodeBinary(ci, c.Bytes())
 `)
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 				} else {
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 					qw422016.N().S(`ci.Scan(c.OID(), pgtype.BinaryFormatCode, c.Bytes(), &dst.`)
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 					qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 					qw422016.N().S(`)`)
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 				}
-//line database_tpl.qtpl:309
+//line database_tpl.qtpl:310
 				qw422016.N().S(`; err != nil {
 		logs.ErrorLog(err, "`)
-//line database_tpl.qtpl:310
+//line database_tpl.qtpl:311
 				qw422016.E().S(typeName)
-//line database_tpl.qtpl:310
+//line database_tpl.qtpl:311
 				qw422016.N().S(`.`)
-//line database_tpl.qtpl:310
+//line database_tpl.qtpl:311
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:310
+//line database_tpl.qtpl:311
 				qw422016.N().S(`")
 		scanErrors = errors.Join(scanErrors, err)
 	}
 `)
-//line database_tpl.qtpl:313
+//line database_tpl.qtpl:314
 			}
-//line database_tpl.qtpl:314
+//line database_tpl.qtpl:315
 		}
-//line database_tpl.qtpl:314
+//line database_tpl.qtpl:315
 		qw422016.N().S(`
 	return scanErrors
 }
 // Scan implement sql.Scanner interface
 func (dst *`)
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:320
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:320
 		qw422016.N().S(`) Scan(src any) error {
 	switch src := src.(type) {
 	case nil:
 		*dst = `)
-//line database_tpl.qtpl:322
+//line database_tpl.qtpl:323
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:322
+//line database_tpl.qtpl:323
 		qw422016.N().S(`{}
 	case string:
 		return dst.DecodeText(nil, gotools.StringToBytes(src))
@@ -579,239 +580,239 @@ func (dst *`)
 	}
 }
 `)
-//line database_tpl.qtpl:331
+//line database_tpl.qtpl:332
 	}
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 }
 
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 func (c *Creator) WriteCreateTypeInterface(qq422016 qtio422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	c.StreamCreateTypeInterface(qw422016, t, typeName, name, typeCol)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 }
 
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) string {
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	c.WriteCreateTypeInterface(qb422016, t, typeName, name, typeCol)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 	return qs422016
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:333
 }
 
 // end CreateTypeInterface
 //
 
-//line database_tpl.qtpl:335
+//line database_tpl.qtpl:336
 func (c *Creator) StreamCreateRoutinesInvoker(qw422016 *qt422016.Writer, r *psql.Routine, name string) {
-//line database_tpl.qtpl:337
+//line database_tpl.qtpl:338
 	camelName := strcase.ToCamel(name)
 	args := make([]any, len(r.Params()))
 	sql, _, _ := r.BuildSql(dbEngine.ArgsForSelect(args...))
 	typeReturn := ""
 
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:343
 	if r.Type == psql.ROUTINE_TYPE_PROC {
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:343
 		qw422016.N().S(`// `)
-//line database_tpl.qtpl:343
+//line database_tpl.qtpl:344
 		qw422016.E().S(camelName)
-//line database_tpl.qtpl:343
+//line database_tpl.qtpl:344
 		qw422016.N().S(` call procedure '`)
-//line database_tpl.qtpl:343
+//line database_tpl.qtpl:344
 		qw422016.E().S(name)
-//line database_tpl.qtpl:343
+//line database_tpl.qtpl:344
 		qw422016.N().S(`'
 // DB comment: '`)
-//line database_tpl.qtpl:344
+//line database_tpl.qtpl:345
 		qw422016.E().S(r.Comment)
-//line database_tpl.qtpl:344
+//line database_tpl.qtpl:345
 		qw422016.N().S(`'
 func (d *Database) `)
-//line database_tpl.qtpl:345
+//line database_tpl.qtpl:346
 		qw422016.E().S(camelName)
-//line database_tpl.qtpl:345
+//line database_tpl.qtpl:346
 		qw422016.N().S(`(ctx context.Context,
 				`)
-//line database_tpl.qtpl:346
+//line database_tpl.qtpl:347
 		c.streamparamsTitle(qw422016, r)
-//line database_tpl.qtpl:346
+//line database_tpl.qtpl:347
 		qw422016.N().S(`
 ) error {
 	return d.Conn.ExecDDL(ctx,
 				`)
-//line database_tpl.qtpl:346
+//line database_tpl.qtpl:347
 		qw422016.N().S("`")
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:350
 		qw422016.E().S(sql)
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:350
 		qw422016.N().S(``)
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:350
 		qw422016.N().S("`")
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:350
 		qw422016.N().S(`,
 				`)
-//line database_tpl.qtpl:350
+//line database_tpl.qtpl:351
 		c.streamparamsArgs(qw422016, r)
-//line database_tpl.qtpl:350
+//line database_tpl.qtpl:351
 		qw422016.N().S(`
 			)
 }
 `)
-//line database_tpl.qtpl:353
-	} else {
 //line database_tpl.qtpl:354
-		switch len(r.Columns()) {
+	} else {
 //line database_tpl.qtpl:355
-		case 0:
+		switch len(r.Columns()) {
 //line database_tpl.qtpl:356
+		case 0:
+//line database_tpl.qtpl:357
 			typeReturn = c.udtToReturnType(r.UdtName)
 
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:358
 		case 1:
-//line database_tpl.qtpl:359
+//line database_tpl.qtpl:360
 			param := r.Columns()[0]
 			typeReturn, _ = c.chkTypes(param, strcase.ToCamel(param.Name()))
 
-//line database_tpl.qtpl:362
-		default:
 //line database_tpl.qtpl:363
+		default:
+//line database_tpl.qtpl:364
 			typeReturn = fmt.Sprintf("*%sRowScanner", camelName)
 
-//line database_tpl.qtpl:364
+//line database_tpl.qtpl:365
 			c.StreamCreateRowScanner(qw422016, r, camelName)
-//line database_tpl.qtpl:364
+//line database_tpl.qtpl:365
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:365
+//line database_tpl.qtpl:366
 		}
-//line database_tpl.qtpl:365
+//line database_tpl.qtpl:366
 		qw422016.N().S(`// `)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.E().S(camelName)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.N().S(` run query with select DB function '`)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.E().S(name)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.N().S(`: `)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.E().S(r.UdtName)
-//line database_tpl.qtpl:366
+//line database_tpl.qtpl:367
 		qw422016.N().S(`'
 // DB comment: '`)
-//line database_tpl.qtpl:367
+//line database_tpl.qtpl:368
 		qw422016.E().S(r.Comment)
-//line database_tpl.qtpl:367
+//line database_tpl.qtpl:368
 		qw422016.N().S(`'
 // ATTENTION! It returns only 1 row `)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:369
 		qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:369
 		qw422016.N().S(`
 func (d *Database) `)
-//line database_tpl.qtpl:369
+//line database_tpl.qtpl:370
 		qw422016.E().S(camelName)
-//line database_tpl.qtpl:369
+//line database_tpl.qtpl:370
 		qw422016.N().S(`(
 	ctx context.Context,
 `)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:372
 		c.streamparamsTitle(qw422016, r)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:372
 		qw422016.N().S(`) (res `)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:372
 		qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:372
 		qw422016.N().S(`, err error) {
 	err = d.Conn.SelectOneAndScan(ctx,
 		&res,
 		`)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:372
 		qw422016.N().S("`")
-//line database_tpl.qtpl:374
+//line database_tpl.qtpl:375
 		qw422016.E().S(sql)
-//line database_tpl.qtpl:374
+//line database_tpl.qtpl:375
 		qw422016.N().S(`
 		FETCH FIRST 1 ROW ONLY`)
-//line database_tpl.qtpl:374
+//line database_tpl.qtpl:375
 		qw422016.N().S("`")
-//line database_tpl.qtpl:374
+//line database_tpl.qtpl:375
 		qw422016.N().S(`,
 		`)
-//line database_tpl.qtpl:376
+//line database_tpl.qtpl:377
 		c.streamparamsArgs(qw422016, r)
-//line database_tpl.qtpl:376
+//line database_tpl.qtpl:377
 		qw422016.N().S(`      )
 
 	return
 }
 `)
-//line database_tpl.qtpl:380
-		if r.ReturnType() == "record" {
 //line database_tpl.qtpl:381
+		if r.ReturnType() == "record" {
+//line database_tpl.qtpl:382
 			typeReturn = fmt.Sprintf("%sRowScanner", camelName)
 
-//line database_tpl.qtpl:381
+//line database_tpl.qtpl:382
 			qw422016.N().S(`// `)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:383
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:383
 			qw422016.N().S(`Each run query with select DB function '`)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:383
 			qw422016.E().S(name)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:383
 			qw422016.N().S(`'
 // DB comment: '`)
-//line database_tpl.qtpl:383
+//line database_tpl.qtpl:384
 			qw422016.E().S(r.Comment)
-//line database_tpl.qtpl:383
+//line database_tpl.qtpl:384
 			qw422016.N().S(`'
 // each will get every row from &`)
-//line database_tpl.qtpl:384
+//line database_tpl.qtpl:385
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:384
+//line database_tpl.qtpl:385
 			qw422016.N().S(`sRowScanner
 func (d *Database) `)
-//line database_tpl.qtpl:385
+//line database_tpl.qtpl:386
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:385
+//line database_tpl.qtpl:386
 			qw422016.N().S(`Each(
 	ctx context.Context,
 	each func(record *`)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:388
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:388
 			qw422016.N().S(`) error,
 `)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:389
 			c.streamparamsTitle(qw422016, r)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:389
 			qw422016.N().S(`) error {
 	res := &`)
-//line database_tpl.qtpl:389
+//line database_tpl.qtpl:390
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:389
+//line database_tpl.qtpl:390
 			qw422016.N().S(`{}
 	err := d.Conn.SelectAndScanEach(ctx,
 		func () error {
 			defer func () {
 			//	create new record
 				*res = `)
-//line database_tpl.qtpl:394
+//line database_tpl.qtpl:395
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:394
+//line database_tpl.qtpl:395
 			qw422016.N().S(`{}
 			}()
 
@@ -822,372 +823,372 @@ func (d *Database) `)
 		},
 		res,
 		`)
-//line database_tpl.qtpl:394
+//line database_tpl.qtpl:395
 			qw422016.N().S("`")
-//line database_tpl.qtpl:403
+//line database_tpl.qtpl:404
 			qw422016.E().S(sql)
-//line database_tpl.qtpl:403
+//line database_tpl.qtpl:404
 			qw422016.N().S(``)
-//line database_tpl.qtpl:403
+//line database_tpl.qtpl:404
 			qw422016.N().S("`")
-//line database_tpl.qtpl:403
+//line database_tpl.qtpl:404
 			qw422016.N().S(`,
 `)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:405
 			c.streamparamsArgs(qw422016, r)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:405
 			qw422016.N().S(`      )
 
 	return err
 }
 // `)
-//line database_tpl.qtpl:408
+//line database_tpl.qtpl:409
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:408
+//line database_tpl.qtpl:409
 			qw422016.N().S(`All run query with select DB function '`)
-//line database_tpl.qtpl:408
+//line database_tpl.qtpl:409
 			qw422016.E().S(name)
-//line database_tpl.qtpl:408
+//line database_tpl.qtpl:409
 			qw422016.N().S(`'
 // DB comment: '`)
-//line database_tpl.qtpl:409
+//line database_tpl.qtpl:410
 			qw422016.E().S(r.Comment)
-//line database_tpl.qtpl:409
+//line database_tpl.qtpl:410
 			qw422016.N().S(`'
 // each will get every row from &`)
-//line database_tpl.qtpl:410
+//line database_tpl.qtpl:411
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:410
+//line database_tpl.qtpl:411
 			qw422016.N().S(`sRowScanner
 func (d *Database) `)
-//line database_tpl.qtpl:411
+//line database_tpl.qtpl:412
 			qw422016.E().S(camelName)
-//line database_tpl.qtpl:411
+//line database_tpl.qtpl:412
 			qw422016.N().S(`All(
 	ctx context.Context,
 `)
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:414
 			c.streamparamsTitle(qw422016, r)
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:414
 			qw422016.N().S(`) (res []`)
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:414
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:414
 			qw422016.N().S(`, err error) {
 	buf := `)
-//line database_tpl.qtpl:414
+//line database_tpl.qtpl:415
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:414
+//line database_tpl.qtpl:415
 			qw422016.N().S(`{}
 	err = d.Conn.SelectAndScanEach(ctx,
 		func () error {
 			res = append(res, buf)
 			//	create new record
 			buf = `)
-//line database_tpl.qtpl:419
+//line database_tpl.qtpl:420
 			qw422016.E().S(typeReturn)
-//line database_tpl.qtpl:419
+//line database_tpl.qtpl:420
 			qw422016.N().S(`{}
 
 			return nil
 		},
 		&buf,
 		`)
-//line database_tpl.qtpl:419
+//line database_tpl.qtpl:420
 			qw422016.N().S("`")
-//line database_tpl.qtpl:424
+//line database_tpl.qtpl:425
 			qw422016.E().S(sql)
-//line database_tpl.qtpl:424
+//line database_tpl.qtpl:425
 			qw422016.N().S(``)
-//line database_tpl.qtpl:424
+//line database_tpl.qtpl:425
 			qw422016.N().S("`")
-//line database_tpl.qtpl:424
+//line database_tpl.qtpl:425
 			qw422016.N().S(`,
 `)
-//line database_tpl.qtpl:425
+//line database_tpl.qtpl:426
 			c.streamparamsArgs(qw422016, r)
-//line database_tpl.qtpl:425
+//line database_tpl.qtpl:426
 			qw422016.N().S(`      )
 
 	return
 }
 `)
-//line database_tpl.qtpl:429
+//line database_tpl.qtpl:430
 		}
-//line database_tpl.qtpl:429
+//line database_tpl.qtpl:430
 		qw422016.N().S(`
 
 `)
-//line database_tpl.qtpl:431
+//line database_tpl.qtpl:432
 	}
-//line database_tpl.qtpl:431
+//line database_tpl.qtpl:432
 	qw422016.N().S(`
 `)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 }
 
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 func (c *Creator) WriteCreateRoutinesInvoker(qq422016 qtio422016.Writer, r *psql.Routine, name string) {
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	c.StreamCreateRoutinesInvoker(qw422016, r, name)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 }
 
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 func (c *Creator) CreateRoutinesInvoker(r *psql.Routine, name string) string {
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	c.WriteCreateRoutinesInvoker(qb422016, r, name)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 	return qs422016
-//line database_tpl.qtpl:432
+//line database_tpl.qtpl:433
 }
 
-//line database_tpl.qtpl:434
+//line database_tpl.qtpl:435
 func (c *Creator) StreamCreateRowScanner(qw422016 *qt422016.Writer, r *psql.Routine, camelName string) {
-//line database_tpl.qtpl:434
+//line database_tpl.qtpl:435
 	qw422016.N().S(`// `)
-//line database_tpl.qtpl:435
+//line database_tpl.qtpl:436
 	qw422016.E().S(camelName)
-//line database_tpl.qtpl:435
+//line database_tpl.qtpl:436
 	qw422016.N().S(`RowScanner run query with select
 type `)
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:437
 	qw422016.E().S(camelName)
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:437
 	qw422016.N().S(`RowScanner struct {
 `)
-//line database_tpl.qtpl:437
+//line database_tpl.qtpl:438
 	for _, param := range r.Columns() {
-//line database_tpl.qtpl:439
+//line database_tpl.qtpl:440
 		s := strcase.ToCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 
-//line database_tpl.qtpl:441
+//line database_tpl.qtpl:442
 		qw422016.N().S(`	`)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.E().S(s)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.E().S("\t\t")
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.E().S(typeCol)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.E().S("\t\t")
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S(``)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S("`")
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S(`json:"`)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.E().S(param.Name())
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S(`"`)
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S("`")
-//line database_tpl.qtpl:442
+//line database_tpl.qtpl:443
 		qw422016.N().S(`
 `)
-//line database_tpl.qtpl:443
+//line database_tpl.qtpl:444
 	}
-//line database_tpl.qtpl:443
+//line database_tpl.qtpl:444
 	qw422016.N().S(`}
 // GetFields implement dbEngine.RowScanner interface
 func (r *`)
-//line database_tpl.qtpl:446
+//line database_tpl.qtpl:447
 	qw422016.E().S(camelName)
-//line database_tpl.qtpl:446
+//line database_tpl.qtpl:447
 	qw422016.N().S(`RowScanner) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
 	for i, col := range columns {
 		switch col.Name() {
 `)
-//line database_tpl.qtpl:450
+//line database_tpl.qtpl:451
 	for _, param := range r.Columns() {
-//line database_tpl.qtpl:450
+//line database_tpl.qtpl:451
 		qw422016.N().S(`		case "`)
-//line database_tpl.qtpl:451
+//line database_tpl.qtpl:452
 		qw422016.E().S(param.Name())
-//line database_tpl.qtpl:451
+//line database_tpl.qtpl:452
 		qw422016.N().S(`":
 			v[i] =  &r.`)
-//line database_tpl.qtpl:452
+//line database_tpl.qtpl:453
 		qw422016.N().S(strcase.ToCamel(param.Name()))
-//line database_tpl.qtpl:452
+//line database_tpl.qtpl:453
 		qw422016.N().S(`
 `)
-//line database_tpl.qtpl:453
+//line database_tpl.qtpl:454
 	}
-//line database_tpl.qtpl:453
+//line database_tpl.qtpl:454
 	qw422016.N().S(`		}
 	}
 
 	return v
 }
 `)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 }
 
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 func (c *Creator) WriteCreateRowScanner(qq422016 qtio422016.Writer, r *psql.Routine, camelName string) {
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	c.StreamCreateRowScanner(qw422016, r, camelName)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 }
 
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) string {
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	c.WriteCreateRowScanner(qb422016, r, camelName)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 	return qs422016
-//line database_tpl.qtpl:459
+//line database_tpl.qtpl:460
 }
 
-//line database_tpl.qtpl:461
-func (c *Creator) streamparamsTitle(qw422016 *qt422016.Writer, r *psql.Routine) {
 //line database_tpl.qtpl:462
+func (c *Creator) streamparamsTitle(qw422016 *qt422016.Writer, r *psql.Routine) {
+//line database_tpl.qtpl:463
 	for _, param := range r.Params() {
-//line database_tpl.qtpl:464
+//line database_tpl.qtpl:465
 		s := strcase.ToLowerCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 
-//line database_tpl.qtpl:466
+//line database_tpl.qtpl:467
 		qw422016.N().S(`	`)
-//line database_tpl.qtpl:467
+//line database_tpl.qtpl:468
 		qw422016.E().S(s)
-//line database_tpl.qtpl:467
+//line database_tpl.qtpl:468
 		qw422016.E().S("\t\t")
-//line database_tpl.qtpl:467
+//line database_tpl.qtpl:468
 		qw422016.E().S(typeCol)
-//line database_tpl.qtpl:467
+//line database_tpl.qtpl:468
 		qw422016.N().S(`,
 `)
-//line database_tpl.qtpl:468
+//line database_tpl.qtpl:469
 	}
-//line database_tpl.qtpl:469
-}
-
-//line database_tpl.qtpl:469
-func (c *Creator) writeparamsTitle(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line database_tpl.qtpl:469
-	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:469
-	c.streamparamsTitle(qw422016, r)
-//line database_tpl.qtpl:469
-	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:469
-}
-
-//line database_tpl.qtpl:469
-func (c *Creator) paramsTitle(r *psql.Routine) string {
-//line database_tpl.qtpl:469
-	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:469
-	c.writeparamsTitle(qb422016, r)
-//line database_tpl.qtpl:469
-	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:469
-	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:469
-	return qs422016
-//line database_tpl.qtpl:469
+//line database_tpl.qtpl:470
 }
 
 //line database_tpl.qtpl:470
+func (c *Creator) writeparamsTitle(qq422016 qtio422016.Writer, r *psql.Routine) {
+//line database_tpl.qtpl:470
+	qw422016 := qt422016.AcquireWriter(qq422016)
+//line database_tpl.qtpl:470
+	c.streamparamsTitle(qw422016, r)
+//line database_tpl.qtpl:470
+	qt422016.ReleaseWriter(qw422016)
+//line database_tpl.qtpl:470
+}
+
+//line database_tpl.qtpl:470
+func (c *Creator) paramsTitle(r *psql.Routine) string {
+//line database_tpl.qtpl:470
+	qb422016 := qt422016.AcquireByteBuffer()
+//line database_tpl.qtpl:470
+	c.writeparamsTitle(qb422016, r)
+//line database_tpl.qtpl:470
+	qs422016 := string(qb422016.B)
+//line database_tpl.qtpl:470
+	qt422016.ReleaseByteBuffer(qb422016)
+//line database_tpl.qtpl:470
+	return qs422016
+//line database_tpl.qtpl:470
+}
+
+//line database_tpl.qtpl:471
 func (c *Creator) streamparamsArgs(qw422016 *qt422016.Writer, r *psql.Routine) {
-//line database_tpl.qtpl:471
+//line database_tpl.qtpl:472
 	for _, param := range r.Params() {
-//line database_tpl.qtpl:471
+//line database_tpl.qtpl:472
 		qw422016.N().S(`		`)
-//line database_tpl.qtpl:472
+//line database_tpl.qtpl:473
 		qw422016.E().S(strcase.ToLowerCamel(param.Name()))
-//line database_tpl.qtpl:472
+//line database_tpl.qtpl:473
 		qw422016.N().S(`,
 `)
-//line database_tpl.qtpl:473
+//line database_tpl.qtpl:474
 	}
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 }
 
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 func (c *Creator) writeparamsArgs(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	c.streamparamsArgs(qw422016, r)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 }
 
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 func (c *Creator) paramsArgs(r *psql.Routine) string {
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	c.writeparamsArgs(qb422016, r)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 	return qs422016
-//line database_tpl.qtpl:474
+//line database_tpl.qtpl:475
 }
 
-//line database_tpl.qtpl:476
+//line database_tpl.qtpl:477
 func (c *Creator) StreamCreateTableConstructor(qw422016 *qt422016.Writer, cName, name string) {
-//line database_tpl.qtpl:476
+//line database_tpl.qtpl:477
 	qw422016.N().S(`// New`)
-//line database_tpl.qtpl:477
+//line database_tpl.qtpl:478
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:477
+//line database_tpl.qtpl:478
 	qw422016.N().S(` create new instance of table `)
-//line database_tpl.qtpl:477
+//line database_tpl.qtpl:478
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:477
+//line database_tpl.qtpl:478
 	qw422016.N().S(`
 func (d *Database) New`)
-//line database_tpl.qtpl:478
+//line database_tpl.qtpl:479
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:478
+//line database_tpl.qtpl:479
 	qw422016.N().S(`(ctx context.Context) (*`)
-//line database_tpl.qtpl:478
+//line database_tpl.qtpl:479
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:478
+//line database_tpl.qtpl:479
 	qw422016.N().S(`, error) {
 	const name = "`)
-//line database_tpl.qtpl:479
+//line database_tpl.qtpl:480
 	qw422016.E().S(name)
-//line database_tpl.qtpl:479
+//line database_tpl.qtpl:480
 	qw422016.N().S(`"
 	table, ok := d.Tables[name]
     if !ok {
 		var err error
 		table, err = New`)
-//line database_tpl.qtpl:483
+//line database_tpl.qtpl:484
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:483
+//line database_tpl.qtpl:484
 	qw422016.N().S(`FromConn(ctx, d.PsqlConn())
 		if err != nil {
 			return nil, err
@@ -1196,39 +1197,39 @@ func (d *Database) New`)
     }
 
     return &`)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:491
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:491
 	qw422016.N().S(`{
 		Table: table.(*psql.Table),
     }, nil
 }
 `)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 }
 
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 func (c *Creator) WriteCreateTableConstructor(qq422016 qtio422016.Writer, cName, name string) {
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	c.StreamCreateTableConstructor(qw422016, cName, name)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 }
 
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 func (c *Creator) CreateTableConstructor(cName, name string) string {
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	c.WriteCreateTableConstructor(qb422016, cName, name)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 	return qs422016
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:495
 }
