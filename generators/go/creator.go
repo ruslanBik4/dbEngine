@@ -16,7 +16,7 @@ import (
 	"github.com/jackc/pgtype"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
-	"github.com/ruslanBik4/dbEngine/typesExt"
+	"github.com/ruslanBik4/gotools/typesExt"
 
 	"github.com/iancoleman/strcase"
 	"github.com/pkg/errors"
@@ -49,6 +49,20 @@ func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
 	return &Creator{
 		db:  DB,
 		dst: dst,
+		packages: []string{
+			"bytes",
+			"fmt",
+			"errors",
+			"time",
+			"strings",
+			"github.com/jackc/pgx/v4",
+			"github.com/jackc/pgconn",
+			"github.com/jackc/pgtype",
+
+			"github.com/ruslanBik4/logs",
+			"github.com/ruslanBik4/dbEngine/dbEngine",
+			"github.com/ruslanBik4/dbEngine/dbEngine/psql",
+		},
 	}, nil
 }
 
@@ -80,6 +94,11 @@ func (c *Creator) makeDBUsersTypes() error {
 		}
 		c.db.Types[tName] = t
 	}
+
+	if len(c.db.Types) > 0 {
+		c.addImport("bytes", moduloGoTools)
+	}
+
 	return nil
 }
 
@@ -145,7 +164,7 @@ func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
 	toType := psql.UdtNameToType(r.UdtName)
 	sType := typesExt.Basic(toType).String()
 	switch toType {
-	case types.Invalid:
+	case types.UntypedNil, types.Invalid:
 		sType = c.chkDefineType(r.UdtName)
 		if sType == "" {
 			sType = "*" + strcase.ToCamel(r.UdtName)
@@ -290,10 +309,10 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	case bTypeCol == types.UnsafePointer:
 		typeCol = "[]byte"
 
-	case bTypeCol == types.Invalid || bTypeCol < 0:
+	case bTypeCol == types.UntypedNil || bTypeCol < 0:
 		typeCol = c.chkDefineType(col.Type())
 		if typeCol == "" {
-			name, ok := c.chkDataType(col.Type())
+			name, ok := c.ChkDataType(col.Type())
 			if ok {
 				typeCol = strings.TrimPrefix(fmt.Sprintf("%T", name.Value), "*")
 			} else {
@@ -339,8 +358,12 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	return typeCol, defValue
 }
 
-func (c *Creator) chkDataType(typeCol string) (*pgtype.DataType, bool) {
-	conn, err := c.db.Conn.(*psql.Conn).Acquire(context.TODO())
+func (c *Creator) ChkDataType(typeCol string) (*pgtype.DataType, bool) {
+	return ChkDataType(c.db, typeCol)
+}
+
+func ChkDataType(db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
+	conn, err := db.Conn.(*psql.Conn).Acquire(context.TODO())
 	if err != nil {
 		logs.ErrorLog(err)
 		return nil, false
@@ -385,10 +408,10 @@ func (c *Creator) udtToReturnType(udtName string) string {
 	switch toType {
 	case types.UnsafePointer:
 		return "[]byte"
-	case types.Invalid, typesExt.TMap, typesExt.TStruct:
+	case types.UntypedNil, typesExt.TMap, typesExt.TStruct:
 		typeReturn := c.chkDefineType(udtName)
 		if typeReturn == "" {
-			name, ok := c.chkDataType(udtName)
+			name, ok := c.ChkDataType(udtName)
 			if ok {
 				typeReturn = fmt.Sprintf("%T", name.Value)
 			} else {

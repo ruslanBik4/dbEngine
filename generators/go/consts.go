@@ -5,8 +5,9 @@
 package _go
 
 const (
-	moduloPgType = "github.com/jackc/pgtype"
-	moduloSql    = "database/sql"
+	moduloPgType  = "github.com/jackc/pgtype"
+	moduloGoTools = "github.com/ruslanBik4/gotools"
+	moduloSql     = "database/sql"
 )
 
 const (

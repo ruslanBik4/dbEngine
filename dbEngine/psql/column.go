@@ -13,7 +13,7 @@ import (
 
 	"github.com/ruslanBik4/logs"
 
-	"github.com/ruslanBik4/dbEngine/typesExt"
+	"github.com/ruslanBik4/gotools/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -35,6 +35,7 @@ type Column struct {
 	IsHidden               bool
 	Position               int32
 	UserDefined            *dbEngine.Types
+	basicKind              types.BasicKind
 }
 
 func (c *Column) UserDefinedType() *dbEngine.Types {
@@ -155,25 +156,36 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 
 // BasicType return golangs type of column
 func (c *Column) BasicType() types.BasicKind {
+	if c.basicKind != types.Invalid {
+		return c.basicKind
+	}
+
+	udtName := c.UdtName
 	if c.UserDefined != nil {
 		if len(c.UserDefined.Enumerates) > 0 {
+			c.basicKind = types.String
 			return types.String
 		}
 		for _, tAttr := range c.UserDefined.Attr {
 			if tAttr.Name == "domain" {
-				logs.StatusLog(c.name, c.UdtName, c.UserDefined)
-				return UdtNameToType(tAttr.Type)
+				logs.StatusLog(c.name, udtName, c.UserDefined, tAttr.Type)
+				udtName = tAttr.Type
+				break
 			}
 		}
 	}
-	b := UdtNameToType(c.UdtName)
-	if b == types.Invalid {
-		logs.StatusLog(c, c.UdtName, c.UserDefined)
-		logs.ErrorStack(errors.New("invalid type"), c.UdtName)
+
+	c.basicKind = UdtNameToType(udtName)
+	if c.basicKind == types.UntypedNil {
+		logs.StatusLog(c, udtName, c.UserDefined)
+		logs.ErrorStack(errors.New("invalid type"), udtName)
 	}
-	return b
+
+	return c.basicKind
 }
 
+// Table implement dbEngine.Column interface
+// return table of column
 func (s *Column) Table() dbEngine.Table {
 	return s.table
 }
@@ -194,10 +206,10 @@ func UdtNameToType(udtName string) types.BasicKind {
 	case "float8", "_float8", "money", "_money", "double precision":
 		return types.Float64
 	case "numeric", "decimal", "_numeric", "_decimal":
-		// todo add check field length
-		return types.UntypedFloat
+		// todo add check field length UntypedFloat
+		return types.Float64
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange",
-		"numrange":
+		"numrange", "cube", "point":
 		return typesExt.TStruct
 	case "json", "jsonb":
 		return types.UnsafePointer
@@ -212,7 +224,7 @@ func UdtNameToType(udtName string) types.BasicKind {
 
 		logs.DebugLog("unknown type: %s", udtName)
 
-		return types.Invalid
+		return types.UntypedNil
 	}
 }
 

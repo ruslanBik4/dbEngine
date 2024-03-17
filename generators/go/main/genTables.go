@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
-	"github.com/ruslanBik4/dbEngine/typesExt"
+	"github.com/ruslanBik4/gotools/typesExt"
 	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"

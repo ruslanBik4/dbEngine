@@ -22,21 +22,10 @@ source: %s %s
 package db
 
 import (
-	"bytes"
-	"fmt"
-	"errors"
-	"time"
-	"strings"
-	{%- for _, lib := range c.packages -%}"{%s lib %}"
+	{%- for _, lib := range c.packages -%}
+	"{%s lib %}"
     {%- endfor -%}
 
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgtype"
-
-	"github.com/ruslanBik4/logs"
-	"github.com/ruslanBik4/dbEngine/dbEngine"
-    "github.com/ruslanBik4/dbEngine/dbEngine/psql"
 
 	"golang.org/x/net/context"
 )
@@ -203,7 +192,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
 	{%- for _, attr := range t.Attr -%}
-	{%s= fmt.Sprintf("%-21s\t%-13s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %}"`
+	{%s= fmt.Sprintf("%-21s\t\t%s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %}"`
 	{%- endfor -%}
 	{%- if t.Type == 'r' -%}
 	LowerType pgtype.BoundType
@@ -260,7 +249,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	{%- endfor -%}
 	{%- endif -%}
 
-	return scanError
+	return scanErrors
 }
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
@@ -321,6 +310,7 @@ func (dst *{%s typeName %}) Scan(src any) error {
 	switch src := src.(type) {
 	case nil:
 		*dst = {%s typeName %}{}
+		return nil
 	case string:
 		return dst.DecodeText(nil, gotools.StringToBytes(src))
 	case []byte:

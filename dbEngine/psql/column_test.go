@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/net/context"
 
-	"github.com/ruslanBik4/dbEngine/typesExt"
+	"github.com/ruslanBik4/gotools/typesExt"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
