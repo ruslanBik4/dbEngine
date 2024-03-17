@@ -89,14 +89,10 @@ func (c *Creator) makeDBUsersTypes() error {
 			tAttr.Type = typeCol
 			t.Attr[i] = tAttr
 			if len(t.Enumerates) == 0 {
-				c.addImport("bytes", moduloPgType)
+				c.addImport(moduloPgType, moduloGoTools)
 			}
 		}
 		c.db.Types[tName] = t
-	}
-
-	if len(c.db.Types) > 0 {
-		c.addImport("bytes", moduloGoTools)
 	}
 
 	return nil
