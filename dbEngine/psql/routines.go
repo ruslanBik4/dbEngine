@@ -164,9 +164,8 @@ func (r *Routine) GetFields(columns []dbEngine.Column) []any {
 	return fields
 }
 
-// GetParams получение значений полей для форматирования данных
-// получение значений полей для таблицы
-func (r *Routine) GetParams(ctx context.Context) error {
+// GetParams requests parameters of routine & split them  according to IN/OUT
+func (r *Routine) GetParams(ctx context.Context, types map[string]dbEngine.Types, tables map[string]dbEngine.Table) error {
 
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
@@ -174,6 +173,9 @@ func (r *Routine) GetParams(ctx context.Context) error {
 			if s, ok := r.tempParam.colDefault.(string); ok && strings.HasPrefix(s, "NULL") {
 				r.tempParam.colDefault = nil
 			}
+
+			r.tempParam.defineBasicType(types, tables)
+
 			if strings.HasPrefix(r.paramMode, "IN") {
 				r.params = append(r.params, r.tempParam)
 			}

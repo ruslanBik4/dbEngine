@@ -29,7 +29,7 @@ import (
 
 	"golang.org/x/net/context"
 )
-type scanError interface{
+type scanError interface {
 	ScanValue(d any)
 	Err() error
 }
@@ -133,6 +133,7 @@ type Database struct {
 	*dbEngine.DB
 	CreateAt time.Time
 }
+
 // NewDatabase create new Database with minimal necessary handlers
 func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
 	if noticeHandler == nil {
@@ -153,6 +154,7 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 
 	return &Database{DB, time.Now()}, nil
 }
+
 // PsqlConn return connection as *psql.Conn
 // need for some low-level operation,
 // invoke Conn.Select...(custom sql),
@@ -188,7 +190,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 
 {%- func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) -%}
 {%- if len(t.Enumerates) > 0 -%}
-{%- else -%}
+{% else %}
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
 	{%- for _, attr := range t.Attr -%}
@@ -199,6 +201,7 @@ type {%s typeName %} struct {
 	UpperType pgtype.BoundType
 	{%- endif -%}
 }
+
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
@@ -224,7 +227,6 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
     		return nil
     	}
 
-    	var scanErrors error
     	if dst.LowerType == pgtype.Inclusive || dst.LowerType == pgtype.Exclusive {
     		if err := dst.Lower.DecodeText(ci, gotools.StringToBytes(utr.Lower)); err != nil {
     			scanErrors = errors.Join(scanErrors, err)
@@ -240,7 +242,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 
 	{%- for _, attr := range t.Attr -%}
 	{% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} c.ScanDecoder
-	{%- else -%} c.ScanValue {%- endif -%}
+	{%- else -%} c.ScanValue{%- endif -%}
 	(&dst.{%s strcase.ToCamel(attr.Name) %})
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
@@ -251,6 +253,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 
 	return scanErrors
 }
+
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
@@ -292,7 +295,7 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 	{%- else -%}
 	{%- for i, attr := range t.Attr -%}
 	//	    rich end of elements
-	if  countFields < {%d i+1 %} || !c.Next(){
+	if countFields < {%d i+1 %} || !c.Next() {
 		return nil
 	}
 	if err := {% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} &dst.{%s strcase.ToCamel(attr.Name) %}.DecodeBinary(ci, c.Bytes())
@@ -305,6 +308,7 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 
 	return scanErrors
 }
+
 // Scan implement sql.Scanner interface
 func (dst *{%s typeName %}) Scan(src any) error {
 	switch src := src.(type) {
@@ -354,6 +358,7 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 	{%- code typeReturn = fmt.Sprintf("*%sRowScanner", camelName)-%}
 {%= c.CreateRowScanner(r, camelName) %}
 {%- endswitch -%}
+
 // {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
 // DB comment: '{%s r.Comment %}'
 // ATTENTION! It returns only 1 row {%s typeReturn %}
@@ -396,6 +401,7 @@ func (d *Database) {%s camelName %}Each(
 
 	return err
 }
+
 // {%s camelName %}All run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 // each will get every row from &{%s camelName %}sRowScanner

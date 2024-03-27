@@ -6,8 +6,10 @@ package psql
 
 import (
 	"fmt"
+	"go/types"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/gotools/typesExt"
 	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -167,40 +170,32 @@ func (c *Conn) LastRowAffected() int64 {
 
 // GetSchema read DB schema & store it
 func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
-	types := make(map[string]dbEngine.Types)
+	dbTypes := make(map[string]dbEngine.Types)
 	typeBuf := &dbEngine.Types{}
 	err := c.SelectAndScanEach(ctx,
 		func() error {
-			types[typeBuf.Name] = *typeBuf
+			dbTypes[typeBuf.Name] = *typeBuf
 			*typeBuf = dbEngine.Types{}
 			return nil
 		},
 		typeBuf,
 		sqlTypesList)
 	if err != nil {
-		logs.ErrorLog(err, "during getting databases types")
+		logs.ErrorLog(err, "during getting databases dbTypes")
 	}
 
-	tables, err := c.GetTablesProp(ctx, types)
+	for s, t := range dbTypes {
+		logs.StatusLog(s, t)
+	}
+
+	tables, err := c.GetTablesProp(ctx, dbTypes)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetTablesProp")
 	}
-	routines, err := c.GetRoutines(ctx)
+
+	routines, err := c.GetRoutines(ctx, dbTypes, tables)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
-	}
-	for name, r := range routines {
-		for _, col := range r.(*Routine).columns {
-			if col.DataType == "USER-DEFINED" {
-				t, ok := types[col.UdtName]
-				if ok {
-					col.UserDefined = &t
-				} else if _, ok := tables[col.UdtName]; ok {
-				} else {
-					logs.DebugLog("Routine %s use unknown type %s for params %s", name, col.UdtName, col.Name())
-				}
-			}
-		}
 	}
 
 	database := make(map[string]*string)
@@ -210,11 +205,11 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 		logs.ErrorLog(err, "during getting settings")
 	}
 
-	return database, tables, routines, types, err
+	return database, tables, routines, dbTypes, err
 }
 
 // GetTablesProp populate tables schemas data
-func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Types) (map[string]dbEngine.Table, error) {
+func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Types) (map[string]dbEngine.Table, error) {
 	// buf for scan table fields from query
 	table := &Table{
 		conn: c,
@@ -256,12 +251,21 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 		for _, col := range table.(*Table).columns {
 			if col.DataType == "USER-DEFINED" {
 
-				if t, ok := types[col.UdtName]; ok {
+				udtName := strings.TrimPrefix(col.UdtName, "_")
+				if t, ok := dbTypes[udtName]; ok {
 					col.UserDefined = &t
 					//	todo: research how to determinate CITEXT on database
-				} else if col.UdtName != "citext" {
+				} else if col.BasicType() == types.UntypedNil {
+					if _, ok := tables[udtName]; ok {
+						col.basicKind = typesExt.TStruct
+					}
+					if _, ok := dbTypes[udtName]; ok {
+						col.basicKind = typesExt.TStruct
+					}
+					logs.StatusLog(col.basicKind)
+				} else if udtName != "citext" {
 					logs.ErrorLog(dbEngine.ErrNotFoundType{
-						Name: col.UdtName,
+						Name: udtName,
 						Type: col.DataType,
 					})
 				}
@@ -280,9 +284,9 @@ func (c *Conn) GetTablesProp(ctx context.Context, types map[string]dbEngine.Type
 }
 
 // GetRoutines get properties of DB routines & returns them as map
-func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngine.Routine, err error) {
+func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) (routines map[string]dbEngine.Routine, err error) {
 
-	RoutinesCache = make(map[string]dbEngine.Routine, 0)
+	routines = make(map[string]dbEngine.Routine, 0)
 
 	err = c.selectAndRunEach(ctx,
 		func(values []any, columns []dbEngine.Column) error {
@@ -321,7 +325,7 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 			row.Comment, _ = values[5].(string)
 			name := values[1].(string)
 
-			fnc, ok := RoutinesCache[name].(*Routine)
+			fnc, ok := routines[name].(*Routine)
 			if ok {
 				for fnc.overlay != nil {
 					fnc = fnc.overlay
@@ -329,10 +333,10 @@ func (c *Conn) GetRoutines(ctx context.Context) (RoutinesCache map[string]dbEngi
 				fnc.overlay = row
 
 			} else {
-				RoutinesCache[name] = row
+				routines[name] = row
 			}
 
-			return row.GetParams(ctx)
+			return row.GetParams(ctx, dbTypes, tables)
 		}, sqlRoutineList)
 
 	return

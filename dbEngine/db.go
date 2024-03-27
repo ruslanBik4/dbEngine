@@ -41,7 +41,7 @@ type TypeCfgDB string
 // DB name & schema
 type DB struct {
 	sync.RWMutex
-	Cfg           map[string]interface{}
+	Cfg           map[string]any
 	Conn          Connection
 	ctx           context.Context
 	Name          string

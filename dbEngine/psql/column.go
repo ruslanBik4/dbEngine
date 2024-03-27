@@ -38,8 +38,9 @@ type Column struct {
 	basicKind              types.BasicKind
 }
 
-func (c *Column) UserDefinedType() *dbEngine.Types {
-	return c.UserDefined
+// UserDefinedType return define type
+func (col *Column) UserDefinedType() *dbEngine.Types {
+	return col.UserDefined
 }
 
 // NewColumnForTableBuf create Column for scanning operation of Table
@@ -51,8 +52,8 @@ func NewColumnForTableBuf(table *Table) *Column {
 }
 
 // Foreign return  first foreign key of column
-func (c *Column) Foreign() *dbEngine.ForeignKey {
-	for _, c := range c.Constraints {
+func (col *Column) Foreign() *dbEngine.ForeignKey {
+	for _, c := range col.Constraints {
 		if c != nil {
 			return c
 		}
@@ -62,40 +63,41 @@ func (c *Column) Foreign() *dbEngine.ForeignKey {
 }
 
 // IsNullable return isNullable flag
-func (c *Column) IsNullable() bool {
-	return c.isNullable
+func (col *Column) IsNullable() bool {
+	return col.isNullable
 }
 
 // AutoIncrement return true if column is autoincrement
-func (c *Column) AutoIncrement() bool {
-	return c.autoInc
+func (col *Column) AutoIncrement() bool {
+	return col.autoInc
 }
 
 // Copy column & return new instance
-func (c *Column) Copy() *Column {
+func (col *Column) Copy() *Column {
 	return &Column{
-		table:                  c.table,
-		name:                   c.name,
-		DataType:               c.DataType,
-		colDefault:             c.colDefault,
-		isNullable:             c.isNullable,
-		CharacterSetName:       c.CharacterSetName,
-		comment:                c.comment,
-		UdtName:                c.UdtName,
-		characterMaximumLength: c.characterMaximumLength,
-		autoInc:                c.autoInc,
-		PrimaryKey:             c.PrimaryKey,
-		Constraints:            c.Constraints,
-		IsHidden:               c.IsHidden,
-		UserDefined:            c.UserDefined,
+		table:                  col.table,
+		name:                   col.name,
+		basicKind:              col.basicKind,
+		DataType:               col.DataType,
+		colDefault:             col.colDefault,
+		isNullable:             col.isNullable,
+		CharacterSetName:       col.CharacterSetName,
+		comment:                col.comment,
+		UdtName:                col.UdtName,
+		characterMaximumLength: col.characterMaximumLength,
+		autoInc:                col.autoInc,
+		PrimaryKey:             col.PrimaryKey,
+		Constraints:            col.Constraints,
+		IsHidden:               col.IsHidden,
+		UserDefined:            col.UserDefined,
 	}
 }
 
 // GetFields implement RowColumn interface
-func (c *Column) GetFields(columns []dbEngine.Column) []any {
+func (col *Column) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
-	for i, col := range columns {
-		v[i] = c.RefColValue(col.Name())
+	for i, column := range columns {
+		v[i] = col.RefColValue(column.Name())
 	}
 
 	return v
@@ -139,8 +141,8 @@ func NewColumn(
 }
 
 // BasicTypeInfo of columns value
-func (c *Column) BasicTypeInfo() types.BasicInfo {
-	switch c.BasicType() {
+func (col *Column) BasicTypeInfo() types.BasicInfo {
+	switch col.BasicType() {
 	case types.Bool:
 		return types.IsBoolean
 	case types.Int32, types.Int64:
@@ -154,40 +156,67 @@ func (c *Column) BasicTypeInfo() types.BasicInfo {
 	}
 }
 
-// BasicType return golangs type of column
-func (c *Column) BasicType() types.BasicKind {
-	if c.basicKind != types.Invalid {
-		return c.basicKind
+// BasicType return golang type of column
+func (col *Column) BasicType() types.BasicKind {
+	if col.basicKind != types.Invalid {
+		return col.basicKind
 	}
 
-	udtName := c.UdtName
-	if c.UserDefined != nil {
-		if len(c.UserDefined.Enumerates) > 0 {
-			c.basicKind = types.String
-			return types.String
+	col.defineBasicType(nil, nil)
+	if col.basicKind == types.UntypedNil {
+		logs.StatusLog(col, col.UdtName, col.UserDefined)
+		logs.ErrorStack(errors.New("invalid type"), col.UdtName)
+	}
+
+	return col.basicKind
+}
+
+func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) {
+	udtName := col.UdtName
+	// it's non-standard type we need chk its user defined
+	if col.UserDefined != nil {
+		// enumerate always string
+		if len(col.UserDefined.Enumerates) > 0 {
+			col.basicKind = types.String
+			return
 		}
-		for _, tAttr := range c.UserDefined.Attr {
+
+		// we must seek domain type
+		for _, tAttr := range col.UserDefined.Attr {
 			if tAttr.Name == "domain" {
-				logs.StatusLog(c.name, udtName, c.UserDefined, tAttr.Type)
+				logs.StatusLog(col.name, udtName, col.UserDefined, tAttr.Type)
 				udtName = tAttr.Type
 				break
 			}
 		}
 	}
-
-	c.basicKind = UdtNameToType(udtName)
-	if c.basicKind == types.UntypedNil {
-		logs.StatusLog(c, udtName, c.UserDefined)
-		logs.ErrorStack(errors.New("invalid type"), udtName)
+	col.basicKind = UdtNameToType(udtName)
+	udtName = strings.TrimPrefix(udtName, "_")
+	if col.BasicType() == types.UntypedNil {
+		if t, ok := dbTypes[udtName]; ok {
+			col.basicKind = typesExt.TStruct
+			col.UserDefined = &t
+		} else if _, ok := tables[udtName]; ok {
+			col.basicKind = typesExt.TStruct
+			//col.UserDefined = &t
+		}
+		logs.DebugLog(udtName, col.basicKind, col)
 	}
-
-	return c.basicKind
+	if col.DataType == "USER-DEFINED" {
+		t, ok := dbTypes[udtName]
+		if ok {
+			col.UserDefined = &t
+		} else if _, ok := tables[udtName]; ok {
+		} else {
+			logs.DebugLog("Routine %s use unknown type %s for params %s", col.Name(), udtName, col.Name())
+		}
+	}
 }
 
 // Table implement dbEngine.Column interface
 // return table of column
-func (s *Column) Table() dbEngine.Table {
-	return s.table
+func (col *Column) Table() dbEngine.Table {
+	return col.table
 }
 
 // UdtNameToType return types.BasicKind according to psql udtName
@@ -251,18 +280,18 @@ var dataTypeAlias = map[string][]string{
 }
 
 // CheckAttr check attributes of column on DB schema according to ddl-file
-func (c *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
+func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 	colDefine = strings.ToLower(colDefine)
 	// todo: add check arrays
-	lenCol := c.CharacterMaximumLength()
-	udtName := c.UdtName
+	lenCol := col.CharacterMaximumLength()
+	udtName := col.UdtName
 	a, isArray := strings.CutPrefix(udtName, "_")
 	if isArray {
 		udtName = a + "[]"
 	}
-	isTypeValid := strings.HasPrefix(colDefine, c.DataType) || strings.HasPrefix(colDefine, udtName)
+	isTypeValid := strings.HasPrefix(colDefine, col.DataType) || strings.HasPrefix(colDefine, udtName)
 	if !isTypeValid {
-		t := c.UdtName
+		t := col.UdtName
 		if isArray {
 			t = a
 		}
@@ -279,21 +308,21 @@ func (c *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 			logs.StatusLog(isArray, colDefine)
 			flags = append(flags, dbEngine.ChgToArray)
 		}
-		if strings.HasPrefix(c.DataType, "character") && (lenCol > 0) &&
+		if strings.HasPrefix(col.DataType, "character") && (lenCol > 0) &&
 			!strings.Contains(colDefine, fmt.Sprintf("char(%d)", lenCol)) {
 
 			flags = append(flags, dbEngine.ChgLength)
 		}
 	} else {
-		logs.DebugLog(colDefine, c.name, c.DataType, udtName)
+		logs.DebugLog(colDefine, col.name, col.DataType, udtName)
 		flags = append(flags, dbEngine.ChgType)
-		logs.DebugLog(c.DataType, c.UdtName, lenCol)
+		logs.DebugLog(col.DataType, col.UdtName, lenCol)
 	}
 
 	isNotNull := strings.Contains(colDefine, isNotNullable)
-	if c.isNullable && isNotNull {
+	if col.isNullable && isNotNull {
 		flags = append(flags, dbEngine.MustNotNull)
-	} else if !c.isNullable && !isNotNull {
+	} else if !col.isNullable && !isNotNull {
 		flags = append(flags, dbEngine.Nullable)
 	}
 
@@ -301,55 +330,55 @@ func (c *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 }
 
 // CharacterMaximumLength return max of length text columns
-func (c *Column) CharacterMaximumLength() int {
-	return c.characterMaximumLength
+func (col *Column) CharacterMaximumLength() int {
+	return col.characterMaximumLength
 }
 
 // Comment of column
-func (c *Column) Comment() string {
-	return c.comment
+func (col *Column) Comment() string {
+	return col.comment
 }
 
 // Name of column
-func (c *Column) Name() string {
-	return c.name
+func (col *Column) Name() string {
+	return col.name
 }
 
 // Primary return true if column is primary key
-func (c *Column) Primary() bool {
-	return c.PrimaryKey
+func (col *Column) Primary() bool {
+	return col.PrimaryKey
 }
 
 // Type of column (psql native)
-func (c *Column) Type() string {
-	return c.UdtName
+func (col *Column) Type() string {
+	return col.UdtName
 }
 
 // IsArray of column (psql native)
-func (c *Column) IsArray() bool {
-	return strings.HasPrefix(c.UdtName, "_")
+func (col *Column) IsArray() bool {
+	return strings.HasPrefix(col.UdtName, "_")
 }
 
 // Required return true if column need a value
-func (c *Column) Required() bool {
-	return !c.isNullable && (c.colDefault == nil)
+func (col *Column) Required() bool {
+	return !col.isNullable && (col.colDefault == nil)
 }
 
 // SetNullable set nullable flag of column
-func (c *Column) SetNullable(f bool) {
-	c.isNullable = f
+func (col *Column) SetNullable(f bool) {
+	col.isNullable = f
 }
 
 // Default return default value of column
-func (c *Column) Default() any {
-	return c.colDefault
+func (col *Column) Default() any {
+	return col.colDefault
 }
 
 // SetDefault set default value into column
-func (c *Column) SetDefault(d any) {
+func (col *Column) SetDefault(d any) {
 	str, ok := d.(string)
 	if !ok {
-		c.colDefault = nil
+		col.colDefault = nil
 		return
 	}
 
@@ -357,7 +386,7 @@ func (c *Column) SetDefault(d any) {
 		str = (strings.Split(str, "::"))[0]
 
 		if str == "NULL" {
-			c.colDefault = nil
+			col.colDefault = nil
 			return
 		}
 	}
@@ -365,13 +394,13 @@ func (c *Column) SetDefault(d any) {
 	const DEFAULT_SERIAL = "nextval("
 	isSerial := strings.HasPrefix(str, DEFAULT_SERIAL)
 	if isSerial {
-		c.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
+		col.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
 	} else {
-		c.colDefault = strings.Trim(str, "'")
+		col.colDefault = strings.Trim(str, "'")
 	}
 	// todo add other case of autogenerate column value
 	upperS := strings.ToUpper(str)
-	c.autoInc = isSerial ||
+	col.autoInc = isSerial ||
 		strings.Contains(upperS, "CURRENT_TIMESTAMP") ||
 		strings.Contains(upperS, "CURRENT_DATE") ||
 		strings.Contains(upperS, "CURRENT_USER") ||
@@ -379,28 +408,28 @@ func (c *Column) SetDefault(d any) {
 }
 
 // RefColValue referral of column property 'name'
-func (c *Column) RefColValue(name string) any {
+func (col *Column) RefColValue(name string) any {
 	switch name {
 	case "data_type":
-		return &c.DataType
+		return &col.DataType
 	case "column_name":
-		return &c.name
+		return &col.name
 	case "column_default":
-		return &c.colDefault
+		return &col.colDefault
 	case "is_nullable":
-		return &c.isNullable
+		return &col.isNullable
 	case "character_set_name":
-		return &c.CharacterSetName
+		return &col.CharacterSetName
 	case "character_maximum_length":
-		return &c.characterMaximumLength
+		return &col.characterMaximumLength
 	case "udt_name":
-		return &c.UdtName
+		return &col.UdtName
 	case "column_comment":
-		return &c.comment
+		return &col.comment
 	case "keys":
-		return &c.Constraints
+		return &col.Constraints
 	case "ordinal_position":
-		return &c.Position
+		return &col.Position
 	default:
 		panic("not implement scan for field " + name)
 	}

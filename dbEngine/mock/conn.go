@@ -7,9 +7,10 @@ package mock
 import (
 	"github.com/jackc/pgtype/pgxtype"
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/logs"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -49,7 +50,7 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 }
 
 // GetRoutines get properties of DB routines & returns them as map
-func (c *Conn) GetRoutines(ctx context.Context) (map[string]dbEngine.Routine, error) {
+func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) (map[string]dbEngine.Routine, error) {
 	panic("implement me")
 }
 

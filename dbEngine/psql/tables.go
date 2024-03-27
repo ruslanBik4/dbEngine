@@ -47,12 +47,12 @@ func (t *Table) Comment() string {
 }
 
 // GetFields implement RowScanner interface
-func (t *Table) GetFields(columns []dbEngine.Column) []interface{} {
+func (t *Table) GetFields(columns []dbEngine.Column) []any {
 	if len(columns) == 0 {
-		return []interface{}{&t.name, &t.Type, &t.comment}
+		return []any{&t.name, &t.Type, &t.comment}
 	}
 
-	v := make([]interface{}, len(columns))
+	v := make([]any, len(columns))
 	for i, col := range columns {
 		switch name := col.Name(); name {
 		case "table_name":
@@ -154,7 +154,7 @@ func (t *Table) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return t.doInsertReturning(ctx, sql, b.Args...)
 }
 
-func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...interface{}) (int64, error) {
+func (t *Table) doInsertReturning(ctx context.Context, sql string, args ...any) (int64, error) {
 	for _, col := range t.columns {
 		if col.Primary() && col.autoInc {
 			sql += " RETURNING " + col.Name()
@@ -198,7 +198,7 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 // SelectOneAndScan run sqlof table  with Options & return rows into rowValues
-func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+func (t *Table) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {
 		return errors.Wrap(err, "setOption")
@@ -241,7 +241,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 
 	return t.conn.selectAndRunEach(
 		ctx,
-		func(values []interface{}, columns []dbEngine.Column) error {
+		func(values []any, columns []dbEngine.Column) error {
 			if each != nil {
 				return each(values, b.SelectColumns())
 			}
@@ -372,6 +372,7 @@ func (t *Table) readColumnRow() error {
 	}
 
 	t.buf.SetDefault(t.buf.colDefault)
+	t.buf.defineBasicType(nil, nil)
 
 	t.columns = append(t.columns, t.buf.Copy())
 

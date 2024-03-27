@@ -21,7 +21,7 @@ type (
 // Connection implement conn operation
 type Connection interface {
 	InitConn(ctx context.Context, dbURL string) error
-	GetRoutines(ctx context.Context) (map[string]Routine, error)
+	GetRoutines(ctx context.Context, dbTypes map[string]Types, tables map[string]Table) (map[string]Routine, error)
 	GetSchema(ctx context.Context) (database map[string]*string, tables map[string]Table, routines map[string]Routine, dbTypes map[string]Types, err error)
 	GetStat() string
 	ExecDDL(ctx context.Context, sql string, args ...any) error

@@ -435,7 +435,7 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			gotRoutinesCache, err := c.GetRoutines(context.TODO())
+			gotRoutinesCache, err := c.GetRoutines(context.TODO(), nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRoutines() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -979,7 +979,7 @@ func TestRoutine_GetParams(t *testing.T) {
 				Type:    tt.fields.Type,
 				lock:    &sync.RWMutex{},
 			}
-			if err := r.GetParams(context.TODO()); (err != nil) != tt.wantErr {
+			if err := r.GetParams(context.TODO(), nil, nil); (err != nil) != tt.wantErr {
 				t.Errorf("GetParams() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
