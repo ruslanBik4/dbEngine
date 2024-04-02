@@ -10,10 +10,12 @@ import (
 	"go/types"
 	"os"
 	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/jackc/pgtype"
+	"gopkg.in/yaml.v3"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
 	"github.com/ruslanBik4/gotools/typesExt"
@@ -26,49 +28,110 @@ import (
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
+type CfgCreator struct {
+	Dst      string
+	Excluded []string
+	Imports  []string
+	Included []string
+}
+
+func LoadCfg(filename string) (cfg *CfgCreator, err error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		logs.ErrorLog(err)
+		return nil, err
+	}
+
+	defer func() {
+		if err := f.Close(); err != nil {
+			logs.ErrorLog(err, "close file '%s' failed", filename)
+		}
+	}()
+
+	dec := yaml.NewDecoder(f)
+	if err := dec.Decode(&cfg); err != nil {
+		logs.ErrorLog(err, "decoding error")
+		return nil, err
+	}
+
+	return
+}
+
 // Creator is interface for generate go-interface according to DB structures (tables & routines)
 type Creator struct {
+	*dbEngine.DB
+	cfg        *CfgCreator
 	Types      map[string]string
-	dst        string
-	packages   []string
+	imports    map[string]struct{}
 	initValues string
-	db         *dbEngine.DB
 }
 
 // NewCreator create with destination directory 'dst'
-func NewCreator(dst string, DB *dbEngine.DB) (*Creator, error) {
+func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	if DB == nil {
 		return nil, dbEngine.ErrDBNotFound
 	}
-	err := os.Mkdir(dst, os.ModePerm)
 
-	if err != nil && !os.IsExist(err) {
+	if cfg == nil {
+		c, err := LoadCfg("creator.yaml")
+		if err != nil {
+			return nil, err
+		}
+		cfg = c
+	}
+
+	err := os.Mkdir(cfg.Dst, os.ModePerm)
+
+	if os.IsExist(err) {
+		files, err := filepath.Glob(path.Join(cfg.Dst, "*.go"))
+		if err != nil {
+			logs.ErrorLog(err)
+		} else {
+			for _, file := range files {
+				if err := os.Remove(file); err != nil {
+					logs.ErrorLog(err)
+				}
+			}
+		}
+	} else if err != nil {
 		return nil, errors.Wrap(err, "mkDirAll")
 	}
 
-	return &Creator{
-		db:  DB,
-		dst: dst,
-		packages: []string{
-			"bytes",
-			"fmt",
-			"errors",
-			"time",
-			"strings",
-			"github.com/jackc/pgx/v4",
-			"github.com/jackc/pgconn",
-			"github.com/jackc/pgtype",
+	packagesAsDefault := []string{
+		"bytes",
+		"errors",
+		"fmt",
+		"time",
+		"strings",
 
-			"github.com/ruslanBik4/logs",
-			"github.com/ruslanBik4/dbEngine/dbEngine",
-			"github.com/ruslanBik4/dbEngine/dbEngine/psql",
-		},
+		"github.com/jackc/pgx/v4",
+		"github.com/jackc/pgconn",
+		"github.com/jackc/pgtype",
+		"golang.org/x/net/context",
+
+		"github.com/ruslanBik4/logs",
+		"github.com/ruslanBik4/dbEngine/dbEngine",
+		"github.com/ruslanBik4/dbEngine/dbEngine/psql",
+	}
+
+	imports := make(map[string]struct{})
+	for _, name := range packagesAsDefault {
+		imports[name] = struct{}{}
+	}
+	for _, name := range cfg.Imports {
+		imports[name] = struct{}{}
+	}
+
+	return &Creator{
+		DB:      DB,
+		cfg:     cfg,
+		imports: imports,
 	}, nil
 }
 
-// MakeInterfaceDB create interface of DB
+// makeDBUsersTypes create interface of DB
 func (c *Creator) makeDBUsersTypes() error {
-	for tName, t := range c.db.Types {
+	for tName, t := range c.DB.Types {
 		for i, tAttr := range t.Attr {
 			name := tAttr.Name
 			ud := &t
@@ -92,7 +155,7 @@ func (c *Creator) makeDBUsersTypes() error {
 				c.addImport(moduloPgType, moduloGoTools)
 			}
 		}
-		c.db.Types[tName] = t
+		c.DB.Types[tName] = t
 	}
 
 	return nil
@@ -100,7 +163,8 @@ func (c *Creator) makeDBUsersTypes() error {
 
 // MakeInterfaceDB create interface of DB
 func (c *Creator) MakeInterfaceDB() error {
-	f, err := os.Create(path.Join(c.dst, "database") + ".go")
+
+	f, err := os.Create(path.Join(c.cfg.Dst, "database") + ".go")
 	if err != nil && !os.IsExist(err) {
 		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
@@ -110,12 +174,17 @@ func (c *Creator) MakeInterfaceDB() error {
 	if err != nil {
 		return err
 	}
-	routines := make([]string, 0, len(c.db.Routines))
-	for name := range c.db.Routines {
+	routines := make([]string, 0, len(c.Routines))
+	for name := range c.Routines {
 		routines = append(routines, name)
 	}
 	sort.Strings(routines)
-	c.WriteCreateDatabase(f, routines)
+	packages := make([]string, 0, len(c.imports))
+	for name := range c.imports {
+		packages = append(packages, name)
+	}
+	sort.Strings(packages)
+	c.WriteCreateDatabase(f, packages, routines)
 
 	return err
 }
@@ -130,11 +199,11 @@ func (c *Creator) chkDefineType(udtName string) string {
 		prefix = "[]"
 	}
 
-	if _, ok := c.db.Tables[udtName]; ok {
+	if _, ok := c.Tables[udtName]; ok {
 		return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
 	}
 
-	if t, ok := c.db.Types[udtName]; ok {
+	if t, ok := c.DB.Types[udtName]; ok {
 		if len(t.Enumerates) > 0 {
 			return prefix + "string"
 		}
@@ -221,7 +290,7 @@ func (c *Creator) prepareParams(r *psql.Routine, name string) (sParams string, s
 func (c *Creator) MakeStruct(table dbEngine.Table) error {
 	logs.SetDebug(true)
 	name := strcase.ToCamel(table.Name())
-	f, err := os.Create(path.Join(c.dst, table.Name()) + ".go")
+	f, err := os.Create(path.Join(c.cfg.Dst, table.Name()) + ".go")
 	if err != nil && !os.IsExist(err) {
 		// err.(*os.PathError).Err
 		return errors.Wrap(err, "creator")
@@ -234,7 +303,28 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}
 	}()
 
-	c.packages, c.initValues = make([]string, 0), ""
+	c.initValues = ""
+	c.imports = map[string]struct{}{
+		"github.com/jackc/pgtype": struct{}{},
+		"fmt": struct {
+		}{},
+		"sync": struct {
+		}{},
+		//"database/sql": struct {
+		//}{},
+		"time": struct {
+		}{},
+
+		"github.com/ruslanBik4/dbEngine/dbEngine": struct {
+		}{},
+		"github.com/ruslanBik4/dbEngine/dbEngine/psql": struct {
+		}{},
+		"golang.org/x/net/context": struct {
+		}{},
+		"github.com/ruslanBik4/logs": struct {
+		}{},
+	}
+
 	c.addImport(moduloPgType, "sync")
 	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
 	for ind, col := range table.Columns() {
@@ -265,12 +355,12 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 	}
 
-	packages := ""
-	if len(c.packages) > 0 {
-		packages = `"` + strings.Join(c.packages, `"
-	"`) + `"`
+	packages := make([]string, 0, len(c.imports))
+	for name := range c.imports {
+		packages = append(packages, name)
 	}
-	_, err = fmt.Fprintf(f, title, c.db.Name, c.db.Schema, table.Name(), packages)
+	_, err = fmt.Fprintf(f, title, c.Name, c.Schema, table.Name(), strings.Join(packages, `"
+	"`))
 	if err != nil {
 		return errors.Wrap(err, "WriteString title")
 	}
@@ -305,6 +395,9 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 	case bTypeCol == types.UnsafePointer:
 		typeCol = "[]byte"
 
+	case (bTypeCol == types.UntypedNil || bTypeCol < 0) && strings.HasPrefix(col.Type(), "any"):
+		typeCol = "any"
+	//too: chk
 	case bTypeCol == types.UntypedNil || bTypeCol < 0:
 		typeCol = c.chkDefineType(col.Type())
 		if typeCol == "" {
@@ -355,7 +448,7 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 }
 
 func (c *Creator) ChkDataType(typeCol string) (*pgtype.DataType, bool) {
-	return ChkDataType(c.db, typeCol)
+	return ChkDataType(c.DB, typeCol)
 }
 
 func ChkDataType(db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
@@ -370,7 +463,7 @@ func ChkDataType(db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
 
 func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
 	tName, name := tAttr.Type, tAttr.Name
-	switch _, isTypes := c.db.Types[strings.ToLower(tName)]; {
+	switch _, isTypes := c.DB.Types[strings.ToLower(tName)]; {
 	case strings.HasPrefix(tName, "sql.Null"):
 		return fmt.Sprintf(
 			`%-21s:	*(psql.GetScanner(ci, srcPart[%d], "%s", &%s{}))`,
@@ -464,16 +557,6 @@ var mapTypes = map[string]string{
 
 func (c *Creator) addImport(moduloNames ...string) {
 	for _, name := range moduloNames {
-		isAlready := false
-		for _, n := range c.packages {
-			if n == name {
-				isAlready = true
-				break
-			}
-		}
-		if !isAlready {
-			c.packages = append(c.packages, name)
-		}
-
+		c.imports[name] = struct{}{}
 	}
 }

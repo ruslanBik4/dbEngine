@@ -178,7 +178,7 @@ func (src *`)
 		return pgtype.NullAssignTo(dst)
 
 	default:
-		return errors.Errorf("cannot decode %%v into %%T", src, dst)
+		return fmt.Errorf("cannot decode %v into %T", src, dst)
 	}
 }
 // DecodeText implement pgtype.TextDecoder interface

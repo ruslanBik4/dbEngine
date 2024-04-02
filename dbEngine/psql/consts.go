@@ -23,8 +23,7 @@ const (
 					union
 						select c.relname, 'MATERIALIZED VIEW', COALESCE(pg_catalog.obj_description(c.oid, 'pg_class'), '')
 						FROM pg_catalog.pg_class c
-						WHERE c.relkind = 'm'
-					order by 1`
+						WHERE c.relkind = 'm'`
 	sqlGetTable = `SELECT table_name, table_type,
 						COALESCE(pg_catalog.col_description((SELECT ('"' || TABLE_NAME || '"')::regclass::oid), 0), '')
 							AS comment
@@ -34,12 +33,14 @@ const (
 						select c.relname, 'MATERIALIZED VIEW', COALESCE(pg_catalog.obj_description(c.oid, 'pg_class'), '')
 						FROM pg_catalog.pg_class c
 						WHERE c.relkind = 'm' AND c.relname = $1`
-	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name, d.description
-					FROM INFORMATION_SCHEMA.routines r JOIN pg_proc p ON p.proname = r.routine_name
-						 LEFT JOIN pg_description d
-								   ON d.objoid = p.oid
-                                   left join pg_language l on p.prolang = l.oid
-					WHERE specific_schema = 'public' and prokind != 'a'  and data_type != 'trigger' and l.lanname = 'plpgsql'`
+	sqlRoutineList = `select specific_name, routine_name, routine_type, data_type, type_udt_name, 
+							(select d.description from pg_description d where d.objoid = p.oid FETCH FIRST 1 ROW ONLY)
+					FROM INFORMATION_SCHEMA.routines r 
+							JOIN pg_proc p ON p.proname = r.routine_name
+							LEFT join pg_language l on p.prolang = l.oid
+					WHERE specific_schema = 'public' AND prokind != 'a'  and coalesce(data_type, 'null') != 'trigger' 
+							AND l.lanname = 'plpgsql' AND routine_name !~'(_final$)|(_state$)'
+					`
 	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,  is_nullable='YES' is_nullable, 
         COALESCE(character_set_name, '') character_set_name,
 		COALESCE(character_maximum_length, -1) character_maximum_length, 

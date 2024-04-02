@@ -550,6 +550,9 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 						}
 					}
 				}
+				if tokens := strings.Split(name, "::"); len(tokens) > 1 {
+					name = tokens[0]
+				}
 
 				if b.Table.FindColumn(name) == nil {
 					return NewErrNotFoundColumn(b.Table.Name(), name)

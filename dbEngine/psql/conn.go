@@ -169,7 +169,7 @@ func (c *Conn) LastRowAffected() int64 {
 }
 
 // GetSchema read DB schema & store it
-func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
+func (c *Conn) GetSchema(ctx context.Context, cfg *dbEngine.CfgDB) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	dbTypes := make(map[string]dbEngine.Types)
 	typeBuf := &dbEngine.Types{}
 	err := c.SelectAndScanEach(ctx,
@@ -184,16 +184,12 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 		logs.ErrorLog(err, "during getting databases dbTypes")
 	}
 
-	for s, t := range dbTypes {
-		logs.StatusLog(s, t)
-	}
-
-	tables, err := c.GetTablesProp(ctx, dbTypes)
+	tables, err := c.GetTablesProp(ctx, dbTypes, cfg)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetTablesProp")
 	}
 
-	routines, err := c.GetRoutines(ctx, dbTypes, tables)
+	routines, err := c.GetRoutines(ctx, dbTypes, tables, cfg)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, "GetRoutines")
 	}
@@ -209,7 +205,7 @@ func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]db
 }
 
 // GetTablesProp populate tables schemas data
-func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Types) (map[string]dbEngine.Table, error) {
+func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Types, cfg *dbEngine.CfgDB) (map[string]dbEngine.Table, error) {
 	// buf for scan table fields from query
 	table := &Table{
 		conn: c,
@@ -217,6 +213,19 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 
 	tables := make(map[string]dbEngine.Table, 0)
 
+	sql := sqlTableList
+	if len(cfg.Excluded) > 0 {
+		sql = "SELECT * from (" + sql + `) t WHERE table_name !~ '(`
+		for i, name := range cfg.Excluded {
+			sql += fmt.Sprintf(`%s)`, name)
+			if i < len(cfg.Excluded)-1 {
+				sql += "|("
+			}
+		}
+		sql += `'`
+	}
+
+	logs.StatusLog(sql)
 	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
@@ -242,7 +251,7 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 
 			return nil
 		},
-		table, sqlTableList)
+		table, sql)
 	if err != nil {
 		return nil, err
 	}
@@ -284,9 +293,21 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 }
 
 // GetRoutines get properties of DB routines & returns them as map
-func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) (routines map[string]dbEngine.Routine, err error) {
+func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table, cfg *dbEngine.CfgDB) (routines map[string]dbEngine.Routine, err error) {
 
 	routines = make(map[string]dbEngine.Routine, 0)
+
+	sql := sqlRoutineList
+	if len(cfg.Excluded) > 0 {
+		sql = "SELECT * from (" + sql + `) t WHERE routine_name !~ '(`
+		for i, name := range cfg.Excluded {
+			sql += fmt.Sprintf(`%s)`, name)
+			if i < len(cfg.Excluded)-1 {
+				sql += "|("
+			}
+		}
+		sql += `'`
+	}
 
 	err = c.selectAndRunEach(ctx,
 		func(values []any, columns []dbEngine.Column) error {
@@ -337,7 +358,7 @@ func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Type
 			}
 
 			return row.GetParams(ctx, dbTypes, tables)
-		}, sqlRoutineList)
+		}, sql)
 
 	return
 }

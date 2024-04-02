@@ -55,7 +55,7 @@ func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Type
 }
 
 // GetSchema read DB schema & store it
-func (c *Conn) GetSchema(ctx context.Context) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
+func (c *Conn) GetSchema(ctx context.Context, cfg ...*dbEngine.CfgDB) (map[string]*string, map[string]dbEngine.Table, map[string]dbEngine.Routine, map[string]dbEngine.Types, error) {
 	panic("implement me")
 }
 

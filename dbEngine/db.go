@@ -31,6 +31,8 @@ type CfgDB struct {
 	GetSchema  *struct{}
 	CfgCreator *CfgCreatorDB
 	// obsolete - change on CfgCreatorDB properties
+	Excluded []string
+	Included []string
 	PathCfg  *string
 	TestInit *string
 }
@@ -70,7 +72,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 
 		if cfg.GetSchema != nil {
-			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx)
+			db.DbSet, db.Tables, db.Routines, db.Types, err = conn.GetSchema(ctx, &cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -86,7 +88,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 		}
 		if cfg.PathCfg != nil {
 
-			err := db.readCfg(ctx, *cfg.PathCfg)
+			err := db.readCfg(ctx, &cfg)
 			if err != nil {
 				return nil, err
 			}
@@ -101,7 +103,7 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	return db, nil
 }
 
-func (db *DB) readCfg(ctx context.Context, path string) error {
+func (db *DB) readCfg(ctx context.Context, cfg *CfgDB) error {
 	var (
 		migrationOrder = []string{
 			"types", "table", "view", "func",
@@ -116,7 +118,7 @@ func (db *DB) readCfg(ctx context.Context, path string) error {
 	}
 
 	for _, name := range migrationOrder {
-		err := filepath.WalkDir(filepath.Join(path, name), migrationParts[name])
+		err := filepath.WalkDir(filepath.Join(*cfg.PathCfg, name), migrationParts[name])
 		if err != nil {
 			return errors.Wrap(err, "migration "+name)
 		}
@@ -128,7 +130,7 @@ func (db *DB) readCfg(ctx context.Context, path string) error {
 	}
 
 	var err error
-	_, db.Tables, db.Routines, db.Types, err = db.Conn.GetSchema(ctx)
+	_, db.Tables, db.Routines, db.Types, err = db.Conn.GetSchema(ctx, cfg)
 	if err != nil {
 		return err
 	}

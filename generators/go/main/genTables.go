@@ -28,12 +28,20 @@ var (
 
 func main() {
 
+	cfg, err := _go.LoadCfg(path.Join(*fCfgPath, "creator.yaml"))
+	if err != nil {
+		logs.ErrorLog(err)
+		return
+	}
+
 	conn := psql.NewConn(nil, nil, nil)
 	dbCfgPath := path.Join(path.Join(*fCfgPath, "DB"), "DB")
 	cfgDB := dbEngine.CfgDB{
 		Url:       "",
 		GetSchema: &struct{}{},
 		PathCfg:   &dbCfgPath,
+		Excluded:  cfg.Excluded,
+		Included:  cfg.Included,
 	}
 	ctx := context.WithValue(context.Background(), dbEngine.DB_SETTING, cfgDB)
 	db, err := dbEngine.NewDB(ctx, conn)
@@ -48,9 +56,17 @@ func main() {
 		return
 	}
 
-	creator, err := _go.NewCreator(*fDstPath, db)
+	cfg.Dst = path.Join(*fDstPath, "db")
+
+	creator, err := _go.NewCreator(db, cfg)
 	if err != nil {
 		logs.ErrorLog(errors.Wrap(err, "NewCreator"))
+		return
+	}
+
+	err = creator.MakeInterfaceDB()
+	if err != nil {
+		logs.ErrorLog(errors.Wrap(err, "make DB interface"))
 		return
 	}
 
@@ -61,11 +77,6 @@ func main() {
 		}
 	}
 
-	err = creator.MakeInterfaceDB()
-	if err != nil {
-		logs.ErrorLog(errors.Wrap(err, "make DB interface"))
-		return
-	}
 }
 
 func printTables(db *dbEngine.DB) {

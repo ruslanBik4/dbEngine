@@ -17,15 +17,7 @@ const (
 package db
 
 import (
-	"time"
-
-	%s
-	"github.com/ruslanBik4/logs"
-	"github.com/ruslanBik4/dbEngine/dbEngine"
-    "github.com/ruslanBik4/dbEngine/dbEngine/psql"
-
-	"golang.org/x/net/context"
-	"github.com/pkg/errors"
+	"%s"
 )
 
 `

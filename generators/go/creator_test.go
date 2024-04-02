@@ -76,7 +76,7 @@ func TestNewCreator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, err := NewCreator(tt.args.dst, &dbEngine.DB{Name: "test", Schema: "test"}); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
+			if got, err := NewCreator(&dbEngine.DB{Name: "test", Schema: "test"}, tt.args.dst); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
 				t.Errorf("NewCreator() = %v, want %v", got, tt.want)
 			}
 		})
