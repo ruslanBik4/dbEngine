@@ -33,6 +33,51 @@ type scanError interface {
 	Err() error
 }
 
+// ValueTranscoder is a value that implements the text and binary encoding and decoding interfaces.
+type ValueDecoder interface {
+	pgtype.TextDecoder
+	pgtype.BinaryDecoder
+}
+
+type WrapArray[T ValueDecoder]  []T
+func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error) {
+	*dst = make([]T, 0)
+	if len(src) == 0 {
+		return nil
+	}
+
+	c := pgtype.NewCompositeTextScanner(ci, src)
+	for c.Next() {
+		var val T
+		c.ScanDecoder(val)
+		if  c.Err() != nil {
+			return c.Err()
+		}
+		*dst = append(*dst, val)
+	}
+
+	return nil
+}
+
+func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
+	*dst = make([]T, 0)
+	if len(src) == 0 {
+		return nil
+	}
+
+	c := pgtype.NewCompositeBinaryScanner(ci, src)
+	for c.Next() {
+		var val T
+		c.ScanDecoder(val)
+		if  c.Err() != nil {
+			return c.Err()
+		}
+		*dst = append(*dst, val)
+	}
+
+	return nil
+}
+
 {%- for name, typ := range c.DB.Types -%}{%= c.CreateTypeInterface(typ, strcase.ToCamel(name), name, c.Types[name]) %}{%- endfor -%}
 
 type CitextArray struct {
@@ -156,7 +201,7 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 
 func (DB *Database) Notify(ctx context.Context, ch, mess string) string {
 	res := ""
-	err := DB.Conn.SelectOneAndScan(ctx, res, "SELECT pg_notify($1,$2)::varchar", ch, mess)
+	err := DB.Conn.SelectOneAndScan(ctx, &res, "SELECT pg_notify($1,$2)::varchar", ch, mess)
 	if err != nil {
 		logs.ErrorLog(err, "SELECT pg_notify(%s, %s)", ch, mess)
 	} else {
@@ -358,32 +403,40 @@ func (d *Database) {%s camelName %}(ctx context.Context,
 {%- else -%}
 {%= c.CreateFunctionInvoker(r, name, camelName, sql)%}
 {%- endif -%}
-{% endfunc %} CreateRoutinesInvoker
+{%- endfunc -%} CreateRoutinesInvoker
 
 {%- func (c *Creator) CreateFunctionInvoker(r *psql.Routine, name, camelName, sql string) -%}
-
-{%- code typeReturn:= "" %}
+{%- code
+	typeReturn, initReturn, needReference := "", "", false
+-%}
 {%- switch len(r.Columns()) -%}
 {%- case 0 -%}
-	{%- code typeReturn = c.udtToReturnType(r.UdtName)-%}
+	{%- code
+		typeReturn = c.udtToReturnType(r.UdtName)
+		needReference = !strings.HasPrefix(typeReturn, "[")
+	-%}
 {%- case 1 -%}
 	{%- code
 		param := r.Columns()[0]
 		typeReturn, _ = c.chkTypes(param, strcase.ToCamel(param.Name()))
+		needReference = !strings.HasPrefix(typeReturn, "[")
 	-%}
 {%- default -%}
-	{%- code typeReturn = fmt.Sprintf("*%sRowScanner", camelName)-%}
 {%= c.CreateRowScanner(r, camelName) %}
+	{%- code
+		typeReturn = fmt.Sprintf("*%sRowScanner", camelName)
+		initReturn = fmt.Sprintf("res = &%sRowScanner{}", camelName)
+	-%}
 {%- endswitch -%}
-
 // {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
 // DB comment: '{%s r.Comment %}'
 // ATTENTION! It returns only 1 row {%s typeReturn %}
 func (d *Database) {%s camelName %}(
 	ctx context.Context,
 {%= c.paramsTitle(r) %}) (res {%s typeReturn %}, err error) {
+	{%s= initReturn %}
 	err = d.Conn.SelectOneAndScan(ctx,
-		&res,
+		{% if needReference %}&{% endif %}res,
 		`{%s sql %}
 		FETCH FIRST 1 ROW ONLY`,
 		{%= c.paramsArgs(r) %}      )
@@ -391,7 +444,8 @@ func (d *Database) {%s camelName %}(
 	return
 }
 {%- if r.ReturnType() == "record" -%}
-	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName)-%}
+	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName) -%}
+
 // {%s camelName %}Each run query with select DB function '{%s name %}'
 // DB comment: '{%s r.Comment %}'
 // each will get every row from &{%s camelName %}sRowScanner
@@ -441,20 +495,25 @@ func (d *Database) {%s camelName %}All(
 	return
 }
 {%- endif -%}{% comment %} ReturnType {% endcomment %}
-
-{% endfunc %} CreateFunctionInvoker
+{%- endfunc -%} CreateFunctionInvoker
 
 {%- func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) -%}
+
 // {%s camelName %}RowScanner run query with select
 type {%s camelName %}RowScanner struct {
 	{%- for _, param := range r.Columns() -%}
 		{%- code
 			s := strcase.ToCamel(param.Name())
 			typeCol, _ := c.chkTypes(param, s)
+			if a, ok := strings.CutPrefix(typeCol, "[]"); param.BasicType()  < 0 && ok {
+			   typeCol = "WrapArray[*" + a + "]"
+			}
+
 		-%}
 	{%s s %}{%s "\t\t"%}{%s typeCol %}{%s "\t\t"%}`json:"{%s param.Name()%}"`
 	{%- endfor -%}
 }
+
 // GetFields implement dbEngine.RowScanner interface
 func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
@@ -469,7 +528,7 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 
 	return v
 }
-{% endfunc %}
+{%- endfunc -%}
 
 {%- func (c *Creator) paramsTitle(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
@@ -480,9 +539,10 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 	{%s s %}{%s "\t\t"%}{%s typeCol %}, // {%s param.Comment() %} pg type: {%s param.Type() %}
 	{%- endfor -%}
 {%- endfunc -%}
+
 {%- func (c *Creator) paramsArgs(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
-		{%s strcase.ToLowerCamel(param.Name()) %},
+	{%s strcase.ToLowerCamel(param.Name()) %},
 	{%- endfor -%}
 {%- endfunc -%}
 

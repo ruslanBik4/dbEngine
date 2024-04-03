@@ -6,7 +6,9 @@ package dbEngine
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgtype"
 	"github.com/pkg/errors"
@@ -387,8 +389,9 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 
 	cond := "$%[1]d"
 	switch arg := b.Args[b.posFilter-1].(type) {
-	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string,
-		pgtype.ArrayType, pgtype.Int2Array, pgtype.Int4Array, pgtype.Int8Array,
+	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string, types.Slice, []time.Time, []*time.Time,
+		pgtype.ArrayType, pgtype.Int2Array, pgtype.Int4Array, pgtype.Int8Array, pgtype.DateArray,
+		pgtype.TimestampArray, pgtype.TimestamptzArray,
 		pgtype.Float4Array, pgtype.Float8Array, pgtype.NumericArray, pgtype.BPCharArray, pgtype.TextArray:
 		// todo: chk column type
 		if table := b.Table; table != nil {

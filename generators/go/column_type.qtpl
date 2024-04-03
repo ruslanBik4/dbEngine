@@ -131,4 +131,16 @@ func (dst *{%s c.name %}PsqlType) scanAll(c scanError) error {
 
 	return nil
 }
+
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *{%s c.name %}Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = {%s c.name %}Fields{}
+	return (&{%s c.name %}PsqlType{{%s c.name %}Fields: *dst}).DecodeText(ci, src)
+}
+
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *{%s c.name %}Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = {%s c.name %}Fields{}
+	return (&{%s c.name %}PsqlType{{%s c.name %}Fields: *dst}).DecodeBinary(ci, src)
+}
 {% endfunc %}

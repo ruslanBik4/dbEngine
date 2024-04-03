@@ -250,32 +250,76 @@ func (dst *`)
 
 	return nil
 }
+
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *`)
+//line column_type.qtpl:136
+	qw422016.E().S(c.name)
+//line column_type.qtpl:136
+	qw422016.N().S(`Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = `)
+//line column_type.qtpl:137
+	qw422016.E().S(c.name)
+//line column_type.qtpl:137
+	qw422016.N().S(`Fields{}
+	return (&`)
+//line column_type.qtpl:138
+	qw422016.E().S(c.name)
+//line column_type.qtpl:138
+	qw422016.N().S(`PsqlType{`)
+//line column_type.qtpl:138
+	qw422016.E().S(c.name)
+//line column_type.qtpl:138
+	qw422016.N().S(`Fields: *dst}).DecodeText(ci, src)
+}
+
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *`)
+//line column_type.qtpl:142
+	qw422016.E().S(c.name)
+//line column_type.qtpl:142
+	qw422016.N().S(`Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = `)
+//line column_type.qtpl:143
+	qw422016.E().S(c.name)
+//line column_type.qtpl:143
+	qw422016.N().S(`Fields{}
+	return (&`)
+//line column_type.qtpl:144
+	qw422016.E().S(c.name)
+//line column_type.qtpl:144
+	qw422016.N().S(`PsqlType{`)
+//line column_type.qtpl:144
+	qw422016.E().S(c.name)
+//line column_type.qtpl:144
+	qw422016.N().S(`Fields: *dst}).DecodeBinary(ci, src)
+}
 `)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 }
 
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 func (c *ColumnType) WriteColumnType(qq422016 qtio422016.Writer) {
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	c.StreamColumnType(qw422016)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	qt422016.ReleaseWriter(qw422016)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 }
 
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 func (c *ColumnType) ColumnType() string {
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	qb422016 := qt422016.AcquireByteBuffer()
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	c.WriteColumnType(qb422016)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	qs422016 := string(qb422016.B)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	qt422016.ReleaseByteBuffer(qb422016)
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 	return qs422016
-//line column_type.qtpl:134
+//line column_type.qtpl:146
 }

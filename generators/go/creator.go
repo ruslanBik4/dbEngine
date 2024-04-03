@@ -410,8 +410,8 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 				c.addImport(moduloSql)
 			}
 		}
-		if strings.HasPrefix(typeCol, "*") {
-			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("&%s{}", strings.TrimPrefix(typeCol, "*")))
+		if a, ok := strings.CutPrefix(typeCol, "*"); ok {
+			c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("&%s{}", a))
 			defValue = nil
 		}
 

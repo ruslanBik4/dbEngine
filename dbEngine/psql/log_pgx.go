@@ -8,8 +8,9 @@ import (
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/logs"
 	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
@@ -18,32 +19,40 @@ type pgxLog struct {
 	pool *Conn
 }
 
-func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[string]interface{}) {
+func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[string]any) {
+	sql, ok := data["sql"].(string)
+	err, isPgErr := data["err"].(*pgconn.PgError)
+	if !ok && isPgErr {
+		sql = err.Where
+	}
+	if isPgErr {
+		sql += err.Hint
+	}
 	switch ll {
 	case pgx.LogLevelTrace, pgx.LogLevelDebug:
 		logs.DebugLog("[[PGX]] %s %+v", msg, data)
 	case pgx.LogLevelInfo:
 		logs.StatusLog("[[PGX]] %s %+v", msg, data)
 	case pgx.LogLevelWarn:
-		if err, ok := data["err"].(*pgconn.PgError); ok {
-			logs.ErrorLog(err, msg, data["sql"], data["args"])
+		if isPgErr {
+			logs.ErrorLog(err, msg, sql, ok, data["args"])
 		} else {
 			logs.DebugLog(msg, data)
 		}
 	case pgx.LogLevelError:
-		if err, ok := data["err"].(*pgconn.PgError); ok {
+		if isPgErr {
 			if !dbEngine.IsErrorAlreadyExists(err) {
-				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, data["sql"], data["args"])
+				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, ok, data["args"])
 			}
 
 			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
-		} else if err, ok := data["err"].(error); ok {
+		} else if isPgErr {
 			logs.ErrorLog(err, msg, data)
 		} else {
 			logs.DebugLog(msg, data)
 		}
 	case pgx.LogLevelNone:
-		ch, ok := ctx.Value("debugChan").(chan interface{})
+		ch, ok := ctx.Value("debugChan").(chan any)
 		if ok {
 			ch <- data
 		}
