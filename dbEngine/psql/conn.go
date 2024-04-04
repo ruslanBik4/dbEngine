@@ -225,7 +225,6 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 		sql += `'`
 	}
 
-	logs.StatusLog(sql)
 	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
@@ -237,7 +236,7 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 				comment: table.comment,
 			}
 
-			err := t.GetColumns(ctx)
+			err := t.GetColumns(ctx, dbTypes)
 			if err != nil {
 				return errors.Wrapf(err, "during get columns of table '%s'", table.Name())
 			}
@@ -391,7 +390,7 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 		return nil, dbEngine.ErrNotFoundTable{Table: name}
 	}
 
-	err = table.GetColumns(ctx)
+	err = table.GetColumns(ctx, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "during get columns")
 	}

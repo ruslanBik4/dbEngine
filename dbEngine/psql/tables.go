@@ -274,10 +274,12 @@ func (t *Table) findColumn(name string) *Column {
 
 // GetColumns получение значений полей для форматирования данных
 // получение значений полей для таблицы
-func (t *Table) GetColumns(ctx context.Context) error {
+func (t *Table) GetColumns(ctx context.Context, dbTypes map[string]dbEngine.Types) error {
 
 	err := t.conn.SelectAndScanEach(ctx,
-		t.readColumnRow,
+		func() error {
+			return t.readColumnRow(dbTypes)
+		},
 		t,
 		sqlGetTablesColumns,
 		t.name)
@@ -362,7 +364,7 @@ func (t *Table) ReReadColumn(ctx context.Context, name string) dbEngine.Column {
 	return column
 }
 
-func (t *Table) readColumnRow() error {
+func (t *Table) readColumnRow(dbTypes map[string]dbEngine.Types) error {
 
 	for name, c := range t.buf.Constraints {
 		if c == nil {
@@ -372,7 +374,7 @@ func (t *Table) readColumnRow() error {
 	}
 
 	t.buf.SetDefault(t.buf.colDefault)
-	t.buf.defineBasicType(nil, nil)
+	t.buf.defineBasicType(dbTypes, nil)
 
 	t.columns = append(t.columns, t.buf.Copy())
 

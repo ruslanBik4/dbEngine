@@ -1119,7 +1119,7 @@ func TestTable_GetColumns(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			if err := t.GetColumns(context.TODO()); (err != nil) != tt.wantErr {
+			if err := t.GetColumns(context.TODO(), nil); (err != nil) != tt.wantErr {
 				t1.Errorf("GetColumns() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -1387,7 +1387,7 @@ func TestTable_readColumnRow(t1 *testing.T) {
 				columns: tt.fields.Fields,
 				PK:      tt.fields.PK,
 			}
-			if err := t.readColumnRow(); (err != nil) != tt.wantErr {
+			if err := t.readColumnRow(nil); (err != nil) != tt.wantErr {
 				t1.Errorf("readColumnRow() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

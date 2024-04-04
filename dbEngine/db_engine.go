@@ -119,7 +119,7 @@ type Table interface {
 	FindIndex(name string) *Index
 	Delete(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Indexes() Indexes
-	GetColumns(ctx context.Context) error
+	GetColumns(ctx context.Context, dbTypes map[string]Types) error
 	Insert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Update(ctx context.Context, Options ...BuildSqlOptions) (int64, error)
 	Upsert(ctx context.Context, Options ...BuildSqlOptions) (int64, error)

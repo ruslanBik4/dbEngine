@@ -129,7 +129,7 @@ func (t *Table) FindIndex(name string) *dbEngine.Index {
 }
 
 // GetColumns получение значений полей для форматирования данных
-func (t *Table) GetColumns(ctx context.Context) error {
+func (t *Table) GetColumns(ctx context.Context, dbTypes map[string]dbEngine.Types) error {
 	panic("implement me")
 }
 

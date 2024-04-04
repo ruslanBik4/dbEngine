@@ -29,7 +29,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 		t.FailNow()
 	}
 
-	_ = table.GetColumns(nil)
+	_ = table.GetColumns(nil, nil)
 
 	tests := []struct {
 		name    string

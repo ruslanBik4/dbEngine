@@ -177,7 +177,7 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 			switch {
 			case err == nil:
 				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(db.ctx)
+				err = table.GetColumns(db.ctx, nil)
 				if err == nil {
 					db.Tables[tableName] = table
 					logs.StatusLog("New table added to DB", tableName)
@@ -242,7 +242,7 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 			err = db.Conn.ExecDDL(db.ctx, string(ddl))
 			if err == nil {
 				table = db.Conn.NewTable(tableName, "VIEW")
-				err = table.GetColumns(db.ctx)
+				err = table.GetColumns(db.ctx, nil)
 				if err == nil {
 					db.Tables[tableName] = table
 					logs.StatusLog("New view added to DB", tableName)

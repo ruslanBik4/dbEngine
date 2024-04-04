@@ -41,7 +41,7 @@ const (
 					WHERE specific_schema = 'public' AND prokind != 'a'  and coalesce(data_type, 'null') != 'trigger' 
 							AND l.lanname = 'plpgsql' AND routine_name !~'(_final$)|(_state$)'
 					`
-	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default,  is_nullable='YES' is_nullable, 
+	sqlGetTablesColumns = `SELECT c.column_name, data_type, column_default, is_nullable='YES' is_nullable, 
         COALESCE(character_set_name, '') character_set_name,
 		COALESCE(character_maximum_length, -1) character_maximum_length, 
         udt_name,

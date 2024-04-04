@@ -62,7 +62,7 @@ func (t *Table) InitConn(ctx context.Context, filePath string) error {
 	t.csv = csv.NewReader(f)
 	t.fileName = strings.Split(path.Base(filePath), ".")[0]
 
-	return t.GetColumns(ctx)
+	return t.GetColumns(ctx, nil)
 }
 
 // GetSchema read DB schema & store it
@@ -107,7 +107,7 @@ func (t *Table) FindIndex(name string) *dbEngine.Index {
 }
 
 // GetColumns получение значений полей для форматирования данных
-func (t *Table) GetColumns(ctx context.Context) error {
+func (t *Table) GetColumns(ctx context.Context, dbTypes map[string]dbEngine.Types) error {
 	rec, err := t.csv.Read()
 	if err != nil {
 		return errors.Wrap(err, "csv.Read")

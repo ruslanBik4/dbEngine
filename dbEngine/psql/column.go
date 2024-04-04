@@ -174,6 +174,16 @@ func (col *Column) BasicType() types.BasicKind {
 func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) {
 	udtName := col.UdtName
 	// it's non-standard type we need chk its user defined
+	if col.DataType == "USER-DEFINED" {
+		t, ok := dbTypes[udtName]
+		if ok {
+			col.UserDefined = &t
+		} else if _, ok := tables[udtName]; ok {
+		} else {
+			logs.DebugLog("Routine %s use unknown type %s for params %s", col.Name(), udtName, col.Name())
+		}
+	}
+
 	if col.UserDefined != nil {
 		// enumerate always string
 		if len(col.UserDefined.Enumerates) > 0 {
@@ -190,6 +200,7 @@ func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map
 			}
 		}
 	}
+
 	col.basicKind = UdtNameToType(udtName)
 	udtName = strings.TrimPrefix(udtName, "_")
 	if col.BasicType() == types.UntypedNil {
@@ -201,15 +212,6 @@ func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map
 			//col.UserDefined = &t
 		}
 		logs.DebugLog(udtName, col.basicKind, col)
-	}
-	if col.DataType == "USER-DEFINED" {
-		t, ok := dbTypes[udtName]
-		if ok {
-			col.UserDefined = &t
-		} else if _, ok := tables[udtName]; ok {
-		} else {
-			logs.DebugLog("Routine %s use unknown type %s for params %s", col.Name(), udtName, col.Name())
-		}
 	}
 }
 

@@ -62,7 +62,7 @@ func (t TableString) FindIndex(name string) *Index {
 }
 
 // GetColumns получение значений полей для форматирования данных
-func (t TableString) GetColumns(ctx context.Context) error {
+func (t TableString) GetColumns(ctx context.Context, dbTypes map[string]Types) error {
 	panic("implement me")
 }
 

@@ -161,7 +161,7 @@ func TestTable_GetColumns(t1 *testing.T) {
 				fileName: tt.fields.fileName,
 				csv:      tt.fields.csv,
 			}
-			if err := t.GetColumns(tt.args.ctx); (err != nil) != tt.wantErr {
+			if err := t.GetColumns(tt.args.ctx, nil); (err != nil) != tt.wantErr {
 				t1.Errorf("GetColumns() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
