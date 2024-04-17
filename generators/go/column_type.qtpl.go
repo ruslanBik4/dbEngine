@@ -86,7 +86,7 @@ func (r *`)
 	return v
 }
 // Set implement pgtype.Value interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:48
 	qw422016.E().S(c.name)
 //line column_type.qtpl:48
@@ -94,7 +94,7 @@ func (dst *`)
 	switch value := src.(type) {
 	// untyped nil and typed nil interfaces are different
 	case nil:
-		*dst = `)
+		*cfg = `)
 //line column_type.qtpl:52
 	qw422016.E().S(c.name)
 //line column_type.qtpl:52
@@ -105,7 +105,7 @@ func (dst *`)
 	qw422016.E().S(c.name)
 //line column_type.qtpl:54
 	qw422016.N().S(`PsqlType:
-		*dst = `)
+		*cfg = `)
 //line column_type.qtpl:55
 	qw422016.E().S(c.name)
 //line column_type.qtpl:55
@@ -128,18 +128,18 @@ func (dst *`)
 	}
 }
 // Get implement pgtype.Value interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:66
 	qw422016.E().S(c.name)
 //line column_type.qtpl:66
 	qw422016.N().S(`PsqlType) Get() any {
-	switch dst.Status {
+	switch cfg.Status {
 	case pgtype.Present:
-		return *dst
+		return *cfg
 	case pgtype.Null:
 		return nil
 	default:
-		return dst.Status
+		return cfg.Status
 	}
 }
 // AssignTo implement pgtype.Value interface
@@ -147,10 +147,10 @@ func (src *`)
 //line column_type.qtpl:77
 	qw422016.E().S(c.name)
 //line column_type.qtpl:77
-	qw422016.N().S(`PsqlType) AssignTo(dst any) error {
+	qw422016.N().S(`PsqlType) AssignTo(cfg any) error {
 	switch src.Status {
 	case pgtype.Present:
-		switch v := dst.(type) {
+		switch v := cfg.(type) {
 		case *`)
 //line column_type.qtpl:81
 	qw422016.E().S(c.name)
@@ -168,26 +168,26 @@ func (src *`)
 			return nil
 
 		default:
-			if nextDst, retry := pgtype.GetAssignToDstType(dst); retry {
+			if nextDst, retry := pgtype.GetAssignToDstType(cfg); retry {
 				return src.AssignTo(nextDst)
 			}
 		}
 		return nil
 
 	case pgtype.Null:
-		return pgtype.NullAssignTo(dst)
+		return pgtype.NullAssignTo(cfg)
 
 	default:
-		return fmt.Errorf("cannot decode %v into %T", src, dst)
+		return fmt.Errorf("cannot decode %v into %T", src, cfg)
 	}
 }
 // DecodeText implement pgtype.TextDecoder interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:100
 	qw422016.E().S(c.name)
 //line column_type.qtpl:100
 	qw422016.N().S(`PsqlType) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = `)
+	*cfg = `)
 //line column_type.qtpl:101
 	qw422016.E().S(c.name)
 //line column_type.qtpl:101
@@ -198,15 +198,15 @@ func (dst *`)
 
 	c := pgtype.NewCompositeTextScanner(ci, src)
 
-	return dst.scanAll(c)
+	return cfg.scanAll(c)
 }
 // DecodeBinary implement pgtype.DecodeBinary interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:111
 	qw422016.E().S(c.name)
 //line column_type.qtpl:111
 	qw422016.N().S(`PsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
-	*dst = `)
+	*cfg = `)
 //line column_type.qtpl:112
 	qw422016.E().S(c.name)
 //line column_type.qtpl:112
@@ -217,10 +217,10 @@ func (dst *`)
 
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 
-	return dst.scanAll(c)
+	return cfg.scanAll(c)
 }
 
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:122
 	qw422016.E().S(c.name)
 //line column_type.qtpl:122
@@ -229,7 +229,7 @@ func (dst *`)
 //line column_type.qtpl:123
 	for _, col := range c.columns {
 //line column_type.qtpl:123
-		qw422016.N().S(`	c.ScanValue(&dst.`)
+		qw422016.N().S(`	c.ScanValue(&cfg.`)
 //line column_type.qtpl:124
 		qw422016.E().S(strcase.ToCamel(col.Name()))
 //line column_type.qtpl:124
@@ -246,18 +246,18 @@ func (dst *`)
 //line column_type.qtpl:129
 	}
 //line column_type.qtpl:129
-	qw422016.N().S(`	dst.Status = pgtype.Present
+	qw422016.N().S(`	cfg.Status = pgtype.Present
 
 	return nil
 }
 
 // DecodeText implement pgtype.TextDecoder interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:136
 	qw422016.E().S(c.name)
 //line column_type.qtpl:136
 	qw422016.N().S(`Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = `)
+	*cfg = `)
 //line column_type.qtpl:137
 	qw422016.E().S(c.name)
 //line column_type.qtpl:137
@@ -270,16 +270,16 @@ func (dst *`)
 //line column_type.qtpl:138
 	qw422016.E().S(c.name)
 //line column_type.qtpl:138
-	qw422016.N().S(`Fields: *dst}).DecodeText(ci, src)
+	qw422016.N().S(`Fields: *cfg}).DecodeText(ci, src)
 }
 
 // DecodeText implement pgtype.TextDecoder interface
-func (dst *`)
+func (cfg *`)
 //line column_type.qtpl:142
 	qw422016.E().S(c.name)
 //line column_type.qtpl:142
 	qw422016.N().S(`Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = `)
+	*cfg = `)
 //line column_type.qtpl:143
 	qw422016.E().S(c.name)
 //line column_type.qtpl:143
@@ -292,7 +292,7 @@ func (dst *`)
 //line column_type.qtpl:144
 	qw422016.E().S(c.name)
 //line column_type.qtpl:144
-	qw422016.N().S(`Fields: *dst}).DecodeBinary(ci, src)
+	qw422016.N().S(`Fields: *cfg}).DecodeBinary(ci, src)
 }
 `)
 //line column_type.qtpl:146

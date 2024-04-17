@@ -172,7 +172,7 @@ func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
 }
 // FlashPoolAndReset inserted all record from Poll as is
 // returns slice of records which were be not inserted
-func (t *PropFills) FlashPoolAndReset(ctx context.Context) ([]*PropFillsFields, error) {
+func (t *%[1]s) FlashPoolAndReset(ctx context.Context) ([]*PropFillsFields, error) {
 	t.ticket.Reset(t.poolDuration)
 	err := t.doCopy(ctx)
 	if m, ok := dbEngine.IsErrorDuplicated(err); ok {
