@@ -210,8 +210,9 @@ func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map
 		} else if _, ok := tables[udtName]; ok {
 			col.basicKind = typesExt.TStruct
 			//col.UserDefined = &t
+		} else {
+			logs.ErrorLog(ErrUnknownType, udtName, typesExt.StringTypeKinds(col.basicKind), col.Name())
 		}
-		logs.DebugLog(udtName, col.basicKind, col)
 	}
 }
 

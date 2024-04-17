@@ -64,6 +64,7 @@ type Creator struct {
 	Types      map[string]string
 	imports    map[string]struct{}
 	initValues string
+	types      []string
 }
 
 // NewCreator create with destination directory 'dst'
@@ -156,7 +157,10 @@ func (c *Creator) makeDBUsersTypes() error {
 			}
 		}
 		c.DB.Types[tName] = t
+		c.types = append(c.types, tName)
 	}
+
+	sort.Strings(c.types)
 
 	return nil
 }
@@ -492,6 +496,7 @@ func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
 		ind,
 		name)
 }
+
 func (c *Creator) udtToReturnType(udtName string) string {
 	toType := psql.UdtNameToType(udtName)
 	switch toType {
@@ -507,6 +512,10 @@ func (c *Creator) udtToReturnType(udtName string) string {
 				typeReturn = "*" + strcase.ToCamel(udtName)
 			}
 		}
+		if a, ok := strings.CutPrefix(typeReturn, "[]"); toType < 0 && ok {
+			typeReturn = "WrapArray[*" + a + "]"
+		}
+
 		return typeReturn
 
 	case types.UntypedFloat:

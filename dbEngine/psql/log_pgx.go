@@ -5,6 +5,8 @@
 package psql
 
 import (
+	"fmt"
+
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
@@ -20,14 +22,15 @@ type pgxLog struct {
 }
 
 func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[string]any) {
-	sql, ok := data["sql"].(string)
+	sql, hasSQL := data["sql"].(string)
 	err, isPgErr := data["err"].(*pgconn.PgError)
-	if !ok && isPgErr {
+	if !hasSQL && isPgErr {
 		sql = err.Where
 	}
 	if isPgErr {
-		sql += err.Hint
+		sql += fmt.Sprintf("(%s) %s %s:%d", err.Hint, err.Where, err.File, err.Line)
 	}
+
 	switch ll {
 	case pgx.LogLevelTrace, pgx.LogLevelDebug:
 		logs.DebugLog("[[PGX]] %s %+v", msg, data)
@@ -35,27 +38,29 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 		logs.StatusLog("[[PGX]] %s %+v", msg, data)
 	case pgx.LogLevelWarn:
 		if isPgErr {
-			logs.ErrorLog(err, msg, sql, ok, data["args"])
+			logs.ErrorLog(err, msg, sql, data["args"])
 		} else {
 			logs.DebugLog(msg, data)
 		}
+
 	case pgx.LogLevelError:
 		if isPgErr {
 			if !dbEngine.IsErrorAlreadyExists(err) {
-				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, ok, data["args"])
+				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, data["args"])
+			} else {
+				logs.ErrorLog(err, msg, sql, data)
 			}
 
 			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
-		} else if isPgErr {
-			logs.ErrorLog(err, msg, data)
 		} else {
 			logs.DebugLog(msg, data)
 		}
+
 	case pgx.LogLevelNone:
-		ch, ok := ctx.Value("debugChan").(chan any)
-		if ok {
+		if ch, ok := ctx.Value("debugChan").(chan any); ok {
 			ch <- data
 		}
+
 	default:
 		logs.ErrorLog(errors.New("invalid level "), ll.String())
 	}

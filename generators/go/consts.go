@@ -170,6 +170,21 @@ func (t *%[1]s) AddToPoolCopy(ctx context.Context, record *%[1]sFields) error {
 
 	return nil
 }
+// FlashPoolAndReset inserted all record from Poll as is
+// returns slice of records which were be not inserted
+func (t *PropFills) FlashPoolAndReset(ctx context.Context) ([]*PropFillsFields, error) {
+	t.ticket.Reset(t.poolDuration)
+	err := t.doCopy(ctx)
+	if m, ok := dbEngine.IsErrorDuplicated(err); ok {
+		logs.ErrorLog(err, m)
+		return t.InsertPoolAndReset(ctx), err
+	}
+	if err != nil {
+		return nil, err
+	}
+	
+	return nil, nil
+}
 // InsertPoolAndReset inserted all record from Poll as is
 // returns slice of records which were be not inserted
 func (t *%[1]s) InsertPoolAndReset(ctx context.Context) []*%[1]sFields {
@@ -343,6 +358,9 @@ func (t *%[1]s) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 			if col.Primary() {
 				priColumns = append( priColumns, col.Name() )
 				priV = append(priV, t.Record.ColValue( col.Name() ))
+			}
+
+			if col.AutoIncrement() {
 				continue
 			}
 

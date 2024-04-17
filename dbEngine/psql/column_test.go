@@ -435,7 +435,7 @@ func TestConn_GetRoutinesProp(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			gotRoutinesCache, err := c.GetRoutines(context.TODO(), nil, nil)
+			gotRoutinesCache, err := c.GetRoutines(context.TODO(), nil, nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetRoutines() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -482,7 +482,7 @@ func TestConn_GetSchema(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			_, got, got1, gotTypes, err := c.GetSchema(tt.args.ctx)
+			_, got, got1, gotTypes, err := c.GetSchema(tt.args.ctx, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -566,7 +566,7 @@ func TestConn_GetTablesProp(t *testing.T) {
 				ctxPool:       tt.fields.ctxPool,
 				Cancel:        tt.fields.Cancel,
 			}
-			gotSchemaCache, err := c.GetTablesProp(context.TODO(), nil)
+			gotSchemaCache, err := c.GetTablesProp(context.TODO(), nil, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetTablesProp() error = %v, wantErr %v", err, tt.wantErr)
 				return

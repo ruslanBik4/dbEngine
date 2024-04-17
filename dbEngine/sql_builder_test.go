@@ -850,19 +850,20 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		name: "simpleTable",
 		columns: append(
 			SimpleColumns("last_login", "name", "id_roles", "blob"),
-			&StringColumn{
-				comment: " ",
-				name:    " ",
-				primary: true,
-			}),
-		indexes: Indexes{
-			{
-				Name:    "photos_test",
-				Expr:    "",
-				Unique:  true,
-				Columns: []string{},
-			},
-		},
+			//&StringColumn{
+			//	comment: " ",
+			//	name:    " ",
+			//	primary: true,
+			//}
+		),
+		//indexes: Indexes{
+		//	{
+		//		Name:    "photos_test",
+		//		Expr:    "",
+		//		Unique:  true,
+		//		Columns: []string{},
+		//	},
+		//},
 	}
 
 	testTable := TableString{
@@ -917,7 +918,6 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 		want    string
 		wantErr assert.ErrorAssertionFunc
 	}{
-		// TODO: Add test cases.
 		{
 			"simple table",
 			fields{

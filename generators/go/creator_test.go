@@ -18,7 +18,7 @@ import (
 
 func TestCreator_MakeStruct(t *testing.T) {
 	type fields struct {
-		dst string
+		dst *CfgCreator
 	}
 	type args struct {
 		table dbEngine.Table
@@ -40,7 +40,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 		// {
 		// 	"first",
 		// 	fields{
-		// 		dst: "../../test/db",
+		// 		cfg: "../../test/db",
 		// 	},
 		// 	args{
 		// 		table: table,
@@ -50,7 +50,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := &Creator{dst: tt.fields.dst}
+			c := &Creator{cfg: tt.fields.dst}
 			// if assert.NotNil(t, err) {
 			// 	t.Error(err)
 			// 	return
@@ -65,7 +65,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 
 func TestNewCreator(t *testing.T) {
 	type args struct {
-		dst string
+		cfg *CfgCreator
 	}
 	tests := []struct {
 		name string
@@ -76,7 +76,7 @@ func TestNewCreator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, err := NewCreator(&dbEngine.DB{Name: "test", Schema: "test"}, tt.args.dst); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
+			if got, err := NewCreator(&dbEngine.DB{Name: "test", Schema: "test"}, tt.args.cfg); !assert.Equal(t, tt.want, got) && assert.NotNil(t, err) {
 				t.Errorf("NewCreator() = %v, want %v", got, tt.want)
 			}
 		})

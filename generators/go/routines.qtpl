@@ -1,0 +1,203 @@
+{% package _go %}
+{% import (
+	"fmt"
+	"strings"
+
+	"github.com/iancoleman/strcase"
+	"github.com/ruslanBik4/dbEngine/dbEngine"
+    "github.com/ruslanBik4/dbEngine/dbEngine/psql"
+)
+%}
+
+{%- func (c *Creator) CreateRoutinesInvoker(r *psql.Routine, name string) -%}
+{%- code
+	camelName := strcase.ToCamel(name)
+	args := make([]any, len(r.Params()))
+	sql, _, _ := r.BuildSql(dbEngine.ArgsForSelect(args...))
+-%}
+{%- if r.Type == psql.ROUTINE_TYPE_PROC -%}
+// {%s camelName %} call procedure '{%s name %}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+func (d *Database) {%s camelName %}(
+	ctx context.Context,{%= c.paramsTitle(r) %}
+) error {
+	return d.Conn.ExecDDL(
+		ctx,
+		`{%s sql %}`,
+		{%= c.paramsArgs(r) %})
+}
+{%- else -%}
+{%= c.CreateFunctionInvoker(r, name, camelName, sql) %}
+{%- endif -%}
+{%- endfunc -%} CreateRoutinesInvoker
+
+{%- func (c *Creator) CreateFunctionInvoker(r *psql.Routine, name, camelName, sql string) -%}
+{%- code
+	typeReturn, initReturn, needReference := "", "", true
+-%}
+{%- switch len(r.Columns()) -%}
+{%- case 0 -%}
+	{%- code
+		typeReturn = c.udtToReturnType(r.UdtName)
+	-%}
+{%- case 1 -%}
+	{%- code
+		param := r.Columns()[0]
+		typeReturn, _ = c.chkTypes(param, strcase.ToCamel(param.Name()))
+		if a, ok := strings.CutPrefix(typeReturn, "[]"); param.BasicType()  < 0 && ok {
+		   typeReturn = "WrapArray[*" + a + "]"
+		}
+	-%}
+{%- default -%}
+{%= c.CreateRowScanner(r, camelName) %}
+	{%- code
+		typeReturn = fmt.Sprintf("*%sRowScanner", camelName)
+		initReturn = fmt.Sprintf("res = &%sRowScanner{}", camelName)
+		needReference = false
+	-%}
+{%- endswitch -%}
+// {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+// ATTENTION! It returns only 1 row {%s typeReturn %}
+func (d *Database) {%s camelName %}(
+	ctx context.Context,{%= c.paramsTitle(r) %}
+) (res {%s typeReturn %}, err error) {
+	{%s= initReturn %}
+	err = d.Conn.SelectOneAndScan(ctx,
+		{% if needReference %}&{% endif %}res,
+		`{%s sql %}
+		FETCH FIRST 1 ROW ONLY`,
+		{%= c.paramsArgs(r) %})
+
+	return
+}
+{%- if r.ReturnType() == "json" -%}
+// {%s camelName %}Out run query with select DB function '{%s name %}: {%s r.UdtName%}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+// ATTENTION! It returns only 1 row {%s typeReturn %}
+func (d *Database) {%s camelName %}Out(
+	ctx context.Context,{%= c.paramsTitle(r) %}
+	res any,
+) error {
+	 return d.Conn.SelectOneAndScan(ctx,
+		&res,
+		`{%s sql %}
+		FETCH FIRST 1 ROW ONLY`,
+		{%= c.paramsArgs(r) %})
+}
+{%- endif -%}
+{%- if r.ReturnType() == "record" -%}
+	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName) -%}
+// {%s camelName %}Each run query with select DB function '{%s name %}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+// each will get every row from &{%s camelName %}sRowScanner
+func (d *Database) {%s camelName %}Each(
+	ctx context.Context,
+	each func(record *{%s typeReturn %}) error,{%= c.paramsTitle(r) %}
+) error {
+	res := &{%s typeReturn %}{}
+	err := d.Conn.SelectAndScanEach(ctx,
+		func() error {
+			defer func() {
+			//	create new record
+				*res = {%s typeReturn %}{}
+			}()
+
+			if each != nil {
+				return each(res)
+			}
+			return nil
+		},
+		res,
+		`{%s sql %}`,
+		{%= c.paramsArgs(r) %})
+
+	return err
+}
+
+// {%s camelName %}All run query with select DB function '{%s name %}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+// WARNING! It return ALL rows as Slice of &{%s camelName %}sRowScanner
+func (d *Database) {%s camelName %}All(
+	ctx context.Context,{%= c.paramsTitle(r) %}
+) (res []{%s typeReturn %}, err error) {
+	buf := {%s typeReturn %}{}
+	err = d.Conn.SelectAndScanEach(ctx,
+		func() error {
+			res = append(res, buf)
+			//	create new record
+			buf = {%s typeReturn %}{}
+
+			return nil
+		},
+		&buf,
+		`{%s sql %}`,
+		{%= c.paramsArgs(r) %})
+
+	return
+}
+{%- endif -%}{% comment %} ReturnType {% endcomment %}
+{%- endfunc -%} CreateFunctionInvoker
+
+{%- func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) -%}
+
+// {%s camelName %}RowScanner run query with select
+type {%s camelName %}RowScanner struct {
+	{%- code
+		maxLen := 0
+		for _, param := range r.Columns() {
+			maxLen = max(maxLen, len(param.Name()))
+		}
+	-%}
+	{%- for _, param := range r.Columns() -%}
+		{%- code
+			s := strcase.ToCamel(param.Name())
+			typeCol, _ := c.chkTypes(param, s)
+			if a, ok := strings.CutPrefix(typeCol, "[]"); param.BasicType()  < 0 && ok {
+			   typeCol = "WrapArray[*" + a + "]"
+			}
+		-%}
+	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}{%s "\t\t"%}`json:"{%s param.Name()%}"`
+	{%- endfor -%}
+}
+
+// GetFields implement dbEngine.RowScanner interface
+func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
+	for i, col := range columns {
+		switch col.Name() {
+		{%- for _, param := range r.Columns() -%}
+		case "{%s param.Name() %}":
+			v[i] = &r.{%s= strcase.ToCamel(param.Name()) %}
+		{%- endfor -%}
+		}
+	}
+
+	return v
+}
+{%- endfunc -%}
+
+{%- func (c *Creator) paramsTitle(r *psql.Routine) -%}
+	{%- code
+		maxLen := 0
+		for _, param := range r.Params() {
+			maxLen = max(maxLen, len(param.Name()))
+		}
+	-%}
+	{% for _, param := range r.Params() %}
+	{%- code
+		s := strcase.ToLowerCamel(param.Name())
+		typeCol, _ := c.chkTypes(param, s)
+		if param.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
+			typeCol = "*"+typeCol
+		}
+	-%}
+	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}, // {%s param.Comment() %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}def: {%v param.Default() %}{%- endif -%}
+	{%- endfor -%}
+{%- endfunc -%}
+
+{%- func (c *Creator) paramsArgs(r *psql.Routine) -%}
+	{%- for _, param := range r.Params() -%}
+	{%s strcase.ToLowerCamel(param.Name()) %},
+	{%- endfor -%}
+{%- endfunc -%}

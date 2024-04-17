@@ -107,11 +107,11 @@ func (b SQLBuilder) UpsertSql() (string, error) {
 	}
 
 	if b.onConflict == "" {
-		onConflict := strings.Join(b.filter, ",")
-		if strings.TrimSpace(onConflict) == "" {
+		if len(b.filter) == 0 {
 			return b.insertSql(), nil
 		}
 
+		onConflict := strings.Join(b.filter, ",")
 		b.onConflict = onConflict
 	}
 
@@ -284,7 +284,7 @@ func (b *SQLBuilder) Set() (string, error) {
 	return s, nil
 }
 
-// SetUpsert return SET clause of sql query  for handling error on insert
+// SetUpsert return SET clause of sql query for handling error on insert
 func (b *SQLBuilder) SetUpsert() (string, error) {
 	s, comma := " SET", " "
 	if len(b.columns) == 0 {

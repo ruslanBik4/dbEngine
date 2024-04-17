@@ -169,11 +169,6 @@ func (r *Routine) GetParams(ctx context.Context, types map[string]dbEngine.Types
 
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
-
-			if s, ok := r.tempParam.colDefault.(string); ok && strings.HasPrefix(s, "NULL") {
-				r.tempParam.colDefault = nil
-			}
-
 			r.tempParam.defineBasicType(types, tables)
 
 			if strings.HasPrefix(r.paramMode, "IN") {
