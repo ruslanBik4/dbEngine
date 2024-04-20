@@ -58,7 +58,8 @@ func (c *Creator) StreamCreateRoutinesInvoker(qw422016 *qt422016.Writer, r *psql
 //line routines.qtpl:20
 		}
 //line routines.qtpl:20
-		qw422016.N().S(`func (d *Database) `)
+		qw422016.N().S(`
+func (d *Database) `)
 //line routines.qtpl:21
 		qw422016.E().S(camelName)
 //line routines.qtpl:21

@@ -17,7 +17,7 @@
 -%}
 {%- if r.Type == psql.ROUTINE_TYPE_PROC -%}
 // {%s camelName %} call procedure '{%s name %}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{% endif %}
 func (d *Database) {%s camelName %}(
 	ctx context.Context,{%= c.paramsTitle(r) %}
 ) error {
