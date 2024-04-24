@@ -286,17 +286,17 @@ func (d *Database) `)
 		qw422016.E().S(camelName)
 //line routines.qtpl:78
 		qw422016.N().S(`Out(
-	ctx context.Context,`)
-//line routines.qtpl:79
+	ctx context.Context,
+	res any,`)
+//line routines.qtpl:80
 		c.streamparamsTitle(qw422016, r)
-//line routines.qtpl:79
+//line routines.qtpl:80
 		qw422016.N().S(`
-	res any,
 ) error {
 	 return d.Conn.SelectOneAndScan(ctx,
-		&res,
+		res,
 		`)
-//line routines.qtpl:79
+//line routines.qtpl:80
 		qw422016.N().S("`")
 //line routines.qtpl:84
 		qw422016.E().S(sql)
@@ -318,65 +318,127 @@ func (d *Database) `)
 	}
 //line routines.qtpl:89
 	if r.ReturnType() == "record" {
-//line routines.qtpl:90
-		typeReturn = fmt.Sprintf("%sRowScanner", camelName)
-
-//line routines.qtpl:90
+//line routines.qtpl:89
 		qw422016.N().S(`// `)
-//line routines.qtpl:91
+//line routines.qtpl:90
 		qw422016.E().S(camelName)
-//line routines.qtpl:91
-		qw422016.N().S(`Each run query with select DB function '`)
-//line routines.qtpl:91
+//line routines.qtpl:90
+		qw422016.N().S(`Out run query with select DB function '`)
+//line routines.qtpl:90
 		qw422016.E().S(name)
-//line routines.qtpl:91
+//line routines.qtpl:90
 		qw422016.N().S(`'
 `)
-//line routines.qtpl:92
+//line routines.qtpl:91
 		if r.Comment > "" {
-//line routines.qtpl:92
+//line routines.qtpl:91
 			qw422016.N().S(`// DB comment: '`)
-//line routines.qtpl:92
+//line routines.qtpl:91
 			qw422016.E().S(r.Comment)
-//line routines.qtpl:92
+//line routines.qtpl:91
 			qw422016.N().S(`'`)
-//line routines.qtpl:92
+//line routines.qtpl:91
 		}
-//line routines.qtpl:92
+//line routines.qtpl:91
 		qw422016.N().S(`// each will get every row from &`)
-//line routines.qtpl:93
+//line routines.qtpl:92
 		qw422016.E().S(camelName)
-//line routines.qtpl:93
+//line routines.qtpl:92
 		qw422016.N().S(`sRowScanner
 func (d *Database) `)
-//line routines.qtpl:94
+//line routines.qtpl:93
 		qw422016.E().S(camelName)
-//line routines.qtpl:94
-		qw422016.N().S(`Each(
+//line routines.qtpl:93
+		qw422016.N().S(`Out(
 	ctx context.Context,
-	each func(record *`)
-//line routines.qtpl:96
-		qw422016.E().S(typeReturn)
-//line routines.qtpl:96
-		qw422016.N().S(`) error,`)
+	each func() error,
+	res dbEngine.RowScanner,`)
 //line routines.qtpl:96
 		c.streamparamsTitle(qw422016, r)
 //line routines.qtpl:96
 		qw422016.N().S(`
 ) error {
-	res := &`)
-//line routines.qtpl:98
+	return d.Conn.SelectAndScanEach(ctx,
+		each,
+		res,
+		`)
+//line routines.qtpl:96
+		qw422016.N().S("`")
+//line routines.qtpl:101
+		qw422016.E().S(sql)
+//line routines.qtpl:101
+		qw422016.N().S(``)
+//line routines.qtpl:101
+		qw422016.N().S("`")
+//line routines.qtpl:101
+		qw422016.N().S(`,
+		`)
+//line routines.qtpl:102
+		c.streamparamsArgs(qw422016, r)
+//line routines.qtpl:102
+		qw422016.N().S(`)
+}
+
+`)
+//line routines.qtpl:105
+		typeReturn = fmt.Sprintf("%sRowScanner", camelName)
+
+//line routines.qtpl:105
+		qw422016.N().S(`// `)
+//line routines.qtpl:106
+		qw422016.E().S(camelName)
+//line routines.qtpl:106
+		qw422016.N().S(`Each run query with select DB function '`)
+//line routines.qtpl:106
+		qw422016.E().S(name)
+//line routines.qtpl:106
+		qw422016.N().S(`'
+`)
+//line routines.qtpl:107
+		if r.Comment > "" {
+//line routines.qtpl:107
+			qw422016.N().S(`// DB comment: '`)
+//line routines.qtpl:107
+			qw422016.E().S(r.Comment)
+//line routines.qtpl:107
+			qw422016.N().S(`'`)
+//line routines.qtpl:107
+		}
+//line routines.qtpl:107
+		qw422016.N().S(`// each will get every row from &`)
+//line routines.qtpl:108
+		qw422016.E().S(camelName)
+//line routines.qtpl:108
+		qw422016.N().S(`sRowScanner
+func (d *Database) `)
+//line routines.qtpl:109
+		qw422016.E().S(camelName)
+//line routines.qtpl:109
+		qw422016.N().S(`Each(
+	ctx context.Context,
+	each func(record *`)
+//line routines.qtpl:111
 		qw422016.E().S(typeReturn)
-//line routines.qtpl:98
+//line routines.qtpl:111
+		qw422016.N().S(`) error,`)
+//line routines.qtpl:111
+		c.streamparamsTitle(qw422016, r)
+//line routines.qtpl:111
+		qw422016.N().S(`
+) error {
+	res := &`)
+//line routines.qtpl:113
+		qw422016.E().S(typeReturn)
+//line routines.qtpl:113
 		qw422016.N().S(`{}
 	err := d.Conn.SelectAndScanEach(ctx,
 		func() error {
 			defer func() {
 			//	create new record
 				*res = `)
-//line routines.qtpl:103
+//line routines.qtpl:118
 		qw422016.E().S(typeReturn)
-//line routines.qtpl:103
+//line routines.qtpl:118
 		qw422016.N().S(`{}
 			}()
 
@@ -387,374 +449,374 @@ func (d *Database) `)
 		},
 		res,
 		`)
-//line routines.qtpl:103
+//line routines.qtpl:118
 		qw422016.N().S("`")
-//line routines.qtpl:112
+//line routines.qtpl:127
 		qw422016.E().S(sql)
-//line routines.qtpl:112
+//line routines.qtpl:127
 		qw422016.N().S(``)
-//line routines.qtpl:112
+//line routines.qtpl:127
 		qw422016.N().S("`")
-//line routines.qtpl:112
+//line routines.qtpl:127
 		qw422016.N().S(`,
 		`)
-//line routines.qtpl:113
+//line routines.qtpl:128
 		c.streamparamsArgs(qw422016, r)
-//line routines.qtpl:113
+//line routines.qtpl:128
 		qw422016.N().S(`)
 
 	return err
 }
 
 // `)
-//line routines.qtpl:118
+//line routines.qtpl:133
 		qw422016.E().S(camelName)
-//line routines.qtpl:118
+//line routines.qtpl:133
 		qw422016.N().S(`All run query with select DB function '`)
-//line routines.qtpl:118
+//line routines.qtpl:133
 		qw422016.E().S(name)
-//line routines.qtpl:118
+//line routines.qtpl:133
 		qw422016.N().S(`'
 `)
-//line routines.qtpl:119
+//line routines.qtpl:134
 		if r.Comment > "" {
-//line routines.qtpl:119
+//line routines.qtpl:134
 			qw422016.N().S(`// DB comment: '`)
-//line routines.qtpl:119
+//line routines.qtpl:134
 			qw422016.E().S(r.Comment)
-//line routines.qtpl:119
+//line routines.qtpl:134
 			qw422016.N().S(`'`)
-//line routines.qtpl:119
+//line routines.qtpl:134
 		}
-//line routines.qtpl:119
+//line routines.qtpl:134
 		qw422016.N().S(`// WARNING! It return ALL rows as Slice of &`)
-//line routines.qtpl:120
+//line routines.qtpl:135
 		qw422016.E().S(camelName)
-//line routines.qtpl:120
+//line routines.qtpl:135
 		qw422016.N().S(`sRowScanner
 func (d *Database) `)
-//line routines.qtpl:121
+//line routines.qtpl:136
 		qw422016.E().S(camelName)
-//line routines.qtpl:121
+//line routines.qtpl:136
 		qw422016.N().S(`All(
 	ctx context.Context,`)
-//line routines.qtpl:122
+//line routines.qtpl:137
 		c.streamparamsTitle(qw422016, r)
-//line routines.qtpl:122
+//line routines.qtpl:137
 		qw422016.N().S(`
 ) (res []`)
-//line routines.qtpl:123
+//line routines.qtpl:138
 		qw422016.E().S(typeReturn)
-//line routines.qtpl:123
+//line routines.qtpl:138
 		qw422016.N().S(`, err error) {
 	buf := `)
-//line routines.qtpl:124
+//line routines.qtpl:139
 		qw422016.E().S(typeReturn)
-//line routines.qtpl:124
+//line routines.qtpl:139
 		qw422016.N().S(`{}
 	err = d.Conn.SelectAndScanEach(ctx,
 		func() error {
 			res = append(res, buf)
 			//	create new record
 			buf = `)
-//line routines.qtpl:129
+//line routines.qtpl:144
 		qw422016.E().S(typeReturn)
-//line routines.qtpl:129
+//line routines.qtpl:144
 		qw422016.N().S(`{}
 
 			return nil
 		},
 		&buf,
 		`)
-//line routines.qtpl:129
+//line routines.qtpl:144
 		qw422016.N().S("`")
-//line routines.qtpl:134
+//line routines.qtpl:149
 		qw422016.E().S(sql)
-//line routines.qtpl:134
+//line routines.qtpl:149
 		qw422016.N().S(``)
-//line routines.qtpl:134
+//line routines.qtpl:149
 		qw422016.N().S("`")
-//line routines.qtpl:134
+//line routines.qtpl:149
 		qw422016.N().S(`,
 		`)
-//line routines.qtpl:135
+//line routines.qtpl:150
 		c.streamparamsArgs(qw422016, r)
-//line routines.qtpl:135
+//line routines.qtpl:150
 		qw422016.N().S(`)
 
 	return
 }
 `)
-//line routines.qtpl:139
+//line routines.qtpl:154
 	}
-//line routines.qtpl:139
+//line routines.qtpl:154
 	qw422016.N().S(`
 `)
-//line routines.qtpl:140
+//line routines.qtpl:155
 }
 
-//line routines.qtpl:140
+//line routines.qtpl:155
 func (c *Creator) WriteCreateFunctionInvoker(qq422016 qtio422016.Writer, r *psql.Routine, name, camelName, sql string) {
-//line routines.qtpl:140
+//line routines.qtpl:155
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:140
+//line routines.qtpl:155
 	c.StreamCreateFunctionInvoker(qw422016, r, name, camelName, sql)
-//line routines.qtpl:140
+//line routines.qtpl:155
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:140
+//line routines.qtpl:155
 }
 
-//line routines.qtpl:140
+//line routines.qtpl:155
 func (c *Creator) CreateFunctionInvoker(r *psql.Routine, name, camelName, sql string) string {
-//line routines.qtpl:140
+//line routines.qtpl:155
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:140
+//line routines.qtpl:155
 	c.WriteCreateFunctionInvoker(qb422016, r, name, camelName, sql)
-//line routines.qtpl:140
+//line routines.qtpl:155
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:140
+//line routines.qtpl:155
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:140
+//line routines.qtpl:155
 	return qs422016
-//line routines.qtpl:140
+//line routines.qtpl:155
 }
 
 // CreateFunctionInvoker
 //
 
-//line routines.qtpl:142
+//line routines.qtpl:157
 func (c *Creator) StreamCreateRowScanner(qw422016 *qt422016.Writer, r *psql.Routine, camelName string) {
-//line routines.qtpl:142
+//line routines.qtpl:157
 	qw422016.N().S(`
 // `)
-//line routines.qtpl:144
+//line routines.qtpl:159
 	qw422016.E().S(camelName)
-//line routines.qtpl:144
+//line routines.qtpl:159
 	qw422016.N().S(`RowScanner run query with select
 type `)
-//line routines.qtpl:145
+//line routines.qtpl:160
 	qw422016.E().S(camelName)
-//line routines.qtpl:145
+//line routines.qtpl:160
 	qw422016.N().S(`RowScanner struct {
 `)
-//line routines.qtpl:147
+//line routines.qtpl:162
 	maxLen := 0
 	for _, param := range r.Columns() {
 		maxLen = max(maxLen, len(param.Name()))
 	}
 
-//line routines.qtpl:152
+//line routines.qtpl:167
 	for _, param := range r.Columns() {
-//line routines.qtpl:154
+//line routines.qtpl:169
 		s := strcase.ToCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 		if a, ok := strings.CutPrefix(typeCol, "[]"); param.BasicType() < 0 && ok {
 			typeCol = "WrapArray[*" + a + "]"
 		}
 
-//line routines.qtpl:159
+//line routines.qtpl:174
 		qw422016.N().S(`	`)
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.E().S(fmt.Sprintf("%-[2]*[1]s ", s, maxLen))
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.E().S(typeCol)
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.E().S("\t\t")
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S(``)
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S("`")
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S(`json:"`)
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.E().S(param.Name())
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S(`"`)
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S("`")
-//line routines.qtpl:160
+//line routines.qtpl:175
 		qw422016.N().S(`
 `)
-//line routines.qtpl:161
+//line routines.qtpl:176
 	}
-//line routines.qtpl:161
+//line routines.qtpl:176
 	qw422016.N().S(`}
 
 // GetFields implement dbEngine.RowScanner interface
 func (r *`)
-//line routines.qtpl:165
+//line routines.qtpl:180
 	qw422016.E().S(camelName)
-//line routines.qtpl:165
+//line routines.qtpl:180
 	qw422016.N().S(`RowScanner) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
 	for i, col := range columns {
 		switch col.Name() {
 `)
-//line routines.qtpl:169
+//line routines.qtpl:184
 	for _, param := range r.Columns() {
-//line routines.qtpl:169
+//line routines.qtpl:184
 		qw422016.N().S(`		case "`)
-//line routines.qtpl:170
+//line routines.qtpl:185
 		qw422016.E().S(param.Name())
-//line routines.qtpl:170
+//line routines.qtpl:185
 		qw422016.N().S(`":
 			v[i] = &r.`)
-//line routines.qtpl:171
+//line routines.qtpl:186
 		qw422016.N().S(strcase.ToCamel(param.Name()))
-//line routines.qtpl:171
+//line routines.qtpl:186
 		qw422016.N().S(`
 `)
-//line routines.qtpl:172
+//line routines.qtpl:187
 	}
-//line routines.qtpl:172
+//line routines.qtpl:187
 	qw422016.N().S(`		}
 	}
 
 	return v
 }
 `)
-//line routines.qtpl:178
+//line routines.qtpl:193
 }
 
-//line routines.qtpl:178
+//line routines.qtpl:193
 func (c *Creator) WriteCreateRowScanner(qq422016 qtio422016.Writer, r *psql.Routine, camelName string) {
-//line routines.qtpl:178
+//line routines.qtpl:193
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:178
+//line routines.qtpl:193
 	c.StreamCreateRowScanner(qw422016, r, camelName)
-//line routines.qtpl:178
+//line routines.qtpl:193
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:178
+//line routines.qtpl:193
 }
 
-//line routines.qtpl:178
+//line routines.qtpl:193
 func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) string {
-//line routines.qtpl:178
+//line routines.qtpl:193
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:178
+//line routines.qtpl:193
 	c.WriteCreateRowScanner(qb422016, r, camelName)
-//line routines.qtpl:178
+//line routines.qtpl:193
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:178
+//line routines.qtpl:193
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:178
+//line routines.qtpl:193
 	return qs422016
-//line routines.qtpl:178
+//line routines.qtpl:193
 }
 
-//line routines.qtpl:180
+//line routines.qtpl:195
 func (c *Creator) streamparamsTitle(qw422016 *qt422016.Writer, r *psql.Routine) {
-//line routines.qtpl:182
+//line routines.qtpl:197
 	maxLen := 0
 	for _, param := range r.Params() {
 		maxLen = max(maxLen, len(param.Name()))
 	}
 
-//line routines.qtpl:186
+//line routines.qtpl:201
 	qw422016.N().S(`	`)
-//line routines.qtpl:187
+//line routines.qtpl:202
 	for _, param := range r.Params() {
-//line routines.qtpl:187
+//line routines.qtpl:202
 		qw422016.N().S(`
 `)
-//line routines.qtpl:189
+//line routines.qtpl:204
 		s := strcase.ToLowerCamel(param.Name())
 		typeCol, _ := c.chkTypes(param, s)
 		if param.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
 			typeCol = "*" + typeCol
 		}
 
-//line routines.qtpl:194
+//line routines.qtpl:209
 		qw422016.N().S(`	`)
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.E().S(fmt.Sprintf("%-[2]*[1]s ", s, maxLen))
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.E().S(typeCol)
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.N().S(`, // `)
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.E().S(param.Comment())
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.N().S(` pg type: `)
-//line routines.qtpl:195
+//line routines.qtpl:210
 		qw422016.E().S(param.Type())
-//line routines.qtpl:195
+//line routines.qtpl:210
 		if param.Default() != nil {
-//line routines.qtpl:195
-			qw422016.N().S(`def: `)
-//line routines.qtpl:195
+//line routines.qtpl:210
+			qw422016.N().S(`, def: `)
+//line routines.qtpl:210
 			qw422016.E().V(param.Default())
-//line routines.qtpl:195
+//line routines.qtpl:210
 		}
-//line routines.qtpl:196
+//line routines.qtpl:211
 	}
-//line routines.qtpl:197
+//line routines.qtpl:212
 }
 
-//line routines.qtpl:197
+//line routines.qtpl:212
 func (c *Creator) writeparamsTitle(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line routines.qtpl:197
+//line routines.qtpl:212
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:197
+//line routines.qtpl:212
 	c.streamparamsTitle(qw422016, r)
-//line routines.qtpl:197
+//line routines.qtpl:212
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:197
+//line routines.qtpl:212
 }
 
-//line routines.qtpl:197
+//line routines.qtpl:212
 func (c *Creator) paramsTitle(r *psql.Routine) string {
-//line routines.qtpl:197
+//line routines.qtpl:212
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:197
+//line routines.qtpl:212
 	c.writeparamsTitle(qb422016, r)
-//line routines.qtpl:197
+//line routines.qtpl:212
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:197
+//line routines.qtpl:212
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:197
+//line routines.qtpl:212
 	return qs422016
-//line routines.qtpl:197
+//line routines.qtpl:212
 }
 
-//line routines.qtpl:199
+//line routines.qtpl:214
 func (c *Creator) streamparamsArgs(qw422016 *qt422016.Writer, r *psql.Routine) {
-//line routines.qtpl:200
+//line routines.qtpl:215
 	for _, param := range r.Params() {
-//line routines.qtpl:200
+//line routines.qtpl:215
 		qw422016.N().S(`	`)
-//line routines.qtpl:201
+//line routines.qtpl:216
 		qw422016.E().S(strcase.ToLowerCamel(param.Name()))
-//line routines.qtpl:201
+//line routines.qtpl:216
 		qw422016.N().S(`,
 `)
-//line routines.qtpl:202
+//line routines.qtpl:217
 	}
-//line routines.qtpl:203
+//line routines.qtpl:218
 }
 
-//line routines.qtpl:203
+//line routines.qtpl:218
 func (c *Creator) writeparamsArgs(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line routines.qtpl:203
+//line routines.qtpl:218
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:203
+//line routines.qtpl:218
 	c.streamparamsArgs(qw422016, r)
-//line routines.qtpl:203
+//line routines.qtpl:218
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:203
+//line routines.qtpl:218
 }
 
-//line routines.qtpl:203
+//line routines.qtpl:218
 func (c *Creator) paramsArgs(r *psql.Routine) string {
-//line routines.qtpl:203
+//line routines.qtpl:218
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:203
+//line routines.qtpl:218
 	c.writeparamsArgs(qb422016, r)
-//line routines.qtpl:203
+//line routines.qtpl:218
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:203
+//line routines.qtpl:218
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:203
+//line routines.qtpl:218
 	return qs422016
-//line routines.qtpl:203
+//line routines.qtpl:218
 }

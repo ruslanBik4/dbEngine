@@ -76,17 +76,32 @@ func (d *Database) {%s camelName %}(
 {%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
 // ATTENTION! It returns only 1 row {%s typeReturn %}
 func (d *Database) {%s camelName %}Out(
-	ctx context.Context,{%= c.paramsTitle(r) %}
-	res any,
+	ctx context.Context,
+	res any,{%= c.paramsTitle(r) %}
 ) error {
 	 return d.Conn.SelectOneAndScan(ctx,
-		&res,
+		res,
 		`{%s sql %}
 		FETCH FIRST 1 ROW ONLY`,
 		{%= c.paramsArgs(r) %})
 }
 {%- endif -%}
 {%- if r.ReturnType() == "record" -%}
+// {%s camelName %}Out run query with select DB function '{%s name %}'
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+// each will get every row from &{%s camelName %}sRowScanner
+func (d *Database) {%s camelName %}Out(
+	ctx context.Context,
+	each func() error,
+	res dbEngine.RowScanner,{%= c.paramsTitle(r) %}
+) error {
+	return d.Conn.SelectAndScanEach(ctx,
+		each,
+		res,
+		`{%s sql %}`,
+		{%= c.paramsArgs(r) %})
+}
+
 	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName) -%}
 // {%s camelName %}Each run query with select DB function '{%s name %}'
 {%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
@@ -192,7 +207,7 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 			typeCol = "*"+typeCol
 		}
 	-%}
-	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}, // {%s param.Comment() %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}def: {%v param.Default() %}{%- endif -%}
+	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}, // {%s param.Comment() %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}, def: {%v param.Default() %}{%- endif -%}
 	{%- endfor -%}
 {%- endfunc -%}
 
