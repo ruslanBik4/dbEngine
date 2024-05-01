@@ -330,9 +330,9 @@ func (b *SQLBuilder) Where() string {
 
 	where, comma := "", " "
 	for _, name := range b.filter {
-		isComplexCondition, hasTempl := b.isComplexCondition(name)
+		isComplexCondition, hasTpl := b.isComplexCondition(name)
 		// 'is null, 'is not null', 'CASE WHEN ..END' write as is when they not consist of '%s'
-		if isComplexCondition && !hasTempl {
+		if isComplexCondition && !hasTpl {
 			where += comma + name
 			comma = " AND "
 			continue
@@ -340,7 +340,7 @@ func (b *SQLBuilder) Where() string {
 
 		b.posFilter++
 
-		where += comma + b.writeCondition(name, hasTempl)
+		where += comma + b.writeCondition(name, hasTpl)
 		comma = " AND "
 	}
 
@@ -356,7 +356,7 @@ func (b *SQLBuilder) isComplexCondition(name string) (bool, bool) {
 	return isComplexCondition, isComplexCondition && strings.Contains(name, "%s")
 }
 
-func (b *SQLBuilder) writeCondition(name string, hasTempl bool) string {
+func (b *SQLBuilder) writeCondition(name string, hasTpl bool) string {
 	switch pre := name[0]; {
 	case isOperator(pre):
 		preStr := string(pre)
@@ -378,34 +378,49 @@ func (b *SQLBuilder) writeCondition(name string, hasTempl bool) string {
 		}
 
 	default:
-		return b.chkSpecialParams(name, hasTempl)
+		return b.chkSpecialParams(name, hasTpl)
 	}
 }
 
 // chkSpecialParams get condition for WHERE include complex params as:
 // 'is null, 'is not null'
 // in (select ... from ... where field = {param})
-func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
+func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 
 	cond := "$%[1]d"
+	var isArray bool
+	var column Column
+	if table := b.Table; table != nil {
+		column = table.FindColumn(name)
+		col, ok := column.(interface{ IsArray() bool })
+		isArray = ok && col.IsArray()
+	}
 	switch arg := b.Args[b.posFilter-1].(type) {
+	case nil:
+		cond = "is null"
+
 	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string, types.Slice, []time.Time, []*time.Time,
 		pgtype.ArrayType, pgtype.Int2Array, pgtype.Int4Array, pgtype.Int8Array, pgtype.DateArray,
 		pgtype.TimestampArray, pgtype.TimestamptzArray,
 		pgtype.Float4Array, pgtype.Float8Array, pgtype.NumericArray, pgtype.BPCharArray, pgtype.TextArray:
 		// todo: chk column type
-		if table := b.Table; table != nil {
-			if col, ok := table.FindColumn(name).(interface{ IsArray() bool }); ok && col.IsArray() {
-				return fmt.Sprintf("%s@>$%d", name, b.posFilter)
-			}
+		if isArray {
+			return fmt.Sprintf("%s@>$%d", name, b.posFilter)
 		}
 		cond = "ANY($%[1]d)"
-	case nil:
-		cond = "is null"
+
+	case pgtype.Daterange:
+		return b.dateRangeChk(name, &arg, column)
+
+	case *pgtype.Daterange:
+		return b.dateRangeChk(name, arg, column)
+
 	case string:
 		if strings.Contains(arg, "is ") {
 			cond = arg
 		}
+	default:
+		//logs.StatusLog("%T %[1]t", arg)
 	}
 
 	if strings.Contains(cond, "is ") {
@@ -416,13 +431,64 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTempl bool) string {
 		return name + " " + cond
 	}
 
-	if hasTempl {
+	// format tpl
+	if hasTpl {
 		cond = fmt.Sprintf(name, cond)
 	} else {
 		cond = name + "=" + cond
 	}
 
 	return fmt.Sprintf(cond, b.posFilter)
+}
+
+func (b *SQLBuilder) dateRangeChk(name string, arg *pgtype.Daterange, column Column) string {
+	logs.StatusLog("%T %#[1]v", arg)
+	switch column.Type() {
+	case "date":
+		return fmt.Sprintf("%s<@$%d::daterange", name, b.posFilter)
+
+	case "timestamptz":
+		b.Args[b.posFilter-1] = &pgtype.Tstzrange{
+			Lower: pgtype.Timestamptz{
+				Time:             arg.Lower.Time,
+				Status:           arg.Lower.Status,
+				InfinityModifier: arg.Lower.InfinityModifier,
+			},
+			Upper: pgtype.Timestamptz{
+				Time:             arg.Upper.Time,
+				Status:           arg.Upper.Status,
+				InfinityModifier: arg.Upper.InfinityModifier,
+			},
+			LowerType: arg.LowerType,
+			UpperType: arg.UpperType,
+			Status:    arg.Status,
+		}
+		return fmt.Sprintf("%s<@$%d::tsrange", name, b.posFilter)
+
+	case "timestamp":
+		b.Args[b.posFilter-1] = &pgtype.Tsrange{
+			Lower: pgtype.Timestamp{
+				Time:             arg.Lower.Time,
+				Status:           arg.Lower.Status,
+				InfinityModifier: arg.Lower.InfinityModifier,
+			},
+			Upper: pgtype.Timestamp{
+				Time:             arg.Upper.Time,
+				Status:           arg.Upper.Status,
+				InfinityModifier: arg.Upper.InfinityModifier,
+			},
+			LowerType: arg.LowerType,
+			UpperType: arg.UpperType,
+			Status:    arg.Status,
+		}
+		return fmt.Sprintf("%s<@$%d::tsrange", name, b.posFilter)
+
+	case "daterange":
+		return fmt.Sprintf("%s=$%d::daterange", name, b.posFilter)
+
+	default:
+		return ""
+	}
 }
 
 func rmElem(a []any, i int) []any {
