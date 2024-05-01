@@ -64,13 +64,13 @@ func (err ErrNotFoundColumn) Error() string {
 
 }
 
-// ErrNotFoundColumn if not found in table {Table} field by name {Column}
+// ErrNotFoundType if not found in table {Table} field by name {Column}
 type ErrNotFoundType struct {
 	Name string
 	Type string
 }
 
-// NewErrNotFoundColumn create new error
+// NewErrNotFoundType create new error
 func NewErrNotFoundType(name string, sType string) *ErrNotFoundType {
 	return &ErrNotFoundType{Name: name, Type: sType}
 }

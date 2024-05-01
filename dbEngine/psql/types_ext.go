@@ -5,9 +5,10 @@
 package psql
 
 import (
-	"github.com/pkg/errors"
 	"math/big"
 	"strconv"
+
+	"github.com/pkg/errors"
 
 	"github.com/jackc/pgtype"
 )

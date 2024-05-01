@@ -1,10 +1,11 @@
 package psql
 
 import (
-	"github.com/jackc/pgtype"
-	"github.com/stretchr/testify/assert"
 	"math/big"
 	"testing"
+
+	"github.com/jackc/pgtype"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewNumericFromFloat64(t *testing.T) {

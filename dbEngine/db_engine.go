@@ -36,7 +36,7 @@ type Connection interface {
 	SelectToMultiDimension(ctx context.Context, sql string, args ...any) ([][]any, []Column, error)
 }
 
-// Types consists of parameters of DB types
+// TypesAttr consists of parameters of DB types
 type TypesAttr struct {
 	Name      string
 	Type      string
