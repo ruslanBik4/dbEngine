@@ -17,7 +17,8 @@
 -%}
 {%- if r.Type == psql.ROUTINE_TYPE_PROC -%}
 // {%s camelName %} call procedure '{%s name %}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{% endif %}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{% endif %}
 func (d *Database) {%s camelName %}(
 	ctx context.Context,{%= c.paramsTitle(r) %}
 ) error {
@@ -57,8 +58,10 @@ func (d *Database) {%s camelName %}(
 	-%}
 {%- endswitch -%}
 // {%s camelName %} run query with select DB function '{%s name %}: {%s r.UdtName%}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{%- endif -%}
 // ATTENTION! It returns only 1 row {%s typeReturn %}
+// {%s= fmt.Sprintf("%+v", r) %}
 func (d *Database) {%s camelName %}(
 	ctx context.Context,{%= c.paramsTitle(r) %}
 ) (res {%s typeReturn %}, err error) {
@@ -73,7 +76,8 @@ func (d *Database) {%s camelName %}(
 }
 {%- if r.ReturnType() == "json" -%}
 // {%s camelName %}Out run query with select DB function '{%s name %}: {%s r.UdtName%}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{%- endif -%}
 // ATTENTION! It returns only 1 row {%s typeReturn %}
 func (d *Database) {%s camelName %}Out(
 	ctx context.Context,
@@ -88,7 +92,8 @@ func (d *Database) {%s camelName %}Out(
 {%- endif -%}
 {%- if r.ReturnType() == "record" -%}
 // {%s camelName %}Out run query with select DB function '{%s name %}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{%- endif -%}
 // each will get every row from &{%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}Out(
 	ctx context.Context,
@@ -104,7 +109,8 @@ func (d *Database) {%s camelName %}Out(
 
 	{%- code typeReturn = fmt.Sprintf("%sRowScanner", camelName) -%}
 // {%s camelName %}Each run query with select DB function '{%s name %}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{%- endif -%}
 // each will get every row from &{%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}Each(
 	ctx context.Context,
@@ -131,7 +137,8 @@ func (d *Database) {%s camelName %}Each(
 }
 
 // {%s camelName %}All run query with select DB function '{%s name %}'
-{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'{%- endif -%}
+{%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
+{%- endif -%}
 // WARNING! It return ALL rows as Slice of &{%s camelName %}sRowScanner
 func (d *Database) {%s camelName %}All(
 	ctx context.Context,{%= c.paramsTitle(r) %}
