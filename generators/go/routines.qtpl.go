@@ -256,7 +256,7 @@ func (d *Database) `)
 }
 `)
 //line routines.qtpl:77
-	if r.ReturnType() == "json" {
+	if r.ReturnType() == "json" || r.ReturnType() == "jsonb" {
 //line routines.qtpl:77
 		qw422016.N().S(`// `)
 //line routines.qtpl:78

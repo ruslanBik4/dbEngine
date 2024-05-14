@@ -80,14 +80,18 @@ func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error)
 		return nil
 	}
 
-	c := pgtype.NewCompositeTextScanner(ci, src)
-	for c.Next() {
-		var val T
-		c.ScanDecoder(val)
-		if c.Err() != nil {
-			return c.Err()
+	arr, err := pgtype.ParseUntypedTextArray(gotools.BytesToString(src))
+	if err != nil {
+		return err
+	}
+
+	for _, el := range arr.Elements {
+
+		val := T.NewElem(*(new(T)))
+		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+			return err
 		}
-		*dst = append(*dst, val)
+		*dst = append(*dst, val.(T))
 	}
 
 	return nil
@@ -99,27 +103,31 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 		return nil
 	}
 
-	c := pgtype.NewCompositeBinaryScanner(ci, src)
-	for c.Next() {
-		var val T
-		c.ScanDecoder(val)
-		if c.Err() != nil {
-			return c.Err()
+	arr, err := pgtype.ParseUntypedTextArray(gotools.BytesToString(src))
+	if err != nil {
+		return err
+	}
+
+	for _, el := range arr.Elements {
+
+		val := T.NewElem(*(new(T)))
+		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+			return err
 		}
-		*dst = append(*dst, val)
+		*dst = append(*dst, val.(T))
 	}
 
 	return nil
 }
 
 `)
-//line database_tpl.qtpl:85
+//line database_tpl.qtpl:93
 	for _, name := range c.types {
-//line database_tpl.qtpl:85
+//line database_tpl.qtpl:93
 		c.StreamCreateTypeInterface(qw422016, c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name])
-//line database_tpl.qtpl:85
+//line database_tpl.qtpl:93
 	}
-//line database_tpl.qtpl:85
+//line database_tpl.qtpl:93
 	qw422016.N().S(`
 type CitextArray struct {
 	pgtype.TextArray
@@ -141,12 +149,12 @@ func (dst CitextArray) MarshalJSON() ([]byte, error) {
 }
 
 var customTypes = map[string]*pgtype.DataType{
-	"citext": &pgtype.DataType{
+	"citext": {
 		Value: &pgtype.Text{},
 		Name:  "citext",
 	},
-	"_citext": &pgtype.DataType{
-		Value: &pgtype.TextArray{}, // (*pgtype.ArrayType)(nil),
+	"_citext": {
+		Value: &pgtype.TextArray{},
 		Name:  "[]string",
 	},
 }
@@ -260,19 +268,19 @@ func (d *Database) PsqlConn() *psql.Conn {
 	return (d.Conn).(*psql.Conn)
 }
 `)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:233
 	for name := range c.Tables {
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:233
 		c.StreamCreateTableConstructor(qw422016, strcase.ToCamel(name), name)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:233
 	}
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:234
 	for _, name := range listRoutines {
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:234
 		c.StreamCreateRoutinesInvoker(qw422016, c.Routines[name].(*psql.Routine), name)
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:234
 	}
-//line database_tpl.qtpl:226
+//line database_tpl.qtpl:234
 	qw422016.N().S(`// printNotice logging some psql messages (invoked command 'RAISE ...')
 func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	switch {
@@ -295,130 +303,130 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	}
 }
 `)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 }
 
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 func (c *Creator) WriteCreateDatabase(qq422016 qtio422016.Writer, packages, listRoutines []string) {
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	c.StreamCreateDatabase(qw422016, packages, listRoutines)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 }
 
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 func (c *Creator) CreateDatabase(packages, listRoutines []string) string {
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	c.WriteCreateDatabase(qb422016, packages, listRoutines)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 	return qs422016
-//line database_tpl.qtpl:248
+//line database_tpl.qtpl:256
 }
 
-//line database_tpl.qtpl:250
+//line database_tpl.qtpl:258
 func (c *Creator) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
-//line database_tpl.qtpl:251
+//line database_tpl.qtpl:259
 	if len(t.Enumerates) == 0 {
-//line database_tpl.qtpl:251
+//line database_tpl.qtpl:259
 		qw422016.N().S(`// `)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:260
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:260
 		qw422016.N().S(` create new instance of type `)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:260
 		qw422016.E().S(name)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:260
 		qw422016.N().S(`
 type `)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:261
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:261
 		qw422016.N().S(` struct {
 `)
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:262
 		for _, attr := range t.Attr {
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:262
 			qw422016.N().S(`	`)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S(fmt.Sprintf("%-21s\t\t%s\t", strcase.ToCamel(attr.Name), attr.Type))
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S(` `)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S("`")
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S(`json:"`)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.E().S(attr.Name)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S(`"`)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S("`")
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:263
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:264
 		}
-//line database_tpl.qtpl:257
+//line database_tpl.qtpl:265
 		if t.Type == 'r' {
-//line database_tpl.qtpl:257
+//line database_tpl.qtpl:265
 			qw422016.N().S(`	LowerType pgtype.BoundType
 	UpperType pgtype.BoundType
 `)
-//line database_tpl.qtpl:260
+//line database_tpl.qtpl:268
 		}
-//line database_tpl.qtpl:260
+//line database_tpl.qtpl:268
 		qw422016.N().S(`}
 
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *`)
-//line database_tpl.qtpl:264
+//line database_tpl.qtpl:272
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:264
+//line database_tpl.qtpl:272
 		qw422016.N().S(`) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
 		*dst = `)
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:274
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:274
 		qw422016.N().S(`{}
 		return nil
 	}
 `)
-//line database_tpl.qtpl:269
+//line database_tpl.qtpl:277
 		if t.Type == 'r' {
-//line database_tpl.qtpl:269
+//line database_tpl.qtpl:277
 			qw422016.N().S(`	utr, err := pgtype.ParseUntypedTextRange(gotools.BytesToString(src))
 	if err != nil {
 		return err
 	}
 `)
-//line database_tpl.qtpl:274
+//line database_tpl.qtpl:282
 		} else {
-//line database_tpl.qtpl:274
+//line database_tpl.qtpl:282
 			qw422016.N().S(`	c := pgtype.NewCompositeTextScanner(ci, src)
 `)
-//line database_tpl.qtpl:276
+//line database_tpl.qtpl:284
 		}
-//line database_tpl.qtpl:276
+//line database_tpl.qtpl:284
 		qw422016.N().S(`    *dst = `)
-//line database_tpl.qtpl:277
+//line database_tpl.qtpl:285
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:277
+//line database_tpl.qtpl:285
 		qw422016.N().S(`{}
 	var scanErrors error
 `)
-//line database_tpl.qtpl:279
+//line database_tpl.qtpl:287
 		if t.Type == 'r' {
-//line database_tpl.qtpl:279
+//line database_tpl.qtpl:287
 			qw422016.N().S(`    	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
 
@@ -438,95 +446,95 @@ func (dst *`)
     		}
     	}
 `)
-//line database_tpl.qtpl:298
+//line database_tpl.qtpl:306
 		} else {
-//line database_tpl.qtpl:299
+//line database_tpl.qtpl:307
 			for _, attr := range t.Attr {
-//line database_tpl.qtpl:299
+//line database_tpl.qtpl:307
 				qw422016.N().S(`	`)
-//line database_tpl.qtpl:300
+//line database_tpl.qtpl:308
 				if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
-//line database_tpl.qtpl:300
+//line database_tpl.qtpl:308
 					qw422016.N().S(`c.ScanDecoder
 `)
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 				} else {
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 					qw422016.N().S(`c.ScanValue`)
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 				}
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 				qw422016.N().S(`(&dst.`)
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:309
 				qw422016.N().S(`)
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "`)
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:311
 				qw422016.E().S(typeName)
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:311
 				qw422016.N().S(`.`)
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:311
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:303
+//line database_tpl.qtpl:311
 				qw422016.N().S(`")
 		scanErrors = errors.Join(scanErrors, err)
 	}
 `)
-//line database_tpl.qtpl:306
+//line database_tpl.qtpl:314
 			}
-//line database_tpl.qtpl:307
+//line database_tpl.qtpl:315
 		}
-//line database_tpl.qtpl:307
+//line database_tpl.qtpl:315
 		qw422016.N().S(`
 	return scanErrors
 }
 
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *`)
-//line database_tpl.qtpl:313
+//line database_tpl.qtpl:321
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:313
+//line database_tpl.qtpl:321
 		qw422016.N().S(`) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	if len(src) == 0 {
 		*dst = `)
-//line database_tpl.qtpl:315
+//line database_tpl.qtpl:323
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:315
+//line database_tpl.qtpl:323
 		qw422016.N().S(`{}
 		return nil
 	}
 
 `)
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:327
 		if t.Type == 'r' {
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:327
 			qw422016.N().S(`	utr, err := pgtype.ParseUntypedBinaryRange(src)
 	if err != nil {
 		return err
 	}
 `)
-//line database_tpl.qtpl:324
+//line database_tpl.qtpl:332
 		} else {
-//line database_tpl.qtpl:324
+//line database_tpl.qtpl:332
 			qw422016.N().S(`	c := pgtype.NewCompositeBinaryScanner(ci, src)
 	countFields := c.FieldCount()
 `)
-//line database_tpl.qtpl:327
+//line database_tpl.qtpl:335
 		}
-//line database_tpl.qtpl:327
+//line database_tpl.qtpl:335
 		qw422016.N().S(`    *dst = `)
-//line database_tpl.qtpl:328
+//line database_tpl.qtpl:336
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:328
+//line database_tpl.qtpl:336
 		qw422016.N().S(`{}
 	var scanErrors error
 
 `)
-//line database_tpl.qtpl:331
+//line database_tpl.qtpl:339
 		if t.Type == 'r' {
-//line database_tpl.qtpl:331
+//line database_tpl.qtpl:339
 			qw422016.N().S(`    	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
 
@@ -546,74 +554,74 @@ func (dst *`)
     		}
     	}
 `)
-//line database_tpl.qtpl:350
+//line database_tpl.qtpl:358
 		} else {
-//line database_tpl.qtpl:351
+//line database_tpl.qtpl:359
 			for i, attr := range t.Attr {
-//line database_tpl.qtpl:351
+//line database_tpl.qtpl:359
 				qw422016.N().S(`	//	    rich end of elements
 	if countFields < `)
-//line database_tpl.qtpl:353
+//line database_tpl.qtpl:361
 				qw422016.N().D(i + 1)
-//line database_tpl.qtpl:353
+//line database_tpl.qtpl:361
 				qw422016.N().S(` || !c.Next() {
 		return nil
 	}
 	if err := `)
-//line database_tpl.qtpl:356
+//line database_tpl.qtpl:364
 				if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
-//line database_tpl.qtpl:356
+//line database_tpl.qtpl:364
 					qw422016.N().S(`&dst.`)
-//line database_tpl.qtpl:356
+//line database_tpl.qtpl:364
 					qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:356
+//line database_tpl.qtpl:364
 					qw422016.N().S(`.DecodeBinary(ci, c.Bytes())
 `)
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 				} else {
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 					qw422016.N().S(`ci.Scan(c.OID(), pgtype.BinaryFormatCode, c.Bytes(), &dst.`)
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 					qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 					qw422016.N().S(`)`)
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 				}
-//line database_tpl.qtpl:357
+//line database_tpl.qtpl:365
 				qw422016.N().S(`; err != nil {
 		logs.ErrorLog(err, "`)
-//line database_tpl.qtpl:358
+//line database_tpl.qtpl:366
 				qw422016.E().S(typeName)
-//line database_tpl.qtpl:358
+//line database_tpl.qtpl:366
 				qw422016.N().S(`.`)
-//line database_tpl.qtpl:358
+//line database_tpl.qtpl:366
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:358
+//line database_tpl.qtpl:366
 				qw422016.N().S(`")
 		scanErrors = errors.Join(scanErrors, err)
 	}
 `)
-//line database_tpl.qtpl:361
+//line database_tpl.qtpl:369
 			}
-//line database_tpl.qtpl:362
+//line database_tpl.qtpl:370
 		}
-//line database_tpl.qtpl:362
+//line database_tpl.qtpl:370
 		qw422016.N().S(`
 	return scanErrors
 }
 
 // Scan implement sql.Scanner interface
 func (dst *`)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:376
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:376
 		qw422016.N().S(`) Scan(src any) error {
 	switch src := src.(type) {
 	case nil:
 		*dst = `)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:379
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:371
+//line database_tpl.qtpl:379
 		qw422016.N().S(`{}
 		return nil
 	case string:
@@ -625,74 +633,74 @@ func (dst *`)
 	}
 }
 `)
-//line database_tpl.qtpl:381
+//line database_tpl.qtpl:389
 	}
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 }
 
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 func (c *Creator) WriteCreateTypeInterface(qq422016 qtio422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	c.StreamCreateTypeInterface(qw422016, t, typeName, name, typeCol)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 }
 
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) string {
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	c.WriteCreateTypeInterface(qb422016, t, typeName, name, typeCol)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 	return qs422016
-//line database_tpl.qtpl:382
+//line database_tpl.qtpl:390
 }
 
 // end CreateTypeInterface
 //
 //
 
-//line database_tpl.qtpl:386
+//line database_tpl.qtpl:394
 func (c *Creator) StreamCreateTableConstructor(qw422016 *qt422016.Writer, cName, name string) {
-//line database_tpl.qtpl:386
+//line database_tpl.qtpl:394
 	qw422016.N().S(`// New`)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:395
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:395
 	qw422016.N().S(` create new instance of table `)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:395
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:387
+//line database_tpl.qtpl:395
 	qw422016.N().S(`
 func (d *Database) New`)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:396
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:396
 	qw422016.N().S(`(ctx context.Context) (*`)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:396
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:388
+//line database_tpl.qtpl:396
 	qw422016.N().S(`, error) {
 	const name = "`)
-//line database_tpl.qtpl:389
+//line database_tpl.qtpl:397
 	qw422016.E().S(name)
-//line database_tpl.qtpl:389
+//line database_tpl.qtpl:397
 	qw422016.N().S(`"
 	table, ok := d.Tables[name]
     if !ok {
 		var err error
 		table, err = New`)
-//line database_tpl.qtpl:393
+//line database_tpl.qtpl:401
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:393
+//line database_tpl.qtpl:401
 	qw422016.N().S(`FromConn(ctx, d.PsqlConn())
 		if err != nil {
 			return nil, err
@@ -701,39 +709,39 @@ func (d *Database) New`)
     }
 
     return &`)
-//line database_tpl.qtpl:400
+//line database_tpl.qtpl:408
 	qw422016.E().S(cName)
-//line database_tpl.qtpl:400
+//line database_tpl.qtpl:408
 	qw422016.N().S(`{
 		Table: table.(*psql.Table),
     }, nil
 }
 `)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 }
 
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 func (c *Creator) WriteCreateTableConstructor(qq422016 qtio422016.Writer, cName, name string) {
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	c.StreamCreateTableConstructor(qw422016, cName, name)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 }
 
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 func (c *Creator) CreateTableConstructor(cName, name string) string {
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	c.WriteCreateTableConstructor(qb422016, cName, name)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 	return qs422016
-//line database_tpl.qtpl:404
+//line database_tpl.qtpl:412
 }

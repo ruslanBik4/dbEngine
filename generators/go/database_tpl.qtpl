@@ -50,14 +50,18 @@ func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error)
 		return nil
 	}
 
-	c := pgtype.NewCompositeTextScanner(ci, src)
-	for c.Next() {
-		var val T
-		c.ScanDecoder(val)
-		if c.Err() != nil {
-			return c.Err()
+	arr, err := pgtype.ParseUntypedTextArray(gotools.BytesToString(src))
+	if err != nil {
+		return err
+	}
+
+	for _, el := range arr.Elements {
+
+		val := T.NewElem(*(new(T)))
+		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+			return err
 		}
-		*dst = append(*dst, val)
+		*dst = append(*dst, val.(T))
 	}
 
 	return nil
@@ -69,14 +73,18 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 		return nil
 	}
 
-	c := pgtype.NewCompositeBinaryScanner(ci, src)
-	for c.Next() {
-		var val T
-		c.ScanDecoder(val)
-		if c.Err() != nil {
-			return c.Err()
+	arr, err := pgtype.ParseUntypedTextArray(gotools.BytesToString(src))
+	if err != nil {
+		return err
+	}
+
+	for _, el := range arr.Elements {
+
+		val := T.NewElem(*(new(T)))
+		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+			return err
 		}
-		*dst = append(*dst, val)
+		*dst = append(*dst, val.(T))
 	}
 
 	return nil
@@ -104,12 +112,12 @@ func (dst CitextArray) MarshalJSON() ([]byte, error) {
 }
 
 var customTypes = map[string]*pgtype.DataType{
-	"citext": &pgtype.DataType{
+	"citext": {
 		Value: &pgtype.Text{},
 		Name:  "citext",
 	},
-	"_citext": &pgtype.DataType{
-		Value: &pgtype.TextArray{}, // (*pgtype.ArrayType)(nil),
+	"_citext": {
+		Value: &pgtype.TextArray{},
 		Name:  "[]string",
 	},
 }

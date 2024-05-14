@@ -74,7 +74,7 @@ func (d *Database) {%s camelName %}(
 
 	return
 }
-{%- if r.ReturnType() == "json" -%}
+{%- if r.ReturnType() == "json" || r.ReturnType() == "jsonb" -%}
 // {%s camelName %}Out run query with select DB function '{%s name %}: {%s r.UdtName%}'
 {%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
 {%- endif -%}

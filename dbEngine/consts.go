@@ -33,7 +33,7 @@ var (
 	ddlForeignIndex     = regexp.MustCompile(`alter\s+table\s+(?P<table>\w+)\s+add\s+constraint\s+(?P<index>\w+)\s+foreign\s+key\s+\((?P<expr>[^;]+?)\)\s+references\s+(?P<fTable>\w+)[\S\s]+?on\s+update\s+(?P<onUpdate>[\s\w]+?)\s+on\s+delete\s+(?P<onDelete>[\s\w]+?)\s*`)
 	regCommentTable     = regexp.MustCompile(`^\s*(?i)COMMENT\s+ON\s+(?:TABLE|VIEW)\s+(\w+)\s+IS\s+'(.+)'`)
 	regCommentColumn    = regexp.MustCompile(`^\s*(?i)COMMENT\s+ON\s+COLUMN\s+(\w+)\.(\w+)\s+IS\s+'(.+)'`)
-	regPartitionTable   = regexp.MustCompile(`create\s+table\s+(\w+)\s+partition`)
+	regPartitionTable   = regexp.MustCompile(`create\s+table(?:\s+if\s+not\s+exists)?\s+(\w+)\s+partition`)
 	regTable            = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<builderOpts>(\s*(\w+)\s+(?P<define>[\w\[\]':\s]+(\(\s*\d+(,\s*\d+)?\s*\))?[\w.+\s]*)(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 	regField            = regexp.MustCompile(`(\w+)\s+((?:[\w\s]+(?:\(\s*\d+(?:,\s*\d+)?\))?(?:\[\d*\])*)?(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?)`)
 	regFieldName        = regexp.MustCompile(`^\w+$`)
