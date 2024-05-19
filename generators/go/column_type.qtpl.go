@@ -86,7 +86,7 @@ func (r *`)
 	return v
 }
 // Set implement pgtype.Value interface
-func (cfg *`)
+func (dst *`)
 //line column_type.qtpl:48
 	qw422016.E().S(c.name)
 //line column_type.qtpl:48
@@ -94,7 +94,7 @@ func (cfg *`)
 	switch value := src.(type) {
 	// untyped nil and typed nil interfaces are different
 	case nil:
-		*cfg = `)
+		*dst = `)
 //line column_type.qtpl:52
 	qw422016.E().S(c.name)
 //line column_type.qtpl:52
@@ -105,7 +105,7 @@ func (cfg *`)
 	qw422016.E().S(c.name)
 //line column_type.qtpl:54
 	qw422016.N().S(`PsqlType:
-		*cfg = `)
+		*dst = `)
 //line column_type.qtpl:55
 	qw422016.E().S(c.name)
 //line column_type.qtpl:55
@@ -128,18 +128,18 @@ func (cfg *`)
 	}
 }
 // Get implement pgtype.Value interface
-func (cfg *`)
+func (dst *`)
 //line column_type.qtpl:66
 	qw422016.E().S(c.name)
 //line column_type.qtpl:66
 	qw422016.N().S(`PsqlType) Get() any {
-	switch cfg.Status {
+	switch dst.Status {
 	case pgtype.Present:
-		return *cfg
+		return *dst
 	case pgtype.Null:
 		return nil
 	default:
-		return cfg.Status
+		return dst.Status
 	}
 }
 // AssignTo implement pgtype.Value interface
@@ -147,10 +147,10 @@ func (src *`)
 //line column_type.qtpl:77
 	qw422016.E().S(c.name)
 //line column_type.qtpl:77
-	qw422016.N().S(`PsqlType) AssignTo(cfg any) error {
+	qw422016.N().S(`PsqlType) AssignTo(dst any) error {
 	switch src.Status {
 	case pgtype.Present:
-		switch v := cfg.(type) {
+		switch v := dst.(type) {
 		case *`)
 //line column_type.qtpl:81
 	qw422016.E().S(c.name)
@@ -168,26 +168,26 @@ func (src *`)
 			return nil
 
 		default:
-			if nextDst, retry := pgtype.GetAssignToDstType(cfg); retry {
+			if nextDst, retry := pgtype.GetAssignToDstType(dst); retry {
 				return src.AssignTo(nextDst)
 			}
 		}
 		return nil
 
 	case pgtype.Null:
-		return pgtype.NullAssignTo(cfg)
+		return pgtype.NullAssignTo(dst)
 
 	default:
-		return fmt.Errorf("cannot decode %v into %T", src, cfg)
+		return fmt.Errorf("cannot decode %v into %T", src, dst)
 	}
 }
 // DecodeText implement pgtype.TextDecoder interface
-func (cfg *`)
+func (dst *`)
 //line column_type.qtpl:100
 	qw422016.E().S(c.name)
 //line column_type.qtpl:100
 	qw422016.N().S(`PsqlType) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*cfg = `)
+	*dst = `)
 //line column_type.qtpl:101
 	qw422016.E().S(c.name)
 //line column_type.qtpl:101
@@ -198,15 +198,15 @@ func (cfg *`)
 
 	c := pgtype.NewCompositeTextScanner(ci, src)
 
-	return cfg.scanAll(c)
+	return dst.scanAll(c)
 }
 // DecodeBinary implement pgtype.DecodeBinary interface
-func (cfg *`)
+func (dst *`)
 //line column_type.qtpl:111
 	qw422016.E().S(c.name)
 //line column_type.qtpl:111
 	qw422016.N().S(`PsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
-	*cfg = `)
+	*dst = `)
 //line column_type.qtpl:112
 	qw422016.E().S(c.name)
 //line column_type.qtpl:112
@@ -217,109 +217,119 @@ func (cfg *`)
 
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 
-	return cfg.scanAll(c)
-}
-
-func (cfg *`)
-//line column_type.qtpl:122
-	qw422016.E().S(c.name)
-//line column_type.qtpl:122
-	qw422016.N().S(`PsqlType) scanAll(c scanError) error {
-`)
-//line column_type.qtpl:123
-	for _, col := range c.columns {
-//line column_type.qtpl:123
-		qw422016.N().S(`	c.ScanValue(&cfg.`)
-//line column_type.qtpl:124
-		qw422016.E().S(strcase.ToCamel(col.Name()))
-//line column_type.qtpl:124
-		qw422016.N().S(`)
-	if err := c.Err(); err != nil {
-		logs.ErrorLog(err, "`)
-//line column_type.qtpl:126
-		qw422016.E().S(col.Name())
-//line column_type.qtpl:126
-		qw422016.N().S(`")
+	if err := dst.scanAll(c); err != nil {
+		dst.Status = pgtype.Undefined
 		return err
 	}
-`)
-//line column_type.qtpl:129
-	}
-//line column_type.qtpl:129
-	qw422016.N().S(`	cfg.Status = pgtype.Present
+	dst.Status = pgtype.Present
 
 	return nil
 }
 
-// DecodeText implement pgtype.TextDecoder interface
-func (cfg *`)
-//line column_type.qtpl:136
+func (dst *`)
+//line column_type.qtpl:128
 	qw422016.E().S(c.name)
-//line column_type.qtpl:136
-	qw422016.N().S(`Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*cfg = `)
-//line column_type.qtpl:137
+//line column_type.qtpl:128
+	qw422016.N().S(`Fields) scanAll(c scanError) error {
+`)
+//line column_type.qtpl:129
+	for _, col := range c.columns {
+//line column_type.qtpl:129
+		qw422016.N().S(`	c.ScanValue(&dst.`)
+//line column_type.qtpl:130
+		qw422016.E().S(strcase.ToCamel(col.Name()))
+//line column_type.qtpl:130
+		qw422016.N().S(`)
+	if err := c.Err(); err != nil {
+		logs.ErrorLog(err, "`)
+//line column_type.qtpl:132
+		qw422016.E().S(col.Name())
+//line column_type.qtpl:132
+		qw422016.N().S(`")
+		return err
+	}
+`)
+//line column_type.qtpl:135
+	}
+//line column_type.qtpl:135
+	qw422016.N().S(`
+	return nil
+}
+
+// New implement ValueDecoder[T any] interface
+func (dst *`)
+//line column_type.qtpl:141
 	qw422016.E().S(c.name)
-//line column_type.qtpl:137
+//line column_type.qtpl:141
+	qw422016.N().S(`Fields) New() *`)
+//line column_type.qtpl:141
+	qw422016.E().S(c.name)
+//line column_type.qtpl:141
+	qw422016.N().S(`Fields{
+	return &`)
+//line column_type.qtpl:142
+	qw422016.E().S(c.name)
+//line column_type.qtpl:142
 	qw422016.N().S(`Fields{}
-	return (&`)
-//line column_type.qtpl:138
-	qw422016.E().S(c.name)
-//line column_type.qtpl:138
-	qw422016.N().S(`PsqlType{`)
-//line column_type.qtpl:138
-	qw422016.E().S(c.name)
-//line column_type.qtpl:138
-	qw422016.N().S(`Fields: *cfg}).DecodeText(ci, src)
 }
 
 // DecodeText implement pgtype.TextDecoder interface
-func (cfg *`)
-//line column_type.qtpl:142
+func (dst *`)
+//line column_type.qtpl:146
 	qw422016.E().S(c.name)
-//line column_type.qtpl:142
-	qw422016.N().S(`Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	*cfg = `)
-//line column_type.qtpl:143
+//line column_type.qtpl:146
+	qw422016.N().S(`Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = `)
+//line column_type.qtpl:147
 	qw422016.E().S(c.name)
-//line column_type.qtpl:143
+//line column_type.qtpl:147
 	qw422016.N().S(`Fields{}
-	return (&`)
-//line column_type.qtpl:144
+	c := pgtype.NewCompositeTextScanner(ci, src)
+
+	return dst.scanAll(c)
+}
+
+// DecodeText implement pgtype.TextDecoder interface
+func (dst *`)
+//line column_type.qtpl:154
 	qw422016.E().S(c.name)
-//line column_type.qtpl:144
-	qw422016.N().S(`PsqlType{`)
-//line column_type.qtpl:144
+//line column_type.qtpl:154
+	qw422016.N().S(`Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = `)
+//line column_type.qtpl:155
 	qw422016.E().S(c.name)
-//line column_type.qtpl:144
-	qw422016.N().S(`Fields: *cfg}).DecodeBinary(ci, src)
+//line column_type.qtpl:155
+	qw422016.N().S(`Fields{}
+	c := pgtype.NewCompositeBinaryScanner(ci, src)
+
+	return dst.scanAll(c)
 }
 `)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 }
 
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 func (c *ColumnType) WriteColumnType(qq422016 qtio422016.Writer) {
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	c.StreamColumnType(qw422016)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	qt422016.ReleaseWriter(qw422016)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 }
 
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 func (c *ColumnType) ColumnType() string {
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	qb422016 := qt422016.AcquireByteBuffer()
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	c.WriteColumnType(qb422016)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	qs422016 := string(qb422016.B)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	qt422016.ReleaseByteBuffer(qb422016)
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 	return qs422016
-//line column_type.qtpl:146
+//line column_type.qtpl:160
 }

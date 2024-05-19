@@ -37,15 +37,15 @@ type scanError interface {
 }
 
 // ValueDecoder is a value that implements the text and binary encoding and decoding interfaces.
-type ValueDecoder interface {
+type ValueDecoder[T any] interface {
 	pgtype.TextDecoder
 	pgtype.BinaryDecoder
+	New() T
 }
 
-type WrapArray[T ValueDecoder] []T
+type WrapArray[T ValueDecoder[T]] []T
 
 func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error) {
-	*dst = make([]T, 0)
 	if len(src) == 0 {
 		return nil
 	}
@@ -55,20 +55,24 @@ func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error)
 		return err
 	}
 
-	for _, el := range arr.Elements {
+	if len(arr.Elements) == 0 {
+		return nil
+	}
 
-		val := T.NewElem(*(new(T)))
-		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+	buf := make([]T, len(arr.Elements))
+	for i, el := range arr.Elements {
+		buf[i] = T.New(buf[i])
+		if err := buf[i].DecodeText(ci, gotools.StringToBytes(el)); err != nil {
 			return err
 		}
-		*dst = append(*dst, val.(T))
 	}
+
+	*dst = buf
 
 	return nil
 }
 
 func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
-	*dst = make([]T, 0)
 	if len(src) == 0 {
 		return nil
 	}
@@ -78,14 +82,19 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 		return err
 	}
 
-	for _, el := range arr.Elements {
+	if len(arr.Elements) == 0 {
+		return nil
+	}
 
-		val := T.NewElem(*(new(T)))
-		if err := val.DecodeText(ci, gotools.StringToBytes(el)); err != nil {
+	buf := make([]T, len(arr.Elements))
+	for i, el := range arr.Elements {
+		buf[i] = T.New(buf[i])
+		if err := buf[i].DecodeBinary(ci, gotools.StringToBytes(el)); err != nil {
 			return err
 		}
-		*dst = append(*dst, val.(T))
 	}
+
+	*dst = buf
 
 	return nil
 }
@@ -121,6 +130,7 @@ var customTypes = map[string]*pgtype.DataType{
 		Name:  "[]string",
 	},
 }
+
 var initCustomTypes bool
 
 const sqlGetTypes = "SELECT typname, oid FROM pg_type WHERE typname::text=ANY($1)"
@@ -268,13 +278,18 @@ type {%s typeName %} struct {
 	{%- endif -%}
 }
 
+// New implement ValueDecoder[T any] interface
+func (dst *{%s typeName %}) New() *{%s typeName %}{
+	return &{%s typeName %}{}
+}
+
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = {%s typeName %}{}
 	if len(src) == 0 {
-		*dst = {%s typeName %}{}
 		return nil
 	}
-	{%- if t.Type == 'r' -%}
+	{% if t.Type == 'r' %}
 	utr, err := pgtype.ParseUntypedTextRange(gotools.BytesToString(src))
 	if err != nil {
 		return err
@@ -282,7 +297,6 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	{%- else -%}
 	c := pgtype.NewCompositeTextScanner(ci, src)
 	{%- endif -%}
-    *dst = {%s typeName %}{}
 	var scanErrors error
 	{%- if t.Type == 'r' -%}
     	dst.LowerType = utr.LowerType
@@ -319,8 +333,8 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 
 // DecodeBinary implement pgtype.BinaryDecoder interface
 func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = {%s typeName %}{}
 	if len(src) == 0 {
-		*dst = {%s typeName %}{}
 		return nil
 	}
 
@@ -333,9 +347,7 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 	countFields := c.FieldCount()
 	{%- endif -%}
-    *dst = {%s typeName %}{}
 	var scanErrors error
-
 	{%- if t.Type == 'r' -%}
     	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType

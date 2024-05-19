@@ -116,10 +116,16 @@ func (dst *{%s c.name %}PsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) 
 
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 
-	return dst.scanAll(c)
+	if err := dst.scanAll(c); err != nil {
+		dst.Status = pgtype.Undefined
+		return err
+	}
+	dst.Status = pgtype.Present
+
+	return nil
 }
 
-func (dst *{%s c.name %}PsqlType) scanAll(c scanError) error {
+func (dst *{%s c.name %}Fields) scanAll(c scanError) error {
 	{%- for _, col := range c.columns -%}
 	c.ScanValue(&dst.{%s strcase.ToCamel(col.Name()) %})
 	if err := c.Err(); err != nil {
@@ -127,20 +133,28 @@ func (dst *{%s c.name %}PsqlType) scanAll(c scanError) error {
 		return err
 	}
 	{%- endfor -%}
-	dst.Status = pgtype.Present
 
 	return nil
+}
+
+// New implement ValueDecoder[T any] interface
+func (dst *{%s c.name %}Fields) New() *{%s c.name %}Fields{
+	return &{%s c.name %}Fields{}
 }
 
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *{%s c.name %}Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	*dst = {%s c.name %}Fields{}
-	return (&{%s c.name %}PsqlType{{%s c.name %}Fields: *dst}).DecodeText(ci, src)
+	c := pgtype.NewCompositeTextScanner(ci, src)
+
+	return dst.scanAll(c)
 }
 
 // DecodeText implement pgtype.TextDecoder interface
 func (dst *{%s c.name %}Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	*dst = {%s c.name %}Fields{}
-	return (&{%s c.name %}PsqlType{{%s c.name %}Fields: *dst}).DecodeBinary(ci, src)
+	c := pgtype.NewCompositeBinaryScanner(ci, src)
+
+	return dst.scanAll(c)
 }
 {% endfunc %}
