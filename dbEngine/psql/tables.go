@@ -197,7 +197,7 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 	return err
 }
 
-// SelectOneAndScan run sqlof table  with Options & return rows into rowValues
+// SelectOneAndScan run sql of table  with Options & return rows into rowValues
 func (t *Table) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	b, err := dbEngine.NewSQLBuilder(t, Options...)
 	if err != nil {

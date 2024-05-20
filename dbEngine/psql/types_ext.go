@@ -88,10 +88,10 @@ func (src *Numeric) AssignTo(dst interface{}) error {
 // EncodeText expand pgtype.Numeric.EncodeText()
 func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
 	switch src.Status {
-	case pgtype.Null:
-		return nil, nil
 	case pgtype.Undefined:
 		return nil, errors.New("cannot encode status undefined")
+	case pgtype.Null:
+		return nil, nil
 	}
 
 	if src.NaN {

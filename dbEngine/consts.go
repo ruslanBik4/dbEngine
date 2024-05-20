@@ -10,6 +10,23 @@ import (
 
 type FlagColumn uint8
 
+func (f FlagColumn) String() string {
+	switch f {
+	case MustNotNull:
+		return "MustNotNull"
+	case Nullable:
+		return "Nullable"
+	case ChgType:
+		return "ChgType"
+	case ChgLength:
+		return "ChgLength"
+	case ChgToArray:
+		return "ChgToArray"
+	default:
+		return "Unknown"
+	}
+}
+
 const (
 	MustNotNull FlagColumn = iota
 	Nullable

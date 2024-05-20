@@ -1,14 +1,13 @@
 package dbEngine
 
 import (
-	"bytes"
 	"encoding/json"
+	"errors"
 	"go/types"
 
 	"github.com/jackc/pgtype"
 	"golang.org/x/net/context"
 
-	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 )
 
@@ -38,24 +37,33 @@ type Connection interface {
 
 // TypesAttr consists of parameters of DB types
 type TypesAttr struct {
+	Column
 	Name      string
 	Type      string
 	IsNotNull bool
 }
 
 func (dst *TypesAttr) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+	*dst = TypesAttr{}
 	if len(src) == 0 {
-		*dst = TypesAttr{}
 		return nil
 	}
 
-	srcPart := bytes.Split(src[1:len(src)-1], []byte(","))
-	*dst = TypesAttr{
-		Name:      gotools.BytesToString(bytes.Trim(srcPart[0], `\"`)),
-		Type:      gotools.BytesToString(bytes.Trim(srcPart[1], `\"`)),
-		IsNotNull: gotools.BytesToString(bytes.Trim(srcPart[2], `\"`)) == "true",
+	c := pgtype.NewCompositeTextScanner(ci, src)
+	var scanErrors error
+	c.ScanValue(&dst.Name)
+	if c.Err() != nil {
+		scanErrors = errors.Join(scanErrors, c.Err())
 	}
-	return nil
+	c.ScanValue(&dst.Type)
+	if c.Err() != nil {
+		scanErrors = errors.Join(scanErrors, c.Err())
+	}
+	c.ScanValue(&dst.IsNotNull)
+	if c.Err() != nil {
+		scanErrors = errors.Join(scanErrors, c.Err())
+	}
+	return scanErrors
 }
 
 type TypesAttrs []TypesAttr

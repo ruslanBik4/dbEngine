@@ -255,7 +255,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		}
 		ddlType := gotools.BytesToString(ddl)
 		fileName := filepath.Base(path)
-		typeName := strings.TrimSuffix(fileName, ext)
+		typeName := strings.ToLower(strings.TrimSuffix(fileName, ext))
 		if t, ok := db.Types[typeName]; ok {
 			return db.alterType(&t, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
 		}
@@ -290,7 +290,13 @@ var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOp
 // var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
 func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
+
+	if t == nil {
+		logs.ErrorLog(errors.New("alter without known DB type!"))
+		return nil
+	}
 	fields := regTypeAttr.FindStringSubmatch(ddl)
+	ddlType := "alter type " + typeName
 
 	for i, name := range regTypeAttr.SubexpNames() {
 		if name == "builderOpts" && (i < len(fields)) {
@@ -298,7 +304,7 @@ func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 			nameFields := strings.Split(fields[i], ",")
 			for _, name := range nameFields {
 				p := strings.Split(strings.TrimSpace(name), " ")
-				attrName := p[0]
+				attrName := strings.TrimSpace(p[0])
 				if len(p) < 2 {
 					return ErrWrongType{
 						Name:     name,
@@ -310,27 +316,46 @@ func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 				i := slices.IndexFunc(t.Attr, func(attr TypesAttr) bool {
 					return attr.Name == attrName
 				})
-				newType := strings.Join(p[1:], " ")
-				if i >= 0 && t.Attr[i].Type == newType {
+				newType := strings.TrimSpace(strings.Join(p[1:], " "))
+				if i == -1 {
+					ddlAddAttr := ddlType + " add attribute " + name
+					err := db.Conn.ExecDDL(db.ctx, ddlAddAttr)
+					if err == nil {
+						logInfo(prefix, fileName, ddlAddAttr, 1)
+					} else if IsErrorAlreadyExists(err) {
+						logs.ErrorLog(err)
+					}
 					continue
 				}
-				logs.StatusLog(*t, attrName, newType)
-				ddlAlterType := "alter type " + typeName
-				ddlType := ddlAlterType + " add attribute " + name
-				err := db.Conn.ExecDDL(db.ctx, ddlType)
-				if err == nil {
-					logInfo(prefix, fileName, ddlType, 1)
-				} else if IsErrorAlreadyExists(err) {
-					ddlAlterType += " alter attribute " + attrName + " SET DATA TYPE " + newType
-					err = db.Conn.ExecDDL(db.ctx, ddlAlterType)
-					if err == nil {
-						logInfo(prefix, fileName, ddlAlterType, 1)
-					}
+				chkAttr := t.Attr[i].CheckAttr(newType)
+				if len(chkAttr) == 0 {
+					continue
 				}
 
+				ddlAlter := ddlType + " alter attribute " + attrName
+				for i, flag := range chkAttr {
+					logs.StatusLog("%d. %s", i, flag)
+					switch flag {
+					case MustNotNull:
+						ddlAlter += " SET NOT NULL "
+					case Nullable:
+						ddlAlter += " DROP NOT NULL "
+					case ChgType:
+						ddlAlter += " SET DATA TYPE " + newType
+					case ChgLength:
+						ddlAlter += " SET DATA TYPE " + newType
+					case ChgToArray:
+					}
+				}
+				err := db.Conn.ExecDDL(db.ctx, ddlAlter)
 				if err != nil {
+					logs.StatusLog(ddlAlter)
 					return err
 				}
+				logInfo(prefix, fileName, ddlAlter, 1)
+
+				logs.StatusLog(t.Attr[i], t.Attr[i].Column.Type(), attrName, newType)
+
 			}
 		}
 	}

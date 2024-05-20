@@ -26,7 +26,7 @@ func TestNewParserTableDDL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := NewParserTableDDL(tt.args.table, tt.args.db); !reflect.DeepEqual(got, tt.want) {
+			if got := NewParserTableDDL(tt.args.db, tt.args.table); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("NewParserTableDDL() = %v, want %v", got, tt.want)
 			}
 		})

@@ -7,6 +7,7 @@ package psql
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -280,10 +281,10 @@ var dataTypeAlias = map[string][]string{
 	"character":                   {"char"},
 	"varchar":                     {"character varying"},
 	"int4":                        {"serial", "int", "integer"},
-	"smallint":                    {"smallserial"},
+	"smallint":                    {"smallserial", "int2"},
 	"bigint":                      {"bigserial", "biginteger", "int8"},
-	"int8":                        {"bigserial", "biginteger"},
-	"double precision":            {"float", "real"},
+	"int8":                        {"bigserial", "bigint", "biginteger"},
+	"double precision":            {"float", "float8", "real"},
 	"timestamp without time zone": {"timestamp"},
 	"timestamp with time zone":    {"timestamptz"},
 	// todo: add check user-defined types
@@ -301,7 +302,7 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 	if isArray {
 		udtName = a + "[]"
 	}
-	isTypeValid := isTypeValid(colDefine, col.DataType, udtName, isArray, a)
+	isTypeValid := isTypeValid(colDefine, col.DataType, a)
 
 	if isTypeValid {
 		if isArray != strings.Contains(colDefine, isDefineArray) {
@@ -329,21 +330,25 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 	return
 }
 
-func isTypeValid(colDefine string, datatType, udtName string, isArray bool, a string) bool {
-	isTypeValid := strings.HasPrefix(colDefine, datatType) || strings.HasPrefix(colDefine, udtName)
-	if !isTypeValid {
-		t := udtName
-		if isArray {
-			t = a
-		}
-		for _, alias := range dataTypeAlias[t] {
-			isTypeValid = strings.HasPrefix(colDefine, alias)
-			if isTypeValid {
-				break
+func isTypeValid(colDefine string, dataType, udtName string) bool {
+	if strings.HasPrefix(colDefine, dataType) || strings.HasPrefix(colDefine, udtName) {
+		return true
+	}
+
+	aliases, ok := dataTypeAlias[udtName]
+	if ok {
+		return slices.ContainsFunc(aliases,
+			func(alias string) bool {
+				return strings.HasPrefix(colDefine, alias)
+			})
+	} else {
+		for name, aliases := range dataTypeAlias {
+			if slices.Contains(aliases, udtName) && strings.HasPrefix(colDefine, name) {
+				return true
 			}
 		}
 	}
-	return isTypeValid
+	return false
 }
 
 // CharacterMaximumLength return max of length text columns

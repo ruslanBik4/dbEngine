@@ -174,6 +174,15 @@ func (c *Conn) GetSchema(ctx context.Context, cfg *dbEngine.CfgDB) (map[string]*
 	typeBuf := &dbEngine.Types{}
 	err := c.SelectAndScanEach(ctx,
 		func() error {
+			for i, attr := range typeBuf.Attr {
+				attr.Column = &Column{
+					name:       attr.Name,
+					DataType:   attr.Type,
+					isNullable: !attr.IsNotNull,
+					UdtName:    attr.Type,
+				}
+				typeBuf.Attr[i] = attr
+			}
 			dbTypes[typeBuf.Name] = *typeBuf
 			*typeBuf = dbEngine.Types{}
 			return nil
