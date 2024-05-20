@@ -25,7 +25,7 @@ type ParserTableDDL struct {
 }
 
 // NewParserTableDDL create new instance of ParserTableDDL
-func NewParserTableDDL(table Table, db *DB) *ParserTableDDL {
+func NewParserTableDDL(db *DB, table Table) *ParserTableDDL {
 	t := &ParserTableDDL{Table: table, filename: table.Name() + ".ddl", DB: db}
 	t.mapParse = []func(string) bool{
 		t.updateTable,

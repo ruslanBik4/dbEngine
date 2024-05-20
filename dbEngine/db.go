@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -43,26 +44,26 @@ type TypeCfgDB string
 // DB name & schema
 type DB struct {
 	sync.RWMutex
-	Cfg           map[string]any
-	Conn          Connection
-	ctx           context.Context
-	Name          string
-	Schema        string
-	Tables        map[string]Table
-	Types         map[string]Types
-	Routines      map[string]Routine
-	FuncsReplaced []string
-	FuncsAdded    []string
-	readTables    map[string][]string
-	DbSet         map[string]*string
+	Cfg            map[string]any
+	Conn           Connection
+	ctx            context.Context
+	Name           string
+	Schema         string
+	Tables         map[string]Table
+	Types          map[string]Types
+	Routines       map[string]Routine
+	FuncsReplaced  []string
+	FuncsAdded     []string
+	relationTables map[string][]string
+	DbSet          map[string]*string
 }
 
 // NewDB create new DB instance & performs something migrations
 func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 	db := &DB{
-		Conn:       conn,
-		ctx:        ctx,
-		readTables: map[string][]string{},
+		Conn:           conn,
+		ctx:            ctx,
+		relationTables: map[string][]string{},
 	}
 
 	if cfg, ok := ctx.Value(DB_SETTING).(CfgDB); ok {
@@ -161,64 +162,75 @@ func (db *DB) ReadTableSQL(path string, info os.DirEntry, err error) error {
 		return nil
 	}
 
-	ext := filepath.Ext(path)
-	switch ext {
+	return db.syncTableDDL(path, "table")
+}
+
+func (db *DB) syncTableDDL(path string, tType string) error {
+	switch ext := filepath.Ext(path); ext {
 	case ".ddl":
 		fileName := filepath.Base(path)
 		tableName := strings.TrimSuffix(fileName, ext)
-		ddl, err := os.ReadFile(path)
+		b, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
 
+		ddl := gotools.BytesToString(b)
 		table, ok := db.Tables[tableName]
-		if !ok {
-			err = db.Conn.ExecDDL(db.ctx, string(ddl))
-			switch {
-			case err == nil:
-				table = db.Conn.NewTable(tableName, "table")
-				err = table.GetColumns(db.ctx, nil)
-				if err == nil {
-					db.Tables[tableName] = table
-					logs.StatusLog("New table added to DB", tableName)
-				}
-
-				if rel, ok := db.readTables[tableName]; ok {
-					for _, each := range rel {
-						err = db.ReadTableSQL(each, info, err)
-						if err != nil {
-							return err
-						}
-					}
-					return nil
-				}
-
-			case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
-				logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
-
-			case IsErrorDoesNotExists(err):
-				if errParts := regRelationNotExist.FindStringSubmatch(err.Error()); len(errParts) > 0 {
-					if val, ok := db.readTables[errParts[1]]; ok {
-						db.readTables[errParts[1]] = append(val, path)
-					} else {
-						db.readTables[errParts[1]] = []string{path}
-					}
-				} else {
-					logs.ErrorLog(err, "performs not implement")
-				}
-
-			default:
-				logs.ErrorLog(err, "During create- "+tableName)
-			}
-
-			return nil
+		if ok {
+			return NewParserTableDDL(db, table).Parse(ddl)
 		}
 
-		return NewParserTableDDL(table, db).Parse(string(ddl))
+		return db.createTable(path, ddl, tableName, tType)
 
 	default:
 		return nil
 	}
+}
+
+func (db *DB) createTable(path, ddl, tableName, tType string) error {
+
+	switch err := db.Conn.ExecDDL(db.ctx, ddl); {
+	case err == nil:
+		table := db.Conn.NewTable(tableName, "table")
+		err = table.GetColumns(db.ctx, nil)
+		if err != nil {
+			return err
+		}
+		db.Tables[tableName] = table
+		logs.StatusLog("New %s added to DB: %s", tType, tableName)
+
+		if rel, ok := db.relationTables[tableName]; ok {
+			for _, relPath := range rel {
+				err = db.syncTableDDL(relPath, "")
+				if err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+
+	case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
+		logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
+
+	//	DDL has relation into non-creating tables - save path for creating after relations tables
+	case IsErrorDoesNotExists(err):
+		if errParts := regRelationNotExist.FindStringSubmatch(err.Error()); len(errParts) > 0 {
+			if val, ok := db.relationTables[errParts[1]]; ok {
+				db.relationTables[errParts[1]] = append(val, path)
+			} else {
+				db.relationTables[errParts[1]] = []string{path}
+			}
+			logs.StatusLog(db.relationTables)
+		} else {
+			logs.ErrorLog(err, "performs not implement")
+		}
+
+	default:
+		logs.ErrorLog(err, "During create- "+tableName)
+	}
+
+	return nil
 }
 
 // ReadViewSQL performs ddl script for view
@@ -227,40 +239,7 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 		return nil
 	}
 
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".ddl":
-		fileName := filepath.Base(path)
-		tableName := strings.TrimSuffix(fileName, ext)
-		ddl, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-
-		table, ok := db.Tables[tableName]
-		if !ok {
-			err = db.Conn.ExecDDL(db.ctx, string(ddl))
-			if err == nil {
-				table = db.Conn.NewTable(tableName, "VIEW")
-				err = table.GetColumns(db.ctx, nil)
-				if err == nil {
-					db.Tables[tableName] = table
-					logs.StatusLog("New view added to DB", tableName)
-				}
-
-				return err
-
-			} else if !IsErrorAlreadyExists(err) {
-				logs.ErrorLog(err, "table - "+tableName)
-				return err
-			}
-		}
-
-		return NewParserTableDDL(table, db).Parse(string(ddl))
-
-	default:
-		return nil
-	}
+	return db.syncTableDDL(path, "view")
 }
 
 func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) error {
@@ -270,33 +249,35 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 
 	switch ext := filepath.Ext(path); ext {
 	case ".ddl":
+		ddl, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		ddlType := gotools.BytesToString(ddl)
 		fileName := filepath.Base(path)
 		typeName := strings.TrimSuffix(fileName, ext)
-		if _, ok := db.Types[typeName]; ok {
+		if t, ok := db.Types[typeName]; ok {
+			return db.alterType(&t, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
+		}
+
+		// this local err - not return for parent method
+		err = db.Conn.ExecDDL(db.ctx, ddlType)
+		if err == nil {
+			logs.StatusLog("New types added to DB", ddlType)
 			return nil
 		}
 
-		ddl, err := os.ReadFile(path)
-		if err == nil {
-			ddlType := gotools.BytesToString(ddl)
-			// this local err - not return for parent method
-			err := db.Conn.ExecDDL(db.ctx, ddlType)
-			if err == nil {
-				logs.StatusLog("New types added to DB", ddlType)
-				return nil
-			}
-
-			if IsErrorAlreadyExists(err) {
-				err = db.alterType(fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
-			} else if IsErrorForReplace(err) {
-				logError(err, ddlType, fileName)
-				err = nil
-			}
-
-			if err != nil {
-				logError(err, ddlType, fileName)
-			}
+		if IsErrorAlreadyExists(err) {
+			err = db.alterType(nil, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
+		} else if IsErrorForReplace(err) {
+			logError(err, ddlType, fileName)
+			err = nil
 		}
+
+		if err != nil {
+			logError(err, ddlType, fileName)
+		}
+
 		return err
 
 	default:
@@ -308,7 +289,7 @@ var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOp
 
 // var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
-func (db *DB) alterType(fileName, typeName, ddl string) error {
+func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 	fields := regTypeAttr.FindStringSubmatch(ddl)
 
 	for i, name := range regTypeAttr.SubexpNames() {
@@ -316,29 +297,34 @@ func (db *DB) alterType(fileName, typeName, ddl string) error {
 
 			nameFields := strings.Split(fields[i], ",")
 			for _, name := range nameFields {
+				p := strings.Split(strings.TrimSpace(name), " ")
+				attrName := p[0]
+				if len(p) < 2 {
+					return ErrWrongType{
+						Name:     name,
+						TypeName: typeName,
+						Attr:     attrName,
+					}
+				}
 
+				i := slices.IndexFunc(t.Attr, func(attr TypesAttr) bool {
+					return attr.Name == attrName
+				})
+				newType := strings.Join(p[1:], " ")
+				if i >= 0 && t.Attr[i].Type == newType {
+					continue
+				}
+				logs.StatusLog(*t, attrName, newType)
 				ddlAlterType := "alter type " + typeName
 				ddlType := ddlAlterType + " add attribute " + name
 				err := db.Conn.ExecDDL(db.ctx, ddlType)
 				if err == nil {
 					logInfo(prefix, fileName, ddlType, 1)
 				} else if IsErrorAlreadyExists(err) {
-					p := strings.Split(strings.TrimSpace(name), " ")
-					if len(p) < 2 {
-						err = ErrWrongType{
-							Name:     name,
-							TypeName: typeName,
-							Attr:     p[0],
-						}
-					} else {
-						ddlAlterType += " alter attribute " + p[0] + " SET DATA TYPE "
-						for _, val := range p[1:] {
-							ddlAlterType += " " + val
-						}
-						err = db.Conn.ExecDDL(db.ctx, ddlAlterType)
-						if err == nil {
-							logInfo(prefix, fileName, ddlAlterType, 1)
-						}
+					ddlAlterType += " alter attribute " + attrName + " SET DATA TYPE " + newType
+					err = db.Conn.ExecDDL(db.ctx, ddlAlterType)
+					if err == nil {
+						logInfo(prefix, fileName, ddlAlterType, 1)
 					}
 				}
 

@@ -118,7 +118,7 @@ ORDER BY ordinal_position`
 							   AS column_comment
 						FROM INFORMATION_SCHEMA.COLUMNS C
 						WHERE C.table_schema='public' AND C.table_name=$1 AND C.COLUMN_NAME = $2`
-	sqlTypesList = `SELECT pg_type.oid,  typname, typtype,
+	sqlTypesList = `SELECT pg_type.oid, typname, typtype, relkind,
 		CASE pg_type.typtype
           WHEN 'r' THEN (select json_build_array(json_build_object(
                                             'name',
@@ -137,9 +137,9 @@ ORDER BY ordinal_position`
                                       left join pg_class c1 on c1.relname = typname
                       where r.rngtypid = pg_type.oid)
         WHEN 'd' THEN (select json_build_array(json_build_object(
-                                            'name', 'domain',
-                                            'type', (select bt.typname FROM pg_type bt where  pg_type.typbasetype = bt.oid)
-                                 )))
+								'name', 'domain',
+								'type', (select bt.typname FROM pg_type bt where  pg_type.typbasetype = bt.oid)
+					 )))
             
 		ELSE (select json_agg( 
 						json_build_object(
@@ -169,10 +169,10 @@ ORDER BY ordinal_position`
                  LEFT JOIN (pg_type bt JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid)
                            ON t.typtype = 'd'::"char" AND t.typbasetype = bt.oid       
         	where a.attrelid = c.oid
-        ) END as attr, relkind,
+        ) END as attr,
        array(select e.enumlabel FROM pg_enum e where e.enumtypid = pg_type.oid)::varchar[] as enumerates
 FROM pg_type JOIN pg_namespace nc ON typnamespace = nc.oid LEFT JOIN pg_class c  on relname = typname
-where nc.nspname='public' AND (typtype = ANY(array['e','d','r']) or c.relkind = ANY(array['d','c']))`
+where nc.nspname='public' AND pg_type.typcategory != 'A' AND (typtype = ANY(array['b','e','d','r']) or c.relkind = ANY(array['d','c']))`
 	//	FROM pg_attribute a,
 	//pg_class c,
 	//pg_namespace nc,

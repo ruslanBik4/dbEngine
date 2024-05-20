@@ -202,16 +202,25 @@ func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map
 	}
 
 	col.basicKind = UdtNameToType(udtName)
-	udtName = strings.TrimPrefix(udtName, "_")
 	if col.BasicType() == types.UntypedNil {
+		udtName = strings.TrimPrefix(udtName, "_")
 		if t, ok := dbTypes[udtName]; ok {
 			col.basicKind = typesExt.TStruct
 			col.UserDefined = &t
 		} else if _, ok := tables[udtName]; ok {
 			col.basicKind = typesExt.TStruct
 			//col.UserDefined = &t
+		} else if udtName == "anyrange" {
+			col.basicKind = typesExt.TStruct
+			col.UserDefined = &dbEngine.Types{
+				Id:         0,
+				Name:       udtName,
+				Type:       'r',
+				Attr:       nil,
+				Enumerates: nil,
+			}
 		} else {
-			logs.ErrorLog(ErrUnknownType, udtName, typesExt.StringTypeKinds(col.basicKind), col.Name())
+			logs.ErrorLog(ErrUnknownType, "%s: %s", col.Name(), col.UdtName)
 		}
 	}
 }
@@ -292,19 +301,7 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 	if isArray {
 		udtName = a + "[]"
 	}
-	isTypeValid := strings.HasPrefix(colDefine, col.DataType) || strings.HasPrefix(colDefine, udtName)
-	if !isTypeValid {
-		t := col.UdtName
-		if isArray {
-			t = a
-		}
-		for _, alias := range dataTypeAlias[t] {
-			isTypeValid = strings.HasPrefix(colDefine, alias)
-			if isTypeValid {
-				break
-			}
-		}
-	}
+	isTypeValid := isTypeValid(colDefine, col.DataType, udtName, isArray, a)
 
 	if isTypeValid {
 		if isArray != strings.Contains(colDefine, isDefineArray) {
@@ -330,6 +327,23 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 	}
 
 	return
+}
+
+func isTypeValid(colDefine string, datatType, udtName string, isArray bool, a string) bool {
+	isTypeValid := strings.HasPrefix(colDefine, datatType) || strings.HasPrefix(colDefine, udtName)
+	if !isTypeValid {
+		t := udtName
+		if isArray {
+			t = a
+		}
+		for _, alias := range dataTypeAlias[t] {
+			isTypeValid = strings.HasPrefix(colDefine, alias)
+			if isTypeValid {
+				break
+			}
+		}
+	}
+	return isTypeValid
 }
 
 // CharacterMaximumLength return max of length text columns

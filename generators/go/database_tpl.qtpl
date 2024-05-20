@@ -98,9 +98,10 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 
 	return nil
 }
+{% code hasCitext := false %}
 
-{%- for _, name := range c.types -%}{%= c.CreateTypeInterface(c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name]) %}{%- endfor -%}
-
+{%- for _, name := range c.types -%}{%= c.CreateTypeInterface(c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name]) %}
+{%- if name == "citext" -%}
 type CitextArray struct {
 	pgtype.TextArray
 }
@@ -193,7 +194,9 @@ func afterConnect(ctx context.Context, conn *pgx.Conn) error {
 
 	return nil
 }
-
+{% code hasCitext = true %}
+{% endif %}
+{%- endfor -%}
 // Database is root interface for operation for %s.%s
 type Database struct {
 	*dbEngine.DB
@@ -206,7 +209,7 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 		noticeHandler = printNotice
 	}
 	conn := psql.NewConnWithOptions(
-		psql.AfterConnect(afterConnect),
+		{%- if hasCitext -%}psql.AfterConnect(afterConnect),{%- endif -%}
 		psql.NoticeHandler(noticeHandler),
 		psql.ChannelHandler(channelHandler),
 		psql.Channels(channels...),

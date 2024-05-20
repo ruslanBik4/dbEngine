@@ -99,17 +99,16 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	}
 
 	packagesAsDefault := []string{
-		"bytes",
 		"errors",
 		"fmt",
 		"time",
 		"strings",
 
-		"github.com/jackc/pgx/v4",
 		"github.com/jackc/pgconn",
 		"github.com/jackc/pgtype",
 		"golang.org/x/net/context",
 
+		"github.com/ruslanBik4/gotools",
 		"github.com/ruslanBik4/logs",
 		"github.com/ruslanBik4/dbEngine/dbEngine",
 		"github.com/ruslanBik4/dbEngine/dbEngine/psql",
@@ -121,6 +120,12 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	}
 	for _, name := range cfg.Imports {
 		imports[name] = struct{}{}
+	}
+
+	_, ok := DB.Types["citext"]
+	if ok {
+		imports["bytes"] = struct{}{}
+		imports["github.com/jackc/pgx/v4"] = struct{}{}
 	}
 
 	return &Creator{
