@@ -100,8 +100,9 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 }
 {% code hasCitext := false %}
 
-{%- for _, name := range c.types -%}{%= c.CreateTypeInterface(c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name]) %}
-{%- if name == "citext" -%}
+{%- for _, name := range c.types -%}
+{%- if name != "citext" -%}{%= c.CreateTypeInterface(c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name]) %}
+{% else %}
 type CitextArray struct {
 	pgtype.TextArray
 }
@@ -186,7 +187,13 @@ func afterConnect(ctx context.Context, conn *pgx.Conn) error {
 
 	mess := "DB registered type (name, oid): "
 	for name, val := range customTypes {
+		if val.OID > 0 {
+			continue
+		}
 		conn.ConnInfo().RegisterDataType(*val)
+		if v, ok := conn.ConnInfo().DataTypeForOID(val.OID); ok {
+			val.OID = v.OID
+		}
 		mess += fmt.Sprintf("(%s,%v, %T) ", name, val.OID, val.Value)
 	}
 
