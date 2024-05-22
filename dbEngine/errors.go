@@ -114,14 +114,9 @@ func IsErrorAlreadyExists(err error) bool {
 		return false
 	}
 
-	ignoreErrors := []string{
-		"already exists",
-	}
-
-	for _, val := range ignoreErrors {
-		if strings.Contains(err.Error(), val) {
-			return true
-		}
+	//  constraint "valid_email_check" for relation "users" already exists
+	if RegAlreadyExists.MatchString(err.Error()) {
+		return true
 	}
 
 	return false
@@ -187,8 +182,9 @@ func IsErrorCntChgView(err error) bool {
 }
 
 var (
-	regKeyWrong   = regexp.MustCompile(`Key\s+\((\w+)\)=\((.+)\)([^.]+)`)
-	regDuplicated = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
+	regKeyWrong      = regexp.MustCompile(`[Kk]ey\s+(?:[(\w\s]+)?\((\w+)(?:,[^=]+)?\)+=\(([^)]+)\)([^.]+)`)
+	RegAlreadyExists = regexp.MustCompile(`(\w+)\s+"(\w+)"(\.+"(\w+)")?\s+already\s+exists`)
+	regDuplicated    = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
 )
 
 // IsErrorDuplicated indicate about abort updating because there is a duplicated key found
@@ -205,6 +201,11 @@ func IsErrorDuplicated(err error) (map[string]string, bool) {
 	if ok {
 		msg = e.Detail
 	}
+
+	// Key (id)=(3) already exists. duplicate key value violates unique constraint "candidates_name_uindex"
+	// duplicate key value violates unique constraint "candidates_mobile_uindex"
+	// Key (digest(blob, 'sha1'::text))=(\x34d3fb7ceb19bf448d89ab76e7b1e16260c1d8b0) already exists.
+	// key (phone)=(+380) already exists.
 
 	if s := regKeyWrong.FindStringSubmatch(msg); len(s) > 0 {
 		return map[string]string{

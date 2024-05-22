@@ -27,6 +27,9 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 	if !hasSQL && isPgErr {
 		sql = err.Where
 	}
+	if len(sql) > 255 {
+		sql = sql[:255]
+	}
 	if isPgErr {
 		sql += fmt.Sprintf("(%s) %s %s:%d", err.Hint, err.Where, err.File, err.Line)
 	}
@@ -45,10 +48,16 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 
 	case pgx.LogLevelError:
 		if isPgErr {
-			if !dbEngine.IsErrorAlreadyExists(err) {
-				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, data["args"])
+			if dbEngine.IsErrorAlreadyExists(err) {
+				submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
+				fileName := submatch[2]
+				//switch submatch[0] {
+				//case "role":
+				//	fileName = err.
+				//}
+				logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.InternalPosition), msg, logs.FgInfo)
 			} else {
-				logs.ErrorLog(err, msg, sql, data)
+				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, data["args"])
 			}
 
 			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))

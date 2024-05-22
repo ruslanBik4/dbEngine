@@ -202,7 +202,7 @@ func (col *Column) defineBasicType(dbTypes map[string]dbEngine.Types, tables map
 		}
 	}
 
-	col.basicKind = UdtNameToType(udtName)
+	col.basicKind = UdtNameToType(udtName, dbTypes, tables)
 	if col.BasicType() == types.UntypedNil {
 		udtName = strings.TrimPrefix(udtName, "_")
 		if t, ok := dbTypes[udtName]; ok {
@@ -233,7 +233,7 @@ func (col *Column) Table() dbEngine.Table {
 }
 
 // UdtNameToType return types.BasicKind according to psql udtName
-func UdtNameToType(udtName string) types.BasicKind {
+func UdtNameToType(udtName string, dbTypes map[string]dbEngine.Types, tables map[string]dbEngine.Table) types.BasicKind {
 	switch udtName {
 	case "bool":
 		return types.Bool
@@ -264,6 +264,11 @@ func UdtNameToType(udtName string) types.BasicKind {
 		return typesExt.TMap
 	default:
 
+		_, isType := dbTypes[udtName]
+		_, isTable := tables[udtName]
+		if isType || isTable {
+			return types.UntypedNil
+		}
 		logs.DebugLog("unknown type: %s", udtName)
 
 		return types.UntypedNil

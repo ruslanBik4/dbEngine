@@ -112,7 +112,7 @@ func (db *DB) readCfg(ctx context.Context, cfg *CfgDB) error {
 	)
 
 	migrationParts := map[string]fs.WalkDirFunc{
-		"roles": db.readAndReplaceTypes,
+		"roles": db.readAndReplaceRoles,
 		"types": db.readAndReplaceTypes,
 		"table": db.ReadTableSQL,
 		"view":  db.ReadViewSQL,
@@ -249,7 +249,7 @@ func (db *DB) readAndReplaceRoles(path string, info os.DirEntry, err error) erro
 	}
 
 	switch ext := filepath.Ext(path); ext {
-	case ".ddl":
+	case ".ddl", ".sql", ".role":
 		ddl, err := os.ReadFile(path)
 		if err != nil {
 			return err
@@ -259,20 +259,15 @@ func (db *DB) readAndReplaceRoles(path string, info os.DirEntry, err error) erro
 		roleName := strings.ToLower(strings.TrimSuffix(fileName, ext))
 		// this local err - not return for parent method
 		err = db.Conn.ExecDDL(db.ctx, ddlType)
-		if err == nil {
-			logs.StatusLog("New role added to DB", roleName)
-			return nil
-		}
-
-		if err != nil {
+		if IsErrorAlreadyExists(err) {
+		} else if err != nil {
 			logError(err, ddlType, fileName)
+			return err
+		} else {
+			logs.StatusLog("New role added to DB", roleName)
 		}
-
-		return err
-
-	default:
-		return nil
 	}
+	return nil
 }
 
 func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) error {

@@ -235,7 +235,7 @@ func (c *Creator) chkDefineType(udtName string) string {
 }
 
 func (c *Creator) prepareReturn(r *psql.Routine) (string, string) {
-	toType := psql.UdtNameToType(r.UdtName)
+	toType := psql.UdtNameToType(r.UdtName, nil, nil)
 	sType := typesExt.Basic(toType).String()
 	switch toType {
 	case types.UntypedNil, types.Invalid:
@@ -503,7 +503,7 @@ func (c *Creator) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) string {
 }
 
 func (c *Creator) udtToReturnType(udtName string) string {
-	toType := psql.UdtNameToType(udtName)
+	toType := psql.UdtNameToType(udtName, c.DB.Types, c.Tables)
 	switch toType {
 	case types.UnsafePointer:
 		return "[]byte"
