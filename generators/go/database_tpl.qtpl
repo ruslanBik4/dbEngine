@@ -187,14 +187,8 @@ func afterConnect(ctx context.Context, conn *pgx.Conn) error {
 
 	mess := "DB registered type (name, oid): "
 	for name, val := range customTypes {
-		if val.OID > 0 {
-			continue
-		}
 		conn.ConnInfo().RegisterDataType(*val)
-		if v, ok := conn.ConnInfo().DataTypeForOID(val.OID); ok {
-			val.OID = v.OID
-		}
-		mess += fmt.Sprintf("(%s,%v, %T) ", name, val.OID, val.Value)
+		mess += fmt.Sprintf("\n(%s,%v, %T) ", name, val.OID, val.Value)
 	}
 
 	logs.StatusLog(conn.PgConn().Conn().LocalAddr().String(), mess)
@@ -276,7 +270,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 {% endfunc %}
 
 {%- func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) -%}
-{%- if len(t.Enumerates) == 0 -%}
+{%- if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" -%}
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
 	{%- for _, attr := range t.Attr -%}
@@ -411,7 +405,6 @@ func (dst *{%s typeName %}) Scan(src any) error {
 {%- endif -%}
 {%- endfunc -%}
 end CreateTypeInterface
-
 
 {%- func (c *Creator) CreateTableConstructor(cName, name string) -%}
 // New{%s cName %} create new instance of table {%s cName %}
