@@ -107,11 +107,12 @@ func NewDB(ctx context.Context, conn Connection) (*DB, error) {
 func (db *DB) readCfg(ctx context.Context, cfg *CfgDB) error {
 	var (
 		migrationOrder = []string{
-			"types", "table", "view", "func",
+			"roles", "types", "table", "view", "func",
 		}
 	)
 
 	migrationParts := map[string]fs.WalkDirFunc{
+		"roles": db.readAndReplaceTypes,
 		"types": db.readAndReplaceTypes,
 		"table": db.ReadTableSQL,
 		"view":  db.ReadViewSQL,
@@ -242,6 +243,38 @@ func (db *DB) ReadViewSQL(path string, info os.DirEntry, err error) error {
 	return db.syncTableDDL(path, "view")
 }
 
+func (db *DB) readAndReplaceRoles(path string, info os.DirEntry, err error) error {
+	if (err != nil) || ((info != nil) && info.IsDir()) {
+		return nil
+	}
+
+	switch ext := filepath.Ext(path); ext {
+	case ".ddl":
+		ddl, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		ddlType := gotools.BytesToString(ddl)
+		fileName := filepath.Base(path)
+		roleName := strings.ToLower(strings.TrimSuffix(fileName, ext))
+		// this local err - not return for parent method
+		err = db.Conn.ExecDDL(db.ctx, ddlType)
+		if err == nil {
+			logs.StatusLog("New role added to DB", roleName)
+			return nil
+		}
+
+		if err != nil {
+			logError(err, ddlType, fileName)
+		}
+
+		return err
+
+	default:
+		return nil
+	}
+}
+
 func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -263,7 +296,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		// this local err - not return for parent method
 		err = db.Conn.ExecDDL(db.ctx, ddlType)
 		if err == nil {
-			logs.StatusLog("New types added to DB", ddlType)
+			logs.StatusLog("New types added to DB", typeName)
 			return nil
 		}
 
