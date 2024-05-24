@@ -264,8 +264,9 @@ func UdtNameToType(udtName string, dbTypes map[string]dbEngine.Types, tables map
 		return typesExt.TMap
 	default:
 
-		_, isType := dbTypes[udtName]
-		_, isTable := tables[udtName]
+		a, _ := strings.CutPrefix(udtName, "_")
+		_, isType := dbTypes[a]
+		_, isTable := tables[a]
 		if isType || isTable {
 			return types.UntypedNil
 		}
