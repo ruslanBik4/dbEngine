@@ -113,12 +113,12 @@ func isColFunc(name string) bool {
 // ParserCfgDDL is interface for parsing DDL file
 type ParserCfgDDL struct {
 	Table
-	DB           *DB
-	err          error
-	filename     string
-	line         int
-	parseOrder   []func(string) bool
-	isCreateDone bool
+	DB         *DB
+	err        error
+	filename   string
+	line       int
+	parseOrder []func(string) bool
+	updDLL     *strings.Builder
 }
 
 // NewParserCfgDDL create new instance of ParserCfgDDL
@@ -153,7 +153,7 @@ func (p *ParserCfgDDL) Parse(ddl string) error {
 		}
 
 		if err := p.execSql(sql); err != nil {
-			logError(p.err, ddl, p.filename)
+			logError(err, ddl, p.filename)
 		}
 
 		if p.err != nil {
