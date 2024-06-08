@@ -270,7 +270,6 @@ var errWrongTableName = errors.New("wrong table name '%v' %s")
 
 func logError(err error, ddlSQL string, fileName string) {
 
-	logs.ErrorLog(err, fileName)
 	if pgErr, ok := err.(*pgconn.PgError); ok {
 		pos := int(pgErr.Position - 1)
 		if pos <= 0 {
