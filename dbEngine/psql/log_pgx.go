@@ -50,12 +50,12 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 		if isPgErr {
 			if dbEngine.IsErrorAlreadyExists(err) {
 				submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
-				fileName := submatch[2]
+				fileName := submatch[2] + ".ddl"
 				//switch submatch[0] {
 				//case "role":
 				//	fileName = err.
 				//}
-				logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.InternalPosition), msg, logs.FgInfo)
+				logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
 			} else {
 				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, data["args"])
 			}

@@ -246,7 +246,7 @@ func (err ErrWrongType) Error() string {
 
 }
 
-// ErrUnknownSql if not found in field {Name} field by name {Column}
+// ErrUnknownSql if {sql} is unknown for parser
 type ErrUnknownSql struct {
 	sql  string
 	Line int

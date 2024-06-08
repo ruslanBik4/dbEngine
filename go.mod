@@ -3,6 +3,7 @@ module github.com/ruslanBik4/dbEngine
 go 1.22
 
 require (
+	github.com/go-errors/errors v1.4.2
 	github.com/iancoleman/strcase v0.3.0
 	github.com/jackc/pgconn v1.14.3
 	github.com/jackc/pgtype v1.14.3

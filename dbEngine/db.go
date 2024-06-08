@@ -179,9 +179,19 @@ func (db *DB) syncTableDDL(path string, tType string) error {
 		ddl := gotools.BytesToString(b)
 		table, ok := db.Tables[tableName]
 		if ok {
-			return NewParserTableDDL(db, table).Parse(ddl)
+			return NewParserCfgDDL(db, table).Parse(ddl)
 		}
 
+		//check tables dependencies
+		lower := strings.ToLower(ddl)
+		if submatch := regForeignIndex.FindStringSubmatch(lower); len(submatch) > 0 {
+			parent := submatch[regForeignIndex.SubexpIndex("fTable")]
+			if _, ok := db.Tables[parent]; !ok {
+				db.addRelationTable(path, parent)
+				logWarning("TABLES", path, "wait for parent:"+parent, 0)
+				return nil
+			}
+		}
 		return db.createTable(path, ddl, tableName, tType)
 
 	default:
@@ -201,6 +211,7 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 		db.Tables[tableName] = table
 		logs.StatusLog("New %s added to DB: %s", tType, tableName)
 
+		// create all relations tables
 		if rel, ok := db.relationTables[tableName]; ok {
 			for _, relPath := range rel {
 				err = db.syncTableDDL(relPath, "")
@@ -217,12 +228,7 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 	//	DDL has relation into non-creating tables - save path for creating after relations tables
 	case IsErrorDoesNotExists(err):
 		if errParts := regRelationNotExist.FindStringSubmatch(err.Error()); len(errParts) > 0 {
-			if val, ok := db.relationTables[errParts[1]]; ok {
-				db.relationTables[errParts[1]] = append(val, path)
-			} else {
-				db.relationTables[errParts[1]] = []string{path}
-			}
-			logs.StatusLog(db.relationTables)
+			db.addRelationTable(path, errParts[1])
 		} else {
 			logs.ErrorLog(err, "performs not implement")
 		}
@@ -232,6 +238,15 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 	}
 
 	return nil
+}
+
+func (db *DB) addRelationTable(path string, tableName string) {
+	if val, ok := db.relationTables[tableName]; ok {
+		db.relationTables[tableName] = append(val, path)
+	} else {
+		db.relationTables[tableName] = []string{path}
+	}
+	logs.DebugLog(db.relationTables)
 }
 
 // ReadViewSQL performs ddl script for view
