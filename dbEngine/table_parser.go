@@ -2,6 +2,7 @@ package dbEngine
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -30,8 +31,8 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 		case "builderOpts":
 
 			nameFields := strings.Split(fields[i], ",\n")
-			updatesCols := make([]string, 0)
-			args := make([]any, 0)
+			newNotNulls := make([]string, 0)
+			chgNotNulls := make([]string, 0)
 
 			for _, name := range nameFields {
 				title := regField.FindStringSubmatch(name)
@@ -42,35 +43,45 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 				}
 
 				sAlter, colName, colDefine := title[0], title[1], title[2]
+				defaults := ""
+				if newDef := RegDefault.FindStringSubmatch(strings.ToLower(colDefine)); len(newDef) > 0 {
+					defaults = newDef[1]
+				}
 				if col := p.FindColumn(colName); col == nil {
-					defaults := p.addColumn(colName, sAlter, colDefine)
-					if defaults > "" {
-						args = append(args, defaults)
-						updatesCols = append(updatesCols, colName)
+					if strings.Contains(sAlter, "not null") && defaults > "" {
+						newNotNulls = append(newNotNulls, colName)
+					} else {
+						logWarning("COLUMN", colName, "has't default will be add without flag SET nNULL", 0)
 					}
+					p.addColumn(colName, sAlter, colDefine)
+
 				} else if flags := col.CheckAttr(colDefine); col.Primary() {
-					sAlter = p.checkPrimary(col, colDefine, flags)
+					p.checkPrimary(col, colDefine, flags)
 				} else {
-					alters := p.checkColumn(col, colDefine, flags)
-					if len(alters) > 0 {
-						p.chkBuilder()
-						p.updDLL.WriteString(strings.Join(alters, ", "))
+					p.checkColumn(col, colDefine, flags)
+					if slices.Contains(flags, ChgDefault) && defaults > "" {
+						chgNotNulls = append(chgNotNulls, colName)
 					}
 				}
 			}
 
 			if p.updDLL != nil {
-				if len(updatesCols) > 0 {
-					p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + strings.Join(updatesCols, "=DEFAULT, ") + "=DEFAULT;\n")
-					for j, col := range updatesCols {
+				if len(newNotNulls) > 0 {
+					p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + strings.Join(newNotNulls, "=DEFAULT, ") + "=DEFAULT;\n")
+					for j, col := range newNotNulls {
 						if j == 0 {
 							p.updDLL.WriteString("ALTER TABLE " + p.Name())
 						} else {
 							p.updDLL.WriteRune(',')
 						}
-						p.updDLL.WriteString(fmt.Sprintf(" ALTER COLUMN %s set not null", col))
+						p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col))
 					}
-
+				}
+				for _, col := range chgNotNulls {
+					p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + col + `=DEFAULT
+where ` + col + ` is null;
+ALTER TABLE ` + p.Name() + fmt.Sprintf(tplAlterNotNull, col) + `;
+`)
 				}
 				sql := p.updDLL.String() + ";"
 				logs.StatusLog(sql)
@@ -79,6 +90,10 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 					logError(p.err, sql, p.filename)
 				}
 				p.updDLL = nil
+				err := p.Table.GetColumns(p.DB.ctx, p.DB.Types)
+				if err != nil {
+					logs.ErrorLog(err, "during reread table columns")
+				}
 			}
 		}
 	}
@@ -86,7 +101,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 	return true
 }
 
-func (p *ParserCfgDDL) chkBuilder() {
+func (p *ParserCfgDDL) chkAlterBuilder() {
 	if p.updDLL == nil {
 		p.updDLL = &strings.Builder{}
 		p.updDLL.WriteString("ALTER TABLE " + p.Name() + " ")
@@ -95,22 +110,96 @@ func (p *ParserCfgDDL) chkBuilder() {
 	}
 }
 
-func (p *ParserCfgDDL) addColumn(colName, sAlter, colDefine string) string {
-	def := ""
+func (p *ParserCfgDDL) addColumn(colName, sAlter, colDefine string) {
 	if strings.Contains(sAlter, "not null") {
 		sAlter = strings.ReplaceAll(sAlter, "not null", "")
-		defaults := regDefault.FindStringSubmatch(strings.ToLower(colDefine))
-		if len(defaults) > 1 && defaults[1] > "" {
-			def = defaults[1]
-		} else {
-			logWarning("COLUMN", colName, "has't default wil be add without flag SET nNULL", 0)
-		}
 	}
 
-	p.chkBuilder()
+	p.chkAlterBuilder()
 	p.updDLL.WriteString(" ADD COLUMN " + sAlter)
+}
 
-	return def
+func (p *ParserCfgDDL) checkPrimary(col Column, colDefine string, flags []FlagColumn) {
+	for _, flag := range flags {
+		// change only type
+		if flag == ChgType {
+			p.chkAlterBuilder()
+			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), colDefine))
+			return
+		}
+	}
+}
+
+const tplAlterColumnType = " ALTER COLUMN %s type %s using %[1]s::%s"
+const tplAlterNotNull = " ALTER COLUMN %s set not null"
+
+func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagColumn) {
+
+	if len(flags) == 0 {
+		return
+	}
+
+	typeDef := getNewTypeDef(col, colDefine)
+	p.chkAlterBuilder()
+
+	for _, token := range flags {
+		switch token {
+		// change length
+		case ChgLength:
+			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), typeDef))
+
+		// change defaults
+		case ChgDefault:
+			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), typeDef))
+
+		// change type
+		case ChgType:
+			p.updDLL.WriteString(fmt.Sprintf(" ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using %[1]s::%s", col.Name(), typeDef))
+
+		// change type to Array
+		case ChgToArray:
+			p.updDLL.WriteString(fmt.Sprintf("ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using array[%[1]s::%[3]s]::%[2]s",
+				col.Name(),
+				typeDef,
+				strings.TrimSuffix(typeDef, "[]"),
+			))
+
+		// set not nullable
+		case MustNotNull:
+			p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col.Name()))
+
+		// set nullable
+		case Nullable:
+			p.updDLL.WriteString(fmt.Sprintf("ALTER COLUMN %s drop not null", col.Name()))
+		}
+	}
+}
+
+func getNewTypeDef(col Column, colDefine string) string {
+	attr := strings.Split(colDefine, " ")
+	typeDef := attr[0]
+	colType := col.Type()
+	switch typeDef {
+	case "serial":
+		typeDef = "integer"
+	case "bigserial":
+		typeDef = "bigint"
+	case "money":
+		if colType == "double precision" {
+			typeDef = "numeric::" + typeDef
+		}
+	case "character":
+		if strings.HasPrefix(attr[1], "varying") ||
+			(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
+			typeDef += " " + attr[1]
+		}
+	case "double":
+		if colType == "money" {
+			typeDef = "numeric::" + typeDef
+		}
+		typeDef += " " + attr[1]
+	}
+	return typeDef
 }
 
 func (p *ParserCfgDDL) addComment(ddl string) bool {
@@ -162,129 +251,6 @@ func (p *ParserCfgDDL) skipPartition(ddl string) bool {
 	}
 
 	return true
-}
-
-func (p *ParserCfgDDL) checkPrimary(col Column, colDefine string, flags []FlagColumn) string {
-	for _, flag := range flags {
-		// change only type
-		if flag == ChgType {
-			return p.alterColumnsType(col, colDefine, false)
-		}
-	}
-	return ""
-}
-
-func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagColumn) []string {
-	defaults := regDefault.FindStringSubmatch(strings.ToLower(colDefine))
-	colDef, hasDefault := col.Default().(string)
-	chgDefault := len(defaults) > 1 && (!hasDefault || strings.ToLower(colDef) != strings.Trim(defaults[1], "'\n"))
-
-	if !hasDefault && col.Default() != nil {
-		logs.StatusLog("%#v", col.Default())
-	}
-	if len(flags) == 0 && !chgDefault {
-		return nil
-	}
-
-	sAlter := make([]string, len(flags))
-	colName := col.Name()
-	for i, token := range flags {
-		switch token {
-		// change length
-		case ChgLength:
-			sAlter[i] = p.alterColumnsLength(col, colDefine)
-
-		// change type
-		case ChgType:
-			sAlter[i] = p.alterColumnsType(col, colDefine, false)
-
-		// change type to Array
-		case ChgToArray:
-			sAlter[i] = p.alterColumnsType(col, colDefine, true)
-
-		// set not nullable
-		case MustNotNull:
-			sAlter[i] = fmt.Sprintf("ALTER COLUMN %s set not null", col.Name())
-
-		// set nullable
-		case Nullable:
-			sAlter[i] = fmt.Sprintf("ALTER COLUMN %s drop not null", col.Name())
-		}
-	}
-
-	if chgDefault {
-		logs.DebugLog(hasDefault, strings.ToLower(colDef), defaults[1])
-		sAlter = append(sAlter, fmt.Sprintf("ALTER COLUMN %s set %s", colName, defaults[0]))
-		col.SetDefault(defaults[1])
-		colDef = defaults[1]
-	}
-
-	return sAlter
-	//if IsErrorNullValues(err) && hasDefault {
-	//	// set defult value into ALL null the column
-	//	ddl := fmt.Sprintf(`UPDATE %s SET %s=$1 WHERE %[2]s is null`, p.Name(), colName)
-	//	p.runDDL(ddl, colDef)
-	//	if p.err != nil {
-	//		logError(p.err, ddl, p.filename)
-	//	} else {
-	//		err = p.alterColumn(col.Name(), sAlter...)
-	//		if err != nil {
-	//			logError(p.err, ddl, p.filename)
-	//		}
-	//	}
-	//}
-	////todo: join all alter of table
-	//
-	//return err
-}
-
-func (p *ParserCfgDDL) alterColumnsType(col Column, colDefine string, toArray bool) string {
-	attr := strings.Split(colDefine, " ")
-	typeDef := attr[0]
-	colType := col.Type()
-	switch typeDef {
-	case "serial":
-		typeDef = "integer"
-	case "bigserial":
-		typeDef = "bigint"
-	case "money":
-		if colType == "double precision" {
-			typeDef = "numeric::" + typeDef
-		}
-	case "character":
-		if strings.HasPrefix(attr[1], "varying") {
-			typeDef += " " + attr[1]
-		}
-	case "double":
-		if colType == "money" {
-			typeDef = "numeric::" + typeDef
-		}
-		typeDef += " " + attr[1]
-	}
-
-	if toArray {
-		return fmt.Sprintf("ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using array[%[1]s::%[3]s]::%[2]s",
-			col.Name(),
-			typeDef,
-			strings.TrimSuffix(typeDef, "[]"),
-		)
-	}
-
-	return fmt.Sprintf(" ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using %[1]s::%s", col.Name(), typeDef)
-
-}
-
-func (p *ParserCfgDDL) alterColumnsLength(col Column, colDefine string) string {
-	attr := strings.Split(colDefine, " ")
-
-	typeDef := attr[0]
-	if typeDef == "character" ||
-		(strings.Contains(typeDef, "(") && !strings.Contains(typeDef, ")")) {
-
-		typeDef += " " + attr[1]
-	}
-
-	return fmt.Sprintf("ALTER COLUMN %s type %s using %[1]s::%s", col.Name(), typeDef)
 }
 
 func (p *ParserCfgDDL) updateIndex(ddl string) bool {
@@ -376,7 +342,7 @@ func (p *ParserCfgDDL) alterColumn(colName string, sAlter ...string) error {
 	case IsErrorForReplace(p.err):
 		logs.ErrorLog(p.err, `Field %s.%s, different with define: '%s' %v`, p.Name(), ddl)
 	case IsErrorNullValues(p.err):
-		defaults := regDefault.FindStringSubmatch(strings.ToLower(ddl))
+		defaults := RegDefault.FindStringSubmatch(strings.ToLower(ddl))
 		if len(defaults) > 1 && defaults[1] > "" {
 			p.runDDL(fmt.Sprintf(`UPDATE %s SET %s=$1`, p.Name(), colName), defaults[1])
 			if p.err != nil {

@@ -333,6 +333,11 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 		flags = append(flags, dbEngine.Nullable)
 	}
 
+	colDef, hasDefault := col.Default().(string)
+	if newDef := dbEngine.RegDefault.FindStringSubmatch(strings.ToLower(colDefine)); len(newDef) > 0 && (!hasDefault || strings.ToLower(colDef) != strings.Trim(newDef[1], "'\n")) {
+		flags = append(flags, dbEngine.ChgDefault)
+	}
+
 	return
 }
 

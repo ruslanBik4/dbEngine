@@ -18,6 +18,8 @@ func (f FlagColumn) String() string {
 		return "Nullable"
 	case ChgType:
 		return "ChgType"
+	case ChgDefault:
+		return "ChgDefault"
 	case ChgLength:
 		return "ChgLength"
 	case ChgToArray:
@@ -31,6 +33,7 @@ const (
 	MustNotNull FlagColumn = iota
 	Nullable
 	ChgType
+	ChgDefault
 	ChgLength
 	ChgToArray
 )
@@ -54,7 +57,7 @@ var (
 	regTable            = regexp.MustCompile(`create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<builderOpts>(\s*(\w+)\s+(?P<define>[\w\[\]':\s]+(\(\s*\d+(,\s*\d+)?\s*\))?[\w.+\s]*)(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
 	regField            = regexp.MustCompile(`(\w+)\s+((?:[\w\s]+(?:\(\s*\d+(?:,\s*\d+)?\))?(?:\[\d*\])*)?(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?)`)
 	regFieldName        = regexp.MustCompile(`^\w+$`)
-	regDefault          = regexp.MustCompile(`default\s+(\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)`)
+	RegDefault          = regexp.MustCompile(`default\s+(\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)`)
 	regView             = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+(with\s*\([\w,=\s]+\)\s*)?as\s+select`)
 	regRelationNotExist = regexp.MustCompile(`relation\s+"(\w+)" does not exist`)
 	regTypeNotExist     = regexp.MustCompile(`type\s+"(\w+)"\s+does not exist`)

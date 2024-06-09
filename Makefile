@@ -1,4 +1,5 @@
 BRANCH=`git branch --show-current`
+VERSION=`git describe --tags`
 
 define increment
 	$(eval v := $(shell git describe --tags --abbrev=0 | sed -Ee 's/^v|-.*//'))

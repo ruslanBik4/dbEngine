@@ -276,6 +276,7 @@ func (t *Table) findColumn(name string) *Column {
 // получение значений полей для таблицы
 func (t *Table) GetColumns(ctx context.Context, dbTypes map[string]dbEngine.Types) error {
 
+	t.columns = make([]*Column, 0)
 	err := t.conn.SelectAndScanEach(ctx,
 		func() error {
 			return t.readColumnRow(dbTypes)
