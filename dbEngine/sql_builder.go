@@ -20,6 +20,7 @@ import (
 type SQLBuilder struct {
 	Args          []any
 	columns       []string
+	excluded      []string
 	filter        []string
 	posFilter     int
 	Table         Table
@@ -596,6 +597,11 @@ func Values(values ...any) BuildSqlOptions {
 //	write:
 //	field_name > $1, field_name < $1, etc
 func WhereForSelect(columns ...string) BuildSqlOptions {
+	return WhereForSelect(columns...)
+}
+
+// Where is short alias for WhereForSelect
+func Where(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 
 		b.filter = make([]string, len(columns))
@@ -632,6 +638,14 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 
 		b.filter = columns
 
+		return nil
+	}
+}
+
+// OrderBy parameter for sql query
+func Excluded(columns ...string) BuildSqlOptions {
+	return func(b *SQLBuilder) error {
+		b.excluded = columns
 		return nil
 	}
 }
