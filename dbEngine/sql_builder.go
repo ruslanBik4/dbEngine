@@ -642,7 +642,7 @@ func Where(columns ...string) BuildSqlOptions {
 	}
 }
 
-// OrderBy parameter for sql query
+// Excluded parameter for sql query
 func Excluded(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
 		b.excluded = columns
