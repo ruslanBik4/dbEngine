@@ -597,7 +597,7 @@ func Values(values ...any) BuildSqlOptions {
 //	write:
 //	field_name > $1, field_name < $1, etc
 func WhereForSelect(columns ...string) BuildSqlOptions {
-	return WhereForSelect(columns...)
+	return Where(columns...)
 }
 
 // Where is short alias for WhereForSelect
