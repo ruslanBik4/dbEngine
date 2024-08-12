@@ -285,7 +285,7 @@ func logError(err error, ddlSQL string, fileName string) {
 		}
 		printError(fileName, line, msg)
 	} else if e, ok := err.(*ErrUnknownSql); ok {
-		printError(fileName, e.Line, e.Msg+e.sql)
+		printError(fileName, e.Line, e.Msg+e.sql+": not parse this SQL")
 	} else {
 		printError(fileName, 1, err.Error())
 	}

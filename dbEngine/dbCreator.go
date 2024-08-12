@@ -135,6 +135,7 @@ func NewParserCfgDDL(db *DB, table Table) *ParserCfgDDL {
 		t.performsCreateExt,
 		t.alterTable,
 		t.alterMaterializedView,
+		t.performsGrants,
 	}
 
 	return t
@@ -216,6 +217,16 @@ func (p *ParserCfgDDL) performsInsert(ddl string) bool {
 
 func (p *ParserCfgDDL) performsUpdate(ddl string) bool {
 	if !strings.Contains(strings.ToLower(ddl), "update") {
+		return false
+	}
+
+	p.runDDL(ddl)
+
+	return true
+}
+
+func (p *ParserCfgDDL) performsGrants(ddl string) bool {
+	if !strings.HasPrefix(strings.ToLower(ddl), "grant") {
 		return false
 	}
 
