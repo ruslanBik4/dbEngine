@@ -57,13 +57,12 @@ func TestParserTableDDL_Parse(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if err := p.Parse(tt.args.ddl); (err != nil) != tt.wantErr {
 				t.Errorf("Parse() error = %v, fncErr %v", err, tt.wantErr)
@@ -96,13 +95,12 @@ func TestParserTableDDL_addComment(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.addComment(tt.args.ddl); got != tt.want {
 				t.Errorf("addComment() = %v, want %v", got, tt.want)
@@ -138,13 +136,12 @@ func TestParserTableDDL_alterColumn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if err := p.alterColumn(tt.args.col.Name(), tt.args.sAlter); (err != nil) != tt.wantErr {
 				t.Errorf("alterColumn() error = %v, fncErr %v", err, tt.wantErr)
@@ -177,13 +174,12 @@ func TestParserTableDDL_alterTable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.alterTable(tt.args.ddl); got != tt.want {
 				t.Errorf("alterTable() = %v, want %v", got, tt.want)
@@ -218,17 +214,14 @@ func TestParserTableDDL_checkColumn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
-			if err := p.checkColumn(tt.args.col, tt.args.colDefine, tt.args.flags); (err != nil) != tt.wantErr {
-				t.Errorf("checkColumn() error = %v, fncErr %v", err, tt.wantErr)
-			}
+			p.checkColumn(tt.args.col, tt.args.colDefine, tt.args.flags, "", nil)
 		})
 	}
 }
@@ -258,13 +251,12 @@ func TestParserTableDDL_checkPrimary(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			p.checkPrimary(tt.args.col, tt.args.colDefine, tt.args.flags)
 		})
@@ -430,13 +422,12 @@ on candidates (name);`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			got, err := p.checkDDLCreateIndex(strings.ToLower(tt.ddl))
 			if tt.fncErr == nil {
@@ -465,20 +456,19 @@ func TestParserTableDDL_execSql(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   bool
+		want   error
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.execSql(tt.args.sql); got != tt.want {
 				t.Errorf("execSql() = %v, want %v", got, tt.want)
@@ -511,13 +501,12 @@ func TestParserTableDDL_performsCreateExt(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.performsCreateExt(tt.args.ddl); got != tt.want {
 				t.Errorf("performsCreateExt() = %v, want %v", got, tt.want)
@@ -550,13 +539,12 @@ func TestParserTableDDL_performsInsert(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.performsInsert(tt.args.ddl); got != tt.want {
 				t.Errorf("performsInsert() = %v, want %v", got, tt.want)
@@ -589,13 +577,12 @@ func TestParserTableDDL_performsUpdate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.performsUpdate(tt.args.ddl); got != tt.want {
 				t.Errorf("performsUpdate() = %v, want %v", got, tt.want)
@@ -624,13 +611,12 @@ func TestParserTableDDL_runDDL(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			p.runDDL(tt.ddl)
 		})
@@ -661,13 +647,12 @@ func TestParserTableDDL_skipPartition(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.skipPartition(tt.args.ddl); got != tt.want {
 				t.Errorf("skipPartition() = %v, want %v", got, tt.want)
@@ -781,13 +766,12 @@ func TestParserTableDDL_updateIndex(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			got, err := p.checkDDLCreateIndex(tt.ddl)
 			assert.Equal(t, tt.want, got != nil)
@@ -820,13 +804,12 @@ func TestParserTableDDL_updateTable(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.updateTable(tt.args.ddl); got != tt.want {
 				t.Errorf("updateTable() = %v, want %v", got, tt.want)
@@ -859,13 +842,12 @@ func TestParserTableDDL_updateView(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &ParserCfgDDL{
-				Table:        tt.fields.Table,
-				DB:           tt.fields.DB,
-				err:          tt.fields.err,
-				filename:     tt.fields.filename,
-				line:         tt.fields.line,
-				parseOrder:   tt.fields.mapParse,
-				isCreateDone: tt.fields.isCreateDone,
+				Table:      tt.fields.Table,
+				DB:         tt.fields.DB,
+				err:        tt.fields.err,
+				filename:   tt.fields.filename,
+				line:       tt.fields.line,
+				parseOrder: tt.fields.mapParse,
 			}
 			if got := p.updateView(tt.args.ddl); got != tt.want {
 				t.Errorf("updateView() = %v, want %v", got, tt.want)

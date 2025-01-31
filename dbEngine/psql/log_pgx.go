@@ -57,7 +57,7 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 				//}
 				logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
 			} else {
-				logs.ErrorLog(err, "%s, '%s', args: %+v", msg, sql, data["args"])
+				logs.ErrorLog(err, "%s: %s, '%s', args: %+v", msg, err.Detail, sql, data["args"])
 			}
 
 			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))

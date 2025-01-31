@@ -38,6 +38,12 @@ const (
 	ChgToArray
 )
 
+const (
+	tplAlterColumnType = " ALTER COLUMN %s TYPE %s USING %[1]s::%s"
+	tplAlterNotNull    = " ALTER COLUMN %s SET not null"
+	tplAlterSetDefault = " ALTER COLUMN %s SET DEFAULT '%s'"
+)
+
 const prefix = "DB_CONFIG"
 
 // regex const's

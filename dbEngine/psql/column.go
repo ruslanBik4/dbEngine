@@ -321,7 +321,7 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 			flags = append(flags, dbEngine.ChgLength)
 		}
 	} else {
-		logs.DebugLog(colDefine, col.name, col.DataType, udtName)
+		logs.StatusLog(colDefine, col.name, col.DataType, udtName)
 		flags = append(flags, dbEngine.ChgType)
 		logs.DebugLog(col.DataType, col.UdtName, lenCol)
 	}

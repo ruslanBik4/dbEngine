@@ -2,10 +2,10 @@ package dbEngine
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/go-errors/errors"
+	"github.com/jackc/pgconn"
 
 	"github.com/ruslanBik4/logs"
 )
@@ -32,7 +32,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 
 			nameFields := strings.Split(fields[i], ",\n")
 			newNotNulls := make([]string, 0)
-			chgNotNulls := make([]string, 0)
+			sqlDefaults := &strings.Builder{}
 
 			for _, name := range nameFields {
 				title := regField.FindStringSubmatch(name)
@@ -51,17 +51,14 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 					if strings.Contains(sAlter, "not null") && defaults > "" {
 						newNotNulls = append(newNotNulls, colName)
 					} else {
-						logWarning("COLUMN", colName, "has't default will be add without flag SET nNULL", 0)
+						logWarning("COLUMN", colName, "has't default will be add without flag SET NULL", 0)
 					}
-					p.addColumn(colName, sAlter, colDefine)
+					p.addColumn(sAlter)
 
 				} else if flags := col.CheckAttr(colDefine); col.Primary() {
 					p.checkPrimary(col, colDefine, flags)
 				} else {
-					p.checkColumn(col, colDefine, flags)
-					if slices.Contains(flags, ChgDefault) && defaults > "" {
-						chgNotNulls = append(chgNotNulls, colName)
-					}
+					p.checkColumn(col, colDefine, flags, defaults, sqlDefaults)
 				}
 			}
 
@@ -77,15 +74,28 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 						p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col))
 					}
 				}
-				for _, col := range chgNotNulls {
-					p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + col + `=DEFAULT
-where ` + col + ` is null;
-ALTER TABLE ` + p.Name() + fmt.Sprintf(tplAlterNotNull, col) + `;
-`)
+				sql := p.updDLL.String() + sqlDefaults.String()
+
+				for err := p.runDDL(sql); err != nil; err = p.runDDL(sql) {
+					if pgErr, ok := p.err.(*pgconn.PgError); ok {
+						if pgErr.Message == ErrCannotAlterColumnUsedView {
+							if r := regErrView.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
+								sql = "drop " + r[1] + " view " + r[2] + "  CASCADE ;" + sql
+							}
+						} else {
+							logs.StatusLog(pgErr.Detail)
+							logs.StatusLog(sql)
+							if r := regErrNullVallues.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
+								logs.StatusLog(r)
+							}
+							break
+						}
+
+					} else {
+						break
+					}
 				}
-				sql := p.updDLL.String() + ";"
-				logs.StatusLog(sql)
-				p.runDDL(p.updDLL.String())
+
 				if p.err != nil {
 					logError(p.err, sql, p.filename)
 				}
@@ -110,7 +120,7 @@ func (p *ParserCfgDDL) chkAlterBuilder() {
 	}
 }
 
-func (p *ParserCfgDDL) addColumn(colName, sAlter, colDefine string) {
+func (p *ParserCfgDDL) addColumn(sAlter string) {
 	if strings.Contains(sAlter, "not null") {
 		sAlter = strings.ReplaceAll(sAlter, "not null", "")
 	}
@@ -124,16 +134,13 @@ func (p *ParserCfgDDL) checkPrimary(col Column, colDefine string, flags []FlagCo
 		// change only type
 		if flag == ChgType {
 			p.chkAlterBuilder()
-			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), colDefine))
+			_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, col.Name(), colDefine)
 			return
 		}
 	}
 }
 
-const tplAlterColumnType = " ALTER COLUMN %s type %s using %[1]s::%s"
-const tplAlterNotNull = " ALTER COLUMN %s set not null"
-
-func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagColumn) {
+func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagColumn, defaults string, sqlDefaults *strings.Builder) {
 
 	if len(flags) == 0 {
 		return
@@ -142,36 +149,51 @@ func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagCol
 	typeDef := getNewTypeDef(col, colDefine)
 	p.chkAlterBuilder()
 
+	comma := ' '
 	for _, token := range flags {
+		p.updDLL.WriteRune(comma)
 		switch token {
 		// change length
 		case ChgLength:
-			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), typeDef))
+			_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, col.Name(), typeDef)
 
 		// change defaults
 		case ChgDefault:
-			p.updDLL.WriteString(fmt.Sprintf(tplAlterColumnType, col.Name(), typeDef))
+			_, _ = fmt.Fprintf(p.updDLL, tplAlterSetDefault, col.Name(), defaults)
 
 		// change type
 		case ChgType:
-			p.updDLL.WriteString(fmt.Sprintf(" ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using %[1]s::%s", col.Name(), typeDef))
+			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using %[1]s::%s", col.Name(), typeDef)
 
 		// change type to Array
 		case ChgToArray:
-			p.updDLL.WriteString(fmt.Sprintf("ALTER COLUMN %s drop default, ALTER COLUMN %[1]s type %s using array[%[1]s::%[3]s]::%[2]s",
+			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s USING array[%[1]s::%[3]s]::%[2]s",
 				col.Name(),
 				typeDef,
 				strings.TrimSuffix(typeDef, "[]"),
-			))
+			)
 
 		// set not nullable
 		case MustNotNull:
-			p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col.Name()))
-
+			if defaults == "" || col.Default() != nil {
+				_, _ = fmt.Fprintf(p.updDLL, tplAlterNotNull, col.Name())
+			} else {
+				_, _ = fmt.Fprintf(sqlDefaults, `;
+UPDATE %s SET %s=DEFAULT
+WHERE %[2]s is null;
+ALTER TABLE %[1]s `+tplAlterNotNull, p.Name(), col.Name())
+				continue
+			}
 		// set nullable
 		case Nullable:
-			p.updDLL.WriteString(fmt.Sprintf("ALTER COLUMN %s drop not null", col.Name()))
+			_, _ = fmt.Fprintf(p.updDLL, "ALTER COLUMN %s drop not null", col.Name())
+
+		default:
+			logs.StatusLog("unknown column flag")
+			continue
 		}
+
+		comma = ','
 	}
 }
 

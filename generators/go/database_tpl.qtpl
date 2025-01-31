@@ -278,7 +278,7 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
 	{%- for _, attr := range t.Attr -%}
-	{%s= fmt.Sprintf("%-21s\t\t%s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %}"`
+	{%s= fmt.Sprintf("%-21s\t\t%s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %},omitempty"`
 	{%- endfor -%}
 	{%- if t.Type == 'r' -%}
 	LowerType pgtype.BoundType
@@ -327,7 +327,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
     	}
 	{%- else -%}
 	{%- for _, attr := range t.Attr -%}
-	{% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} c.ScanDecoder
+	{% if strings.HasPrefix(attr.Type, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} c.ScanDecoder
 	{%- else -%} c.ScanValue {%- endif -%}(&dst.{%s strcase.ToCamel(attr.Name) %})
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")

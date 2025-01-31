@@ -413,7 +413,7 @@ type `)
 //line database_tpl.qtpl:281
 			qw422016.E().S(attr.Name)
 //line database_tpl.qtpl:281
-			qw422016.N().S(`"`)
+			qw422016.N().S(`,omitempty"`)
 //line database_tpl.qtpl:281
 			qw422016.N().S("`")
 //line database_tpl.qtpl:281
@@ -512,7 +512,7 @@ func (dst *`)
 //line database_tpl.qtpl:329
 				qw422016.N().S(`	`)
 //line database_tpl.qtpl:330
-				if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
+				if strings.HasPrefix(attr.Type, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") {
 //line database_tpl.qtpl:330
 					qw422016.N().S(`c.ScanDecoder
 `)

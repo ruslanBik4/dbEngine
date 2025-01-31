@@ -141,6 +141,11 @@ func IsErrorDoesNotExists(err error) bool {
 	return false
 }
 
+const ErrCannotAlterColumnUsedView = "cannot alter type of a column used by a view or rule"
+
+var regErrView = regexp.MustCompile(`[\s\S]+?on\s+(materialized\s+)?view\s+(\w+)`)
+var regErrNullVallues = regexp.MustCompile(`[\s\S]+?column\s+"(\w+)"\s+of\s+relation\s+"(\w+)"\s+contains\s+null\s+values`)
+
 // IsErrorForReplace indicates about errors 'cannot change or replace"
 func IsErrorForReplace(err error) bool {
 	if err == nil {
@@ -150,7 +155,7 @@ func IsErrorForReplace(err error) bool {
 	ignoreErrors := []string{
 		"cannot change return type of existing function",
 		"cannot change name of input parameter",
-		"cannot alter type of a column used by a view or rule",
+		ErrCannotAlterColumnUsedView,
 	}
 	for _, val := range ignoreErrors {
 		if strings.Contains(err.Error(), val) {
@@ -269,7 +274,7 @@ func (err *ErrUnknownSql) Error() string {
 var errWrongTableName = errors.New("wrong table name '%v' %s")
 
 func logError(err error, ddlSQL string, fileName string) {
-
+	logs.ErrorStack(err)
 	if pgErr, ok := err.(*pgconn.PgError); ok {
 		pos := int(pgErr.Position - 1)
 		if pos <= 0 {
