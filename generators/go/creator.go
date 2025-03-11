@@ -457,11 +457,11 @@ func (c *Creator) chkTypes(col dbEngine.Column, propName string) (string, any) {
 }
 
 func (c *Creator) ChkDataType(typeCol string) (*pgtype.DataType, bool) {
-	return ChkDataType(c.DB, typeCol)
+	return ChkDataType(context.TODO(), c.DB, typeCol)
 }
 
-func ChkDataType(db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
-	conn, err := db.Conn.(*psql.Conn).Acquire(context.TODO())
+func ChkDataType(ctx context.Context, db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
+	conn, err := db.Conn.(*psql.Conn).Acquire(ctx)
 	if err != nil {
 		logs.ErrorLog(err)
 		return nil, false

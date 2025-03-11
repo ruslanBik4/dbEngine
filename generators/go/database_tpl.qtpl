@@ -231,7 +231,7 @@ func (DB *Database) Notify(ctx context.Context, ch, mess string) string {
 	if err != nil {
 		logs.ErrorLog(err, "SELECT pg_notify(%s, %s)", ch, mess)
 	} else {
-		logs.DebugLog("send notify in %s '%s' - %s", res, ch, mess)
+		logs.DebugLog("send notify '%s' in channel '%s': %s", mess, ch, res)
 	}
 
 	return res
@@ -302,7 +302,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	if err != nil {
 		return err
 	}
-	{%- else -%}
+	{% else %}
 	c := pgtype.NewCompositeTextScanner(ci, src)
 	{%- endif -%}
 	var scanErrors error
@@ -327,8 +327,8 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
     	}
 	{%- else -%}
 	{%- for _, attr := range t.Attr -%}
-	{% if strings.HasPrefix(attr.Type, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} c.ScanDecoder
-	{%- else -%} c.ScanValue {%- endif -%}(&dst.{%s strcase.ToCamel(attr.Name) %})
+	{% if strings.HasPrefix(attr.Type, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") %}
+	c.ScanDecoder{% else %}c.ScanValue{% endif %}(&dst.{%s strcase.ToCamel(attr.Name) %})
 	if err := c.Err(); err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
 		scanErrors = errors.Join(scanErrors, err)
