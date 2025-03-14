@@ -7,6 +7,7 @@ package dbEngine
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 	"time"
 
@@ -144,7 +145,7 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 	// todo check routine
 	lenFilter := len(b.filter) + strings.Count(b.Table.Name(), "$")
 	if lenFilter != len(b.Args) {
-		// rm from counter filter without params
+		// dec counter by filter without params
 		for _, name := range b.filter {
 			yes, hasTempl := b.isComplexCondition(name)
 			if yes && !hasTempl {
@@ -251,24 +252,49 @@ func shrinkColName(name string) string {
 func (b *SQLBuilder) Select() string {
 	if len(b.columns) == 0 {
 		if b.Table != nil && len(b.Table.Columns()) > 0 {
-			b.fillColumns()
+			b.fillColumnsFromTable()
 		} else {
 			// todo - chk for insert request
 			return "*"
 		}
 	}
 
-	return strings.Join(b.columns, ",")
+	// collect column names as SQL term
+	return strings.Join(slices.Collect(func(yield func(string) bool) {
+		for _, name := range b.columns {
+			if !yield(b.convertColumnName(name)) {
+				return
+			}
+		}
+	}), ",")
 }
 
-func (b *SQLBuilder) fillColumns() {
-	b.columns = make([]string, len(b.Table.Columns()))
-	for i, col := range b.Table.Columns() {
-		b.columns[i] = col.Name()
+func (b *SQLBuilder) convertColumnName(name string) string {
+	if strings.IndexRune(name, ' ') > 0 && !b.isComplexWhereTerm(name) {
+		name = `"` + name + `"`
 	}
+	return name
 }
 
-// Set return SET clause of sql update query
+func (b *SQLBuilder) isComplexWhereTerm(name string) bool {
+	return strings.Contains(name, " as ") ||
+		strings.Contains(name, " is ") ||
+		slices.ContainsFunc(operatorSymbols, func(r rune) bool {
+			return strings.IndexRune(name, r) > 0
+		})
+}
+
+func (b *SQLBuilder) fillColumnsFromTable() {
+	b.columns = slices.Collect(func(yield func(string) bool) {
+		for _, col := range b.Table.Columns() {
+			if !yield(col.Name()) {
+				return
+			}
+		}
+	})
+}
+
+// Set return SET clause of SQL update query
 func (b *SQLBuilder) Set() (string, error) {
 	s, comma := " SET ", ""
 	if len(b.columns) == 0 {
@@ -290,7 +316,7 @@ func (b *SQLBuilder) SetUpsert() (string, error) {
 	s, comma := " SET", " "
 	if len(b.columns) == 0 {
 		if b.Table != nil && len(b.Table.Columns()) > 0 {
-			b.fillColumns()
+			b.fillColumnsFromTable()
 		} else {
 			return "", errors.Wrap(NewErrWrongType("columns list", "table", "nil"),
 				"SetUpsert")
@@ -329,31 +355,33 @@ func (b *SQLBuilder) chkFilter(filter, name string) bool {
 // Where return where-clause of sql query
 func (b *SQLBuilder) Where() string {
 
-	where, comma := "", " "
-	for _, name := range b.filter {
-		isComplexCondition, hasTpl := b.isComplexCondition(name)
-		// 'is null, 'is not null', 'CASE WHEN ..END' write as is when they not consist of '%s'
-		if isComplexCondition && !hasTpl {
-			where += comma + name
-			comma = " AND "
-			continue
+	where := slices.Collect(func(yield func(string) bool) {
+		for _, name := range b.filter {
+			isComplexCondition, hasTpl := b.isComplexCondition(name)
+			// 'is null, 'is not null', 'CASE WHEN ...END' write as is when they not consist of '%s'
+			if isComplexCondition && !hasTpl {
+				if !yield(b.convertColumnName(name)) {
+					return
+				}
+				continue
+			}
+
+			b.posFilter++
+
+			if !yield(b.writeCondition(name, hasTpl)) {
+				return
+			}
 		}
-
-		b.posFilter++
-
-		where += comma + b.writeCondition(name, hasTpl)
-		comma = " AND "
-	}
-
-	if where > "" {
-		return " WHERE " + where
+	})
+	if len(where) > 0 {
+		return " WHERE " + strings.Join(where, " AND ")
 	}
 
 	return ""
 }
 
 func (b *SQLBuilder) isComplexCondition(name string) (bool, bool) {
-	isComplexCondition := strings.Index(name, " ") > 0
+	isComplexCondition := strings.IndexRune(name, ' ') > 0 && b.isComplexWhereTerm(name)
 	return isComplexCondition, isComplexCondition && strings.Contains(name, "%s")
 }
 
@@ -369,6 +397,7 @@ func (b *SQLBuilder) writeCondition(name string, hasTpl bool) string {
 			name = name[1:]
 		}
 
+		name = b.convertColumnName(name)
 		switch pre {
 		case '$':
 			return fmt.Sprintf("%s ~ concat('.*', $%d, '$')", name, b.posFilter)
@@ -395,6 +424,10 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 		column = table.FindColumn(name)
 		col, ok := column.(interface{ IsArray() bool })
 		isArray = ok && col.IsArray()
+	}
+
+	if !hasTpl {
+		name = b.convertColumnName(name)
 	}
 	switch arg := b.Args[b.posFilter-1].(type) {
 	case nil:
@@ -523,6 +556,8 @@ func (b *SQLBuilder) values() string {
 
 	return s
 }
+
+var operatorSymbols = []rune{'>', '<', '$', '~', '^', '@', '&', '+', '-', '*', '#', '=', '&', '|'}
 
 func isOperatorPre(s uint8) bool {
 	switch s {

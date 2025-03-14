@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestArgsForSelect(t *testing.T) {
@@ -210,9 +211,7 @@ func TestSQLBuilder_Select(t *testing.T) {
 				posFilter: tt.fields.posFilter,
 				Table:     tt.fields.Table,
 			}
-			if got := b.Select(); got != tt.want {
-				t.Errorf("Select() = %v, want %v", got, tt.want)
-			}
+			require.Equal(t, tt.want, b.Select())
 		})
 	}
 }
@@ -259,7 +258,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT * FROM StringTable WHERE  id=$1 order by id",
+			"SELECT * FROM StringTable WHERE id=$1 order by id",
 			false,
 		},
 		{
@@ -273,7 +272,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login FROM StringTable WHERE  id=$1 order by last_login",
+			"SELECT last_login FROM StringTable WHERE id=$1 order by last_login",
 			false,
 		},
 		{
@@ -287,7 +286,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login,name FROM StringTable WHERE  id=$1 order by last_login,name",
+			"SELECT last_login,name FROM StringTable WHERE id=$1 order by last_login,name",
 			false,
 		},
 		{
@@ -301,7 +300,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login,name FROM StringTable WHERE  id=$1 AND id_roles=$2",
+			"SELECT last_login,name FROM StringTable WHERE id=$1 AND id_roles=$2",
 			false,
 		},
 		{
@@ -329,7 +328,21 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				TableString{name: "StringTable"},
 				nil,
 			},
-			"SELECT last_login,name FROM StringTable WHERE  id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only ",
+			"SELECT last_login,name FROM StringTable WHERE id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only ",
+			false,
+		},
+		{
+			"two columns with mix name select according two filter columns & fetch & offset",
+			fields{
+				[]any{1, 2},
+				[]string{"last Login", "name of Organization"},
+				[]string{"id", "id_roles"},
+				nil,
+				0,
+				TableString{name: "StringTable"},
+				nil,
+			},
+			`SELECT "last Login","name of Organization" FROM StringTable WHERE id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only `,
 			false,
 		},
 	}
@@ -399,11 +412,12 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 		Table         Table
 		SelectColumns []Column
 	}
+	tableString := TableString{name: "StringTable"}
 	tests := []struct {
 		name    string
 		fields  fields
 		want    string
-		wantErr bool
+		wantErr error
 	}{
 		// TODO: Add test cases.
 		{
@@ -413,11 +427,11 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				[]string{"last_login"},
 				[]string{"id"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
-			"UPDATE StringTable SET  last_login=$1 WHERE  id=$2",
-			false,
+			"UPDATE StringTable SET  last_login=$1 WHERE id=$2",
+			nil,
 		},
 		{
 			"two columns update",
@@ -426,11 +440,11 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				[]string{"last_login", "name"},
 				[]string{"id"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
-			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3",
-			false,
+			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE id=$3",
+			nil,
 		},
 		{
 			"two columns update according two filter columns",
@@ -439,11 +453,11 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
-			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE  id=$3 AND id_roles=$4",
-			false,
+			"UPDATE StringTable SET  last_login=$1, name=$2 WHERE id=$3 AND id_roles=$4",
+			nil,
 		},
 		{
 			"two columns update according two filter columns & wrong args",
@@ -452,11 +466,11 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				[]string{"last_login", "name"},
 				[]string{"id", "id_roles"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"",
-			true,
+			&ErrWrongArgsLen{},
 		},
 	}
 	for _, tt := range tests {
@@ -469,13 +483,8 @@ func TestSQLBuilder_UpdateSql(t *testing.T) {
 				Table:     tt.fields.Table,
 			}
 			got, err := b.UpdateSql()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UpdateSql() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("UpdateSql() got = %v, want %v", got, tt.want)
-			}
+			require.IsType(t, tt.wantErr, err)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -641,6 +650,14 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
+		"two column with <, > (hard names)": {
+			[]any{1, 2, "test roles"},
+			[]string{"last Login", "name Of Organization"},
+			[]string{"<id", ">id_roles", "name Of Organization", `"last Login" > ""`},
+			0,
+			TableString{name: "StringTable"},
+			nil,
+		},
 		"two column with array": {
 			[]any{[]int8{1, 3}, 2},
 			[]string{"last_login", "name"},
@@ -666,84 +683,84 @@ func TestSQLBuilder_Where(t *testing.T) {
 		want string
 		fnc  func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool
 	}{
-		// TODO: Add test cases.
 		{
 			"simple where with id",
-			" WHERE  id=$1",
+			" WHERE id=$1",
 			assert.Equal,
 		},
 		{
 			"simple where with <id",
-			" WHERE  id < $1",
+			" WHERE id < $1",
 			assert.Equal,
 		},
 		{
 			"simple where with ~name",
-			" WHERE  name ~ $1",
+			" WHERE name ~ $1",
 			assert.Equal,
 		},
 		{
 			"null",
-			" WHERE  id_parent is null AND id is not null AND name is null",
+			" WHERE id_parent is null AND id is not null AND name is null",
 			assert.Equal,
 		},
 		{
 			"null with other simples arguments",
-			" WHERE  id_parent is null AND id=$1 AND temp is null AND name is not null AND id_user=$2 AND comment is null",
+			" WHERE id_parent is null AND id=$1 AND temp is null AND name is not null AND id_user=$2 AND comment is null",
 			assert.Equal,
 		},
 		{
 			"case",
-			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END",
+			" WHERE CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END",
 			assert.Equal,
 		},
 		{
 			"case with included param",
-			" WHERE  CASE WHEN m.wallet_type = 3 THEN m.pair_id = $1 ELSE true END",
+			" WHERE CASE WHEN m.wallet_type = 3 THEN m.pair_id = $1 ELSE true END",
 			assert.Equal,
 		},
 		{
 			"borrowed > repaid",
-			" WHERE  borrowed > repaid",
+			" WHERE borrowed > repaid",
 			assert.Equal,
 		},
 		{
 			"or",
-			" WHERE  (m.wallet_type = $1 or m.pair_id = $1 OR m.wallet_type > m.pair_id)",
+			" WHERE (m.wallet_type = $1 or m.pair_id = $1 OR m.wallet_type > m.pair_id)",
 			assert.Equal,
 		},
 		{
 			"some params with OR condition one of them included param",
-			" WHERE  name=$1 AND (m.wallet_type = $2 or m.pair_id = $2 OR m.wallet_type > m.pair_id) AND id=$3",
+			" WHERE name=$1 AND (m.wallet_type = $2 or m.pair_id = $2 OR m.wallet_type > m.pair_id) AND id=$3",
 			assert.Equal,
 		},
 		{
 			"one columns & one filter select",
-			" WHERE  id > $1",
+			" WHERE id > $1",
 			assert.Equal,
 		},
 		{
 			"two columns",
-			" WHERE  id=$1 AND name ~ concat('.*', $2, '$')",
+			" WHERE id=$1 AND name ~ concat('.*', $2, '$')",
 			assert.Equal,
 		},
 		{
 			"two column with <, >",
-			" WHERE  id < $1 AND id_roles > $2",
-			func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool {
-				return assert.Equal(t, expected, actual, msgAndArgs...)
-			},
+			" WHERE id < $1 AND id_roles > $2",
+			assert.Equal,
+		},
+		{
+			"two column with <, > (hard names)",
+			` WHERE id < $1 AND id_roles > $2 AND "name Of Organization"=$3 AND "last Login" > ""`,
+			assert.Equal,
 		},
 		{
 			"two column with array",
-			" WHERE  id=ANY($1) AND id_roles > $2",
-			func(t assert.TestingT, expected, actual any, msgAndArgs ...any) bool {
-				return assert.Equal(t, expected, actual, msgAndArgs...)
-			},
+			" WHERE id=ANY($1) AND id_roles > $2",
+			assert.Equal,
 		},
 		{
 			"two column with wrong args",
-			" WHERE  name ~ $1 AND name ~ concat('^.*', $2)",
+			" WHERE name ~ $1 AND name ~ concat('^.*', $2)",
 			assert.Equal,
 		},
 	}
@@ -757,7 +774,7 @@ func TestSQLBuilder_Where(t *testing.T) {
 				posFilter: opt.posFilter,
 				Table:     opt.Table,
 			}
-			tt.fnc(t, tt.want, b.Where())
+			tt.fnc(t, tt.want, b.Where(), tt.name)
 		})
 	}
 }
