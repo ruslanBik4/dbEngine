@@ -161,7 +161,19 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 
 	if len(b.OrderBy) > 0 {
 		// todo add column checking
-		sql += " order by " + strings.Join(b.OrderBy, ",")
+		sql += " order by " + strings.Join(slices.Collect(func(yield func(string) bool) {
+			for _, name := range b.OrderBy {
+				if b.Table.FindColumn(name) == nil {
+					logs.ErrorLog(ErrNotFoundColumn{
+						Table:  b.Table.Name(),
+						Column: name,
+					})
+				}
+				if !yield(b.convertColumnName(name)) {
+					return
+				}
+			}
+		}), ",")
 	}
 
 	if b.Offset > 0 {
