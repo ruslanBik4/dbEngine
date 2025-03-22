@@ -17,8 +17,10 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
+	"github.com/valyala/fasthttp"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/dbEngine/dbEngine/csv"
 	"github.com/ruslanBik4/gotools/typesExt"
 	"github.com/ruslanBik4/logs"
 
@@ -166,6 +168,11 @@ func (c *Conn) addNotice(pid uint32, notice *pgconn.Notice) {
 // LastRowAffected return number of insert/deleted/updated rows
 func (c *Conn) LastRowAffected() int64 {
 	return c.lastComTag.RowsAffected()
+}
+
+// LastComTag return result of last operation
+func (c *Conn) LastComTag() string {
+	return c.lastComTag.String()
 }
 
 // GetSchema read DB schema & store it
@@ -544,6 +551,30 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, 
 	}
 
 	return row.Scan(dest...)
+}
+
+func (c *Conn) CopyCSV(ctx *fasthttp.RequestCtx, csv *csv.CsvReader) (string, error) {
+	conn, err := c.Acquire(ctx)
+	if err != nil {
+		return "", err
+	}
+	b := &dbEngine.SQLBuilder{}
+	dbEngine.ColumnsForSelect(csv.Columns...)(b)
+
+	sql := fmt.Sprintf(
+		`COPY %s (%s) FROM STDIN WITH (FORMAT csv, DELIMITER '%c', QUOTE '"', NULL '', ENCODING 'UTF8', ON_ERROR 'ignore', LOG_VERBOSITY 'verbose')`,
+		csv.Table.Name(),
+		b.Select(),
+		csv.Comma,
+	)
+	logs.StatusLog(sql)
+	ct, err := conn.Conn().PgConn().CopyFrom(ctx, csv, sql)
+	if err != nil {
+		return "", err
+	}
+	c.lastComTag = ct
+
+	return ct.String(), nil
 }
 
 func mapForScan[T any](r map[string]T, columns []dbEngine.Column) []any {

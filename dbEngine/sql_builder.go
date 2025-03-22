@@ -172,6 +172,7 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 		sql += fmt.Sprintf(" fetch first %d rows only ", b.Limit)
 	}
 
+	logs.StatusLog(sql, b.Args)
 	return sql, nil
 }
 
@@ -476,10 +477,9 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 }
 
 func (b *SQLBuilder) dateRangeChk(name string, arg *pgtype.Daterange, column Column) string {
-	logs.StatusLog("%T %#[1]v", arg)
 	switch column.Type() {
 	case "date":
-		return fmt.Sprintf("%s<@$%d::daterange", name, b.posFilter)
+		return fmt.Sprintf("%s<@($%d::daterange)", name, b.posFilter)
 
 	case "timestamptz":
 		b.Args[b.posFilter-1] = &pgtype.Tstzrange{

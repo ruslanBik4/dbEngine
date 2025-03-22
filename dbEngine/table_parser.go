@@ -11,7 +11,7 @@ import (
 )
 
 func (p *ParserCfgDDL) updateTable(ddl string) bool {
-	fields := regTable.FindStringSubmatch(strings.ToLower(ddl))
+	fields := regTable.FindStringSubmatch(ddl)
 	if len(fields) == 0 {
 		return false
 	}
@@ -44,8 +44,11 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 
 				sAlter, colName, colDefine := title[0], title[1], title[2]
 				defaults := ""
-				if newDef := RegDefault.FindStringSubmatch(strings.ToLower(colDefine)); len(newDef) > 0 {
+				if newDef := RegDefault.FindStringSubmatch(colDefine); len(newDef) > 0 {
 					defaults = newDef[1]
+				}
+				if strings.IndexRune(colName, ' ') > 0 && !(strings.HasPrefix(colName, `"`) && strings.HasSuffix(colName, `"`)) {
+					colName = `"` + colName + `"`
 				}
 				if col := p.FindColumn(colName); col == nil {
 					if strings.Contains(sAlter, "not null") && defaults > "" {
@@ -149,26 +152,31 @@ func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagCol
 	typeDef := getNewTypeDef(col, colDefine)
 	p.chkAlterBuilder()
 
+	colName := col.Name()
+	if strings.IndexRune(colName, ' ') > 0 && !(strings.HasPrefix(colName, `"`) && strings.HasSuffix(colName, `"`)) {
+		colName = `"` + colName + `"`
+	}
+
 	comma := ' '
 	for _, token := range flags {
 		p.updDLL.WriteRune(comma)
 		switch token {
 		// change length
 		case ChgLength:
-			_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, col.Name(), typeDef)
+			_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, colName, typeDef)
 
 		// change defaults
 		case ChgDefault:
-			_, _ = fmt.Fprintf(p.updDLL, tplAlterSetDefault, col.Name(), defaults)
+			_, _ = fmt.Fprintf(p.updDLL, tplAlterSetDefault, colName, defaults)
 
 		// change type
 		case ChgType:
-			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using %[1]s::%s", col.Name(), typeDef)
+			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using %[1]s::%s", colName, typeDef)
 
 		// change type to Array
 		case ChgToArray:
 			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s USING array[%[1]s::%[3]s]::%[2]s",
-				col.Name(),
+				colName,
 				typeDef,
 				strings.TrimSuffix(typeDef, "[]"),
 			)
@@ -176,17 +184,17 @@ func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagCol
 		// set not nullable
 		case MustNotNull:
 			if defaults == "" || col.Default() != nil {
-				_, _ = fmt.Fprintf(p.updDLL, tplAlterNotNull, col.Name())
+				_, _ = fmt.Fprintf(p.updDLL, tplAlterNotNull, colName)
 			} else {
 				_, _ = fmt.Fprintf(sqlDefaults, `;
 UPDATE %s SET %s=DEFAULT
 WHERE %[2]s is null;
-ALTER TABLE %[1]s `+tplAlterNotNull, p.Name(), col.Name())
+ALTER TABLE %[1]s `+tplAlterNotNull, p.Name(), colName)
 				continue
 			}
 		// set nullable
 		case Nullable:
-			_, _ = fmt.Fprintf(p.updDLL, "ALTER COLUMN %s drop not null", col.Name())
+			_, _ = fmt.Fprintf(p.updDLL, "ALTER COLUMN %s drop not null", colName)
 
 		default:
 			logs.StatusLog("unknown column flag")

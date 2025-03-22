@@ -305,23 +305,26 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 
 		// this local err - not return for parent method
 		err = db.Conn.ExecDDL(db.ctx, ddlType)
-		if err == nil {
+		switch {
+		case err == nil:
 			logs.StatusLog("New types added to DB", typeName)
-			return nil
-		}
+			db.Types[typeName] = Types{
+				Id:         0,
+				Name:       typeName,
+				Type:       0,
+				Attr:       nil,
+				Enumerates: nil,
+			}
 
-		if IsErrorAlreadyExists(err) {
-			err = db.alterType(nil, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
-		} else if IsErrorForReplace(err) {
+		case IsErrorAlreadyExists(err):
+			return db.alterType(nil, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
+		case IsErrorForReplace(err):
 			logError(err, ddlType, fileName)
-			err = nil
-		}
-
-		if err != nil {
+		case err != nil:
 			logError(err, ddlType, fileName)
+			return err
 		}
-
-		return err
+		return nil
 
 	default:
 		return nil

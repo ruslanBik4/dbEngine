@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/jackc/pgx/v4"
@@ -254,7 +255,7 @@ func (t *Table) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, 
 
 // FindColumn return column 'name' on Table or nil
 func (t *Table) FindColumn(name string) dbEngine.Column {
-	c := t.findColumn(name)
+	c := t.findColumn(strings.Trim(name, `"`))
 	if c == nil {
 		return nil
 	}
