@@ -558,6 +558,7 @@ func (c *Conn) CopyCSV(ctx *fasthttp.RequestCtx, csv *csv.CsvReader) (string, er
 	if err != nil {
 		return "", err
 	}
+	defer conn.Release()
 	b := &dbEngine.SQLBuilder{}
 	dbEngine.ColumnsForSelect(csv.Columns...)(b)
 

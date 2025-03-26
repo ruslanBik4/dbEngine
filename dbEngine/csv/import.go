@@ -41,7 +41,8 @@ func NewCsvRows(f io.Reader, table dbEngine.Table) (c *CsvReader, err error) {
 	c.Columns = strings.Split(gotools.BytesToString(c.line), ",")
 	countColumns := len(table.Columns())
 	if len(c.Columns) > countColumns {
-		return nil, ErrInvalidColumnCount
+		err = ErrInvalidColumnCount
+		return
 	}
 
 	if len(c.Columns) < countColumns {

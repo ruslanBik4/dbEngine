@@ -184,7 +184,6 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 		sql += fmt.Sprintf(" fetch first %d rows only ", b.Limit)
 	}
 
-	logs.StatusLog(sql, b.Args)
 	return sql, nil
 }
 
