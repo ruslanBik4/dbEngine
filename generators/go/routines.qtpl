@@ -24,7 +24,7 @@ func (d *Database) {%s camelName %}(
 ) error {
 	return d.Conn.ExecDDL(
 		ctx,
-		`{%s sql %}`,
+		`{%s= sql %}`,
 		{%= c.paramsArgs(r) %})
 }
 {%- else -%}
@@ -85,7 +85,7 @@ func (d *Database) {%s camelName %}Out(
 ) error {
 	 return d.Conn.SelectOneAndScan(ctx,
 		res,
-		`{%s sql %}
+		`{%s= sql %}
 		FETCH FIRST 1 ROW ONLY`,
 		{%= c.paramsArgs(r) %})
 }
@@ -103,7 +103,7 @@ func (d *Database) {%s camelName %}Out(
 	return d.Conn.SelectAndScanEach(ctx,
 		each,
 		res,
-		`{%s sql %}`,
+		`{%s= sql %}`,
 		{%= c.paramsArgs(r) %})
 }
 

@@ -260,8 +260,10 @@ func (p *ParserCfgDDL) addComment(ddl string) bool {
 		}
 
 		if col.Comment() != strings.ReplaceAll(tokens[3], "''", "'") {
-			logs.StatusLog(col.Comment(), tokens[3])
-			p.runDDL(ddl)
+			err := p.runDDL(ddl)
+			if err != nil {
+				logs.ErrorLog(err)
+			}
 		}
 		return true
 	}
