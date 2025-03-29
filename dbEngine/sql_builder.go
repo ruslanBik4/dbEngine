@@ -455,6 +455,9 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 		}
 		cond = "ANY($%[1]d)"
 
+	case pgtype.Numrange, pgtype.Int4range, pgtype.Int8range, *pgtype.Numrange, *pgtype.Int4range, *pgtype.Int8range:
+		return fmt.Sprintf("%s::numeric<@($%d::numrange)", name, b.posFilter)
+
 	case pgtype.Daterange:
 		return b.dateRangeChk(name, &arg, column)
 
