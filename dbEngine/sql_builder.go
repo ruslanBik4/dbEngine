@@ -335,14 +335,14 @@ func (b *SQLBuilder) SetUpsert() (string, error) {
 		}
 	}
 
-loop_columns:
+loopColumns:
 	for _, name := range b.columns {
 		if c := b.onConflict; c == name || b.chkFilter(c, name) {
-			continue loop_columns
+			continue loopColumns
 		}
 		for _, f := range b.filter {
 			if f == name || b.chkFilter(f, name) {
-				continue loop_columns
+				continue loopColumns
 			}
 		}
 		s += fmt.Sprintf(comma+"%s=EXCLUDED.%[1]s", name)
