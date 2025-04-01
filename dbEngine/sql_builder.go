@@ -162,14 +162,20 @@ func (b *SQLBuilder) SelectSql() (string, error) {
 	if len(b.OrderBy) > 0 {
 		// todo add column checking
 		sql += " order by " + strings.Join(slices.Collect(func(yield func(string) bool) {
-			for _, name := range b.OrderBy {
+			for _, order := range b.OrderBy {
+				name, hasDesc := strings.CutSuffix(order, " desc")
 				if b.Table.FindColumn(name) == nil {
 					logs.ErrorLog(ErrNotFoundColumn{
 						Table:  b.Table.Name(),
 						Column: name,
 					})
 				}
-				if !yield(b.convertColumnName(name)) {
+
+				name = b.convertColumnName(name)
+				if hasDesc {
+					name += " desc"
+				}
+				if !yield(name) {
 					return
 				}
 			}
