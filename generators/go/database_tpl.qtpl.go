@@ -506,13 +506,13 @@ func (dst *`)
 
     	if dst.LowerType == pgtype.Inclusive || dst.LowerType == pgtype.Exclusive {
     		if err := dst.Lower.DecodeText(ci, gotools.StringToBytes(utr.Lower)); err != nil {
-    			scanErrors = errors.Join(scanErrors, err)
+    			return err
     		}
     	}
 
     	if dst.UpperType == pgtype.Inclusive || dst.UpperType == pgtype.Exclusive {
     		if err := dst.Upper.DecodeText(ci, gotools.StringToBytes(utr.Upper)); err != nil {
-    			scanErrors = errors.Join(scanErrors, err)
+    			return err
     		}
     	}
 `)
