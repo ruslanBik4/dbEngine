@@ -2,7 +2,6 @@ package dbEngine
 
 import (
 	"encoding/json"
-	"errors"
 	"go/types"
 
 	"github.com/jackc/pgtype"
@@ -43,6 +42,10 @@ type TypesAttr struct {
 	IsNotNull bool
 }
 
+func (dst *TypesAttr) NotOmited() bool {
+	return dst.Type != "string"
+}
+
 func (dst *TypesAttr) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	*dst = TypesAttr{}
 	if len(src) == 0 {
@@ -50,20 +53,19 @@ func (dst *TypesAttr) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	}
 
 	c := pgtype.NewCompositeTextScanner(ci, src)
-	var scanErrors error
 	c.ScanValue(&dst.Name)
 	if c.Err() != nil {
-		scanErrors = errors.Join(scanErrors, c.Err())
+		return c.Err()
 	}
 	c.ScanValue(&dst.Type)
 	if c.Err() != nil {
-		scanErrors = errors.Join(scanErrors, c.Err())
+		return c.Err()
 	}
 	c.ScanValue(&dst.IsNotNull)
 	if c.Err() != nil {
-		scanErrors = errors.Join(scanErrors, c.Err())
+		return c.Err()
 	}
-	return scanErrors
+	return nil
 }
 
 type TypesAttrs []TypesAttr

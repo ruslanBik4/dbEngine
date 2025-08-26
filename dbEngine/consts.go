@@ -61,7 +61,7 @@ var (
 	regCommentColumn    = regexp.MustCompile(`^\s*(?i)COMMENT\s+ON\s+COLUMN\s+("[^"]+"|\w+)\.("[^"]+"|\w+)\s+IS\s+'(.+)'`)
 	regPartitionTable   = regexp.MustCompile(`create\s+table(?:\s+if\s+not\s+exists)?\s+(\w+)\s+partition`)
 	regTable            = regexp.MustCompile(`(?i)create\s+(or\s+replace\s+view|table)\s+(?P<name>\w+)\s*\((?P<builderOpts>(\s*(\S+)\s+(?P<define>[\w\[\]':\s]+(\(\s*\d+(,\s*\d+)?\s*\))?[\w.+\s]*)(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?,?)*)\s*(primary\s+key\s*\([^)]+\))?\s*\)`)
-	regField            = regexp.MustCompile(`^\s*((?:"[^"]+")|\w+)\s+((?:[\w\s]+(?:\(\s*\d+(?:,\s*\d+)?\))?(?:\[\d*])*)?(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?)`)
+	regField            = regexp.MustCompile(`^\s*("[^"]+"|\w+)\s+((?:[\w\s]+(?:\(\s*\d+(?:,\s*\d+)?\))?(?:\[\d*])*)?(?:[\s\w]*\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)?)`)
 	regFieldName        = regexp.MustCompile(`^\w+$`)
 	RegDefault          = regexp.MustCompile(`(?i)default\s+(\(?[\w.+\s]*(?:'[^']*')?(?:\s*::\s*\w+)?\)?)`)
 	regView             = regexp.MustCompile(`create\s+or\s+replace\s+view\s+(?P<name>\w+)\s+(with\s*\([\w,=\s]+\)\s*)?as\s+select`)

@@ -2,6 +2,7 @@
 {% import (
 	"fmt"
 	"strings"
+	"slices"
 
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -277,8 +278,16 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 {%- if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" -%}
 // {%s typeName %} create new instance of type {%s name %}
 type {%s typeName %} struct {
+    {% code
+       maxName := len(slices.MaxFunc(t.Attr, func(a, b dbEngine.TypesAttr) int {
+                                         		return len(a.Name) - len(b.Name)
+                                         	}).Name)
+       maxType := len(slices.MaxFunc(t.Attr, func(a, b dbEngine.TypesAttr) int {
+                                         		return len(a.Type) - len(b.Type)
+                                         	}).Type)
+    %}
 	{%- for _, attr := range t.Attr -%}
-	{%s= fmt.Sprintf("%-21s\t\t%s\t",  strcase.ToCamel(attr.Name), attr.Type) %} `json:"{%s attr.Name %},omitempty"`
+	{%s= fmt.Sprintf("%-*s\t\t%-*s\t `json:\"%s", maxName,  strcase.ToCamel(attr.Name), maxType, attr.Type, attr.Name) %}{%- if !attr.NotOmited() -%},omitempty{%- endif -%}"`
 	{%- endfor -%}
 	{%- if t.Type == 'r' -%}
 	LowerType pgtype.BoundType
@@ -305,7 +314,7 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	{% else %}
 	c := pgtype.NewCompositeTextScanner(ci, src)
 	{%- endif -%}
-	var scanErrors error
+
 	{%- if t.Type == 'r' -%}
     	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
@@ -329,14 +338,13 @@ func (dst *{%s typeName %}) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 	{%- for _, attr := range t.Attr -%}
 	{% if strings.HasPrefix(attr.Type, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") %}
 	c.ScanDecoder{% else %}c.ScanValue{% endif %}(&dst.{%s strcase.ToCamel(attr.Name) %})
-	if err := c.Err(); err != nil {
-		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
-		scanErrors = errors.Join(scanErrors, err)
+	if c.Err() != nil {
+		return c.Err()
 	}
 	{%- endfor -%}
 	{%- endif -%}
 
-	return scanErrors
+	return nil
 }
 
 // DecodeBinary implement pgtype.BinaryDecoder interface
@@ -355,7 +363,6 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 	countFields := c.FieldCount()
 	{%- endif -%}
-	var scanErrors error
 	{%- if t.Type == 'r' -%}
     	dst.LowerType = utr.LowerType
     	dst.UpperType = utr.UpperType
@@ -366,13 +373,13 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 
     	if dst.LowerType == pgtype.Inclusive || dst.LowerType == pgtype.Exclusive {
     		if err := dst.Lower.DecodeBinary(ci, utr.Lower); err != nil {
-    			scanErrors = errors.Join(scanErrors, err)
+    			return err
     		}
     	}
 
     	if dst.UpperType == pgtype.Inclusive || dst.UpperType == pgtype.Exclusive {
     		if err := dst.Upper.DecodeBinary(ci, utr.Upper); err != nil {
-    			scanErrors = errors.Join(scanErrors, err)
+    			return err
     		}
     	}
 	{%- else -%}
@@ -384,12 +391,12 @@ func (dst *{%s typeName %}) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error 
 	if err := {% if strings.HasPrefix(attr.Name, "pgtype.") || strings.HasPrefix(attr.Name, "psql.") -%} &dst.{%s strcase.ToCamel(attr.Name) %}.DecodeBinary(ci, c.Bytes())
 	{%- else -%} ci.Scan(c.OID(), pgtype.BinaryFormatCode, c.Bytes(), &dst.{%s strcase.ToCamel(attr.Name) %}) {%- endif -%}; err != nil {
 		logs.ErrorLog(err, "{%s typeName %}.{%s strcase.ToCamel(attr.Name) %}")
-		scanErrors = errors.Join(scanErrors, err)
+		return err
 	}
 	{%- endfor -%}
 	{%- endif -%}
 
-	return scanErrors
+	return nil
 }
 
 // Scan implement sql.Scanner interface

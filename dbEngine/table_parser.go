@@ -30,40 +30,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 			}
 		case "builderOpts":
 
-			nameFields := strings.Split(fields[i], ",\n")
-			newNotNulls := make([]string, 0)
-			sqlDefaults := &strings.Builder{}
-
-			for _, name := range nameFields {
-				title := regField.FindStringSubmatch(name)
-				if len(title) < 3 ||
-					strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
-					strings.HasPrefix(strings.ToLower(title[1]), "constraint") {
-					continue
-				}
-
-				sAlter, colName, colDefine := title[0], title[1], title[2]
-				defaults := ""
-				if newDef := RegDefault.FindStringSubmatch(colDefine); len(newDef) > 0 {
-					defaults = newDef[1]
-				}
-				if strings.IndexRune(colName, ' ') > 0 && !(strings.HasPrefix(colName, `"`) && strings.HasSuffix(colName, `"`)) {
-					colName = `"` + colName + `"`
-				}
-				if col := p.FindColumn(colName); col == nil {
-					if strings.Contains(sAlter, "not null") && defaults > "" {
-						newNotNulls = append(newNotNulls, colName)
-					} else {
-						logWarning("COLUMN", colName, "has't default will be add without flag SET NULL", 0)
-					}
-					p.addColumn(sAlter)
-
-				} else if flags := col.CheckAttr(colDefine); col.Primary() {
-					p.checkPrimary(col, colDefine, flags)
-				} else {
-					p.checkColumn(col, colDefine, flags, defaults, sqlDefaults)
-				}
-			}
+			newNotNulls, sqlDefaults := p.chkColumns(fields[i])
 
 			if p.updDLL != nil {
 				if len(newNotNulls) > 0 {
@@ -112,6 +79,50 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 	}
 
 	return true
+}
+
+func (p *ParserCfgDDL) chkColumns(columns string) (newNotNulls []string, sqlDefaults *strings.Builder) {
+	nameFields := strings.Split(columns, ",\n")
+	newNotNulls = make([]string, 0)
+	sqlDefaults = &strings.Builder{}
+
+	for i, name := range nameFields {
+		title := regField.FindStringSubmatch(name)
+		if len(title) < 3 ||
+			strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
+			strings.HasPrefix(strings.ToLower(title[1]), "constraint") {
+			continue
+		}
+
+		sAlter, colName, colDefine := title[0], title[1], title[2]
+		defaults := ""
+		if newDef := RegDefault.FindStringSubmatch(colDefine); len(newDef) > 0 {
+			defaults = newDef[1]
+		}
+		//if strings.IndexRune(colName, ' ') > 0 && !(strings.HasPrefix(colName, `"`) && strings.HasSuffix(colName, `"`)) {
+		//	colName = `"` + colName + `"`
+		//}
+		if strings.HasPrefix(colName, `"`) {
+			colName = strings.Trim(colName, `"`)
+		} else {
+			colName = strings.ToLower(colName)
+		}
+
+		if col := p.FindColumn(colName); col == nil {
+			if strings.Contains(sAlter, "not null") && defaults > "" {
+				newNotNulls = append(newNotNulls, colName)
+			} else {
+				logWarning("COLUMN", p.filename, colName+" has't default will be add without flag SET NULL", i+1)
+			}
+			p.addColumn(sAlter)
+
+		} else if flags := col.CheckAttr(colDefine); col.Primary() {
+			p.checkPrimary(col, colDefine, flags)
+		} else {
+			p.checkColumn(col, colDefine, flags, defaults, sqlDefaults)
+		}
+	}
+	return
 }
 
 func (p *ParserCfgDDL) chkAlterBuilder() {
@@ -253,7 +264,10 @@ func (p *ParserCfgDDL) addComment(ddl string) bool {
 			return true
 		}
 		colName := strings.ToLower(tokens[2])
-		col := p.Table.FindColumn(colName)
+		if strings.HasPrefix(colName, `"`) {
+			colName = strings.Trim(tokens[2], `"`)
+		}
+		col := p.FindColumn(colName)
 		if col == nil {
 			logError(&ErrUnknownSql{Line: p.line, Msg: "not found column " + colName}, ddl, p.filename)
 			return true
