@@ -421,6 +421,10 @@ func (b *SQLBuilder) writeCondition(name string, hasTpl bool) string {
 			return fmt.Sprintf("%s ~ concat('.*', $%d, '$')", name, b.posFilter)
 		case '^':
 			return fmt.Sprintf("%s ~ concat('^.*', $%d)", name, b.posFilter)
+		case '*':
+			return fmt.Sprintf("%s ~* concat('^.*', $%d)", name, b.posFilter)
+		case '!':
+			return fmt.Sprintf("%s !~ concat('^.*', $%d)", name, b.posFilter)
 		default:
 			return fmt.Sprintf("%s %s $%d", name, preStr, b.posFilter)
 		}
@@ -581,7 +585,7 @@ var operatorSymbols = []rune{'>', '<', '$', '~', '^', '@', '&', '+', '-', '*', '
 
 func isOperatorPre(s uint8) bool {
 	switch s {
-	case '=', '>', '<', '&', '|', '#':
+	case '=', '>', '<', '&', '|', '#', '*', '!':
 		return true
 	default:
 		return false

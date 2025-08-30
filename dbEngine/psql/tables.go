@@ -225,6 +225,7 @@ func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, row db
 		return err
 	}
 
+	logs.DebugLog(sql)
 	return t.conn.SelectAndScanEach(ctx, each, row, sql, b.Args...)
 }
 
