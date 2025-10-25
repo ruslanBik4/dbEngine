@@ -86,11 +86,11 @@ func (dst *TypesAttrs) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
 
 // Types consists of parameters of DB types
 type Types struct {
-	Id         uint32
-	Name       string
-	Type       rune
-	Attr       TypesAttrs
-	Enumerates []string
+	Id         uint32     `json:"id,omitempty"`
+	Name       string     `json:"name,omitempty"`
+	Type       rune       `json:"type,omitempty"`
+	Attr       TypesAttrs `json:"attr,omitempty"`
+	Enumerates []string   `json:"enumerates,omitempty"`
 }
 
 func NewTypes() *Types {
