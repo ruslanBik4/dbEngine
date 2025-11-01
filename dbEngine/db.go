@@ -300,7 +300,7 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 		fileName := filepath.Base(path)
 		typeName := strings.ToLower(strings.TrimSuffix(fileName, ext))
 		if t, ok := db.Types[typeName]; ok {
-			return db.alterType(&t, fileName, typeName, strings.ToLower(strings.Replace(ddlType, "\n", "", -1)))
+			return db.alterType(&t, fileName, typeName, strings.Replace(ddlType, "\n", "", -1))
 		}
 
 		// this local err - not return for parent method
@@ -331,7 +331,8 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 	}
 }
 
-var regTypeAttr = regexp.MustCompile(`create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
+var regTypeAttr = regexp.MustCompile(`(?i)create\s+type\s+\w+\s+as\s*\((?P<builderOpts>(\s*\w+\s+\w*\s*[\w\[\]()]*,?)+)\s*\);`)
+var regTypeEnum = regexp.MustCompile(`(?i)create\s+type\s+\w+\s+as\s*enum\s*\(\s*(?P<builderOpts>('[^,)]+',?\s*)+)\s*\);`)
 
 // var regFieldAttr = regexp.MustCompile(`(\w+)\s+([\w()\[\]\s]+)`)
 
@@ -341,16 +342,56 @@ func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 		logs.ErrorLog(errors.New("alter without known DB type!"))
 		return nil
 	}
-	fields := regTypeAttr.FindStringSubmatch(ddl)
-	ddlType := "alter type " + typeName
 
+	if fields := regTypeAttr.FindStringSubmatch(ddl); len(fields) > 0 {
+		return db.alterCompositeType(t, fileName, typeName, fields)
+	} else if enumerates := regTypeEnum.FindStringSubmatch(ddl); len(enumerates) > 0 {
+		return db.alterEnumType(t, fileName, typeName, enumerates)
+	}
+
+	return nil
+}
+
+const addEnumBefore = ` ADD VALUE %s BEFORE '%s'`
+const addEnumAfter = ` ADD VALUE %s AFTER '%s'`
+
+func (db *DB) alterEnumType(t *Types, fileName, typeName string, enumerates []string) error {
+	ddlType := "alter type " + typeName
+	for i, name := range regTypeAttr.SubexpNames() {
+		if name == "builderOpts" && (i < len(enumerates)) {
+			nameFields := strings.Split(enumerates[i], ",")
+			offset := 0
+			for ord, enum := range nameFields {
+				name := strings.ReplaceAll(strings.TrimSpace(enum), "''", "'")
+				if slices.Index(t.Enumerates, strings.Trim(name, "'")) < 0 {
+					if ord == 0 {
+						ddlAddAttr := ddlType + fmt.Sprintf(addEnumBefore, name, t.Enumerates[0])
+						if err := db.Conn.ExecDDL(db.ctx, ddlAddAttr); err != nil {
+							return err
+						}
+						logInfo(prefix, fileName, ddlAddAttr, 1)
+					} else if ord-offset < len(t.Enumerates) {
+						logs.StatusLog(ddlType+fmt.Sprintf(addEnumAfter, name, t.Enumerates[ord-offset-1]), ord-offset, len(t.Enumerates))
+					} else {
+						logs.StatusLog(ddlType+fmt.Sprintf(addEnumAfter, name, t.Enumerates[len(t.Enumerates)-1]), ord+offset, len(t.Enumerates))
+					}
+					offset++
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []string) error {
+	ddlType := "alter type " + typeName
 	for i, name := range regTypeAttr.SubexpNames() {
 		if name == "builderOpts" && (i < len(fields)) {
-
 			nameFields := strings.Split(fields[i], ",")
 			for _, name := range nameFields {
 				p := strings.Split(strings.TrimSpace(name), " ")
-				attrName := strings.TrimSpace(p[0])
+				//todo aad "Name of wrong" performing
+				attrName := strings.ToLower(strings.TrimSpace(p[0]))
 				if len(p) < 2 {
 					return ErrWrongType{
 						Name:     name,
@@ -395,7 +436,7 @@ func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 				}
 				err := db.Conn.ExecDDL(db.ctx, ddlAlter)
 				if err != nil {
-					logs.StatusLog(ddlAlter)
+					logs.ErrorLog(err, ddlAlter)
 					return err
 				}
 				logInfo(prefix, fileName, ddlAlter, 1)
@@ -405,15 +446,15 @@ func (db *DB) alterType(t *Types, fileName, typeName, ddl string) error {
 			}
 		}
 	}
-
 	return nil
 }
 
 var (
-	regFuncTitle = regexp.MustCompile(`(function|procedure)\s+\w+\s*\(([^()]+(\(\d+\))?)*\)`)
-	regFuncDef   = regexp.MustCompile(`\sdefault\s+[^,)]+`)
+	regRoutineTitle = regexp.MustCompile(`(function|procedure)\s+\w+\s*\(([^()]+(\(\d+\))?)*\)`)
+	regRoutineDef   = regexp.MustCompile(`\sdefault\s+[^,)]+`)
 )
 
+// todo split first row to get procedure title
 func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error {
 	if (err != nil) || ((info != nil) && info.IsDir()) {
 		return nil
@@ -438,17 +479,17 @@ func (db *DB) readAndReplaceFunc(path string, info os.DirEntry, err error) error
 			err = nil
 		} else if IsErrorForReplace(err) {
 			err = nil
-			for _, funcName := range regFuncTitle.FindAllString(strings.ToLower(ddlSQL), -1) {
-				dropSQL := "DROP " + regFuncDef.ReplaceAllString(funcName, "")
+			for _, funcName := range regRoutineTitle.FindAllString(strings.ToLower(ddlSQL), -1) {
+				dropSQL := "DROP " + regRoutineDef.ReplaceAllString(funcName, "")
 				logs.DebugLog(dropSQL)
-				err = db.Conn.ExecDDL(context.TODO(), dropSQL)
+				err = db.Conn.ExecDDL(db.ctx, dropSQL)
 				if err != nil {
 					break
 				}
 			}
 
 			if err == nil {
-				err = db.Conn.ExecDDL(context.TODO(), ddlSQL)
+				err = db.Conn.ExecDDL(db.ctx, ddlSQL)
 				if err == nil {
 					db.FuncsReplaced = append(db.FuncsReplaced, funcName)
 				}

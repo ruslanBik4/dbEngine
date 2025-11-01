@@ -275,8 +275,8 @@ func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 {% endfunc %}
 
 {%- func (c *Creator) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) -%}
-{%- if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" -%}
-// {%s typeName %} create new instance of type {%s name %}
+//{%- if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" -%}
+// {%s typeName %} create new instance of type {%s name %}todo: add Rows interface
 type {%s typeName %} struct {
     {% code
        maxName := len(slices.MaxFunc(t.Attr, func(a, b dbEngine.TypesAttr) int {

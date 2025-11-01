@@ -381,6 +381,8 @@ func (c *Creator) CreateDatabase(packages, listRoutines []string) string {
 
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:277
 func (c *Creator) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngine.Types, typeName, name, typeCol string) {
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:277
+	qw422016.N().S(`//`)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:278
 	if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" {
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:278
@@ -392,7 +394,7 @@ func (c *Creator) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngin
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:279
 		qw422016.E().S(name)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:279
-		qw422016.N().S(`
+		qw422016.N().S(`todo: add Rows interface
 type `)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/database_tpl.qtpl:280
 		qw422016.E().S(typeName)

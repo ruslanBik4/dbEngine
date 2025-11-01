@@ -620,6 +620,7 @@ func Columns(columns ...string) BuildSqlOptions {
 	return ColumnsForSelect(columns...)
 }
 
+// :nolint
 // Args set slice of arguments sql request
 func Args(args ...any) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
