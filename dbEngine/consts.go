@@ -44,7 +44,11 @@ const (
 	tplAlterSetDefault = " ALTER COLUMN %s SET DEFAULT %s"
 )
 
-const prefix = "DB_CONFIG"
+// const for DB config messages
+const (
+	preDB_CONFIG  = "DB_CONFIG"
+	alreadyExists = "ALREADY_EXISTS"
+)
 
 // regex const's
 var (

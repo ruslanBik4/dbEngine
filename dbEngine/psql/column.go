@@ -150,7 +150,7 @@ func (col *Column) BasicTypeInfo() types.BasicInfo {
 		return types.IsInteger
 	case types.Float32, types.Float64, types.UntypedFloat:
 		return types.IsFloat
-	case types.String:
+	case types.String, types.UntypedString:
 		return types.IsString
 	default:
 		return types.IsUntyped
@@ -262,6 +262,9 @@ func UdtNameToType(udtName string, dbTypes map[string]dbEngine.Types, tables map
 		return types.UnsafePointer
 	case "inet", "interval":
 		return typesExt.TMap
+	case "anyrange":
+		return typesExt.TStruct
+
 	default:
 
 		a, _ := strings.CutPrefix(udtName, "_")
@@ -321,9 +324,8 @@ func (col *Column) CheckAttr(colDefine string) (flags []dbEngine.FlagColumn) {
 			flags = append(flags, dbEngine.ChgLength)
 		}
 	} else {
-		logs.StatusLog(colDefine, col.name, col.DataType, udtName)
+		logs.DebugLog("Dif types of col '%s': '%s-%s(%d)' <-> '%s'", col.name, col.DataType, udtName, lenCol, colDefine)
 		flags = append(flags, dbEngine.ChgType)
-		logs.DebugLog(col.DataType, col.UdtName, lenCol)
 	}
 
 	isNotNull := strings.Contains(colDefine, isNotNullable)

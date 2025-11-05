@@ -2,6 +2,7 @@ package dbEngine
 
 import (
 	"fmt"
+	"go/types"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -52,12 +53,15 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 							if r := regErrView.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
 								sql = "drop " + r[1] + " view " + r[2] + "  CASCADE ;" + sql
 							}
-						} else {
-							logs.StatusLog(pgErr.Detail)
-							logs.StatusLog(sql)
-							if r := regErrNullVallues.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
+						} else if pgErr.Detail > "" {
+							logs.StatusLog(sql, pgErr.Detail)
+							if r := regErrNullValues.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
 								logs.StatusLog(r)
+								//	todo: convert r to alter column
 							}
+							break
+						} else {
+							logs.ErrorLog(err)
 							break
 						}
 
@@ -182,7 +186,13 @@ func (p *ParserCfgDDL) checkColumn(col Column, colDefine string, flags []FlagCol
 
 		// change type
 		case ChgType:
-			_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using %[1]s::%s", colName, typeDef)
+			if col.BasicTypeInfo() == types.IsString && isDigTYpe(typeDef) {
+				_, _ = fmt.Fprintf(p.updDLL,
+					" ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using (CASE WHEN Trim(%[1]s)='' THEN 0 ELSE %[1]s::%s END)",
+					colName, typeDef)
+			} else {
+				_, _ = fmt.Fprintf(p.updDLL, " ALTER COLUMN %s DROP default, ALTER COLUMN %[1]s TYPE %s using %[1]s::%s", colName, typeDef)
+			}
 
 		// change type to Array
 		case ChgToArray:
@@ -205,7 +215,7 @@ ALTER TABLE %[1]s `+tplAlterNotNull, p.Name(), colName)
 			}
 		// set nullable
 		case Nullable:
-			_, _ = fmt.Fprintf(p.updDLL, "ALTER COLUMN %s drop not null", colName)
+			_, _ = fmt.Fprintf(p.updDLL, "ALTER COLUMN %s DROP not null", colName)
 
 		default:
 			logs.StatusLog("unknown column flag")
@@ -254,7 +264,10 @@ func (p *ParserCfgDDL) addComment(ddl string) bool {
 		if tokens[2] == p.Table.Comment() {
 			return true
 		}
-		p.runDDL(ddl)
+		err := p.runDDL(ddl)
+		if err != nil {
+			logs.ErrorLog(err)
+		}
 		return true
 
 	} else if res := regCommentColumn.FindAllStringSubmatch(ddl, -1); len(res) > 0 {
@@ -310,12 +323,15 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 		return false
 	}
 
-	if oldInd := p.FindIndex(ind.Name); oldInd != nil {
+	if oldInd := p.FindIndex(ind.Name); oldInd == nil {
+		// create new index
+		p.runDDL(ddl)
+	} else {
 		columns := oldInd.Columns
 		hasChanges := !(len(columns) == len(ind.Columns))
 		if hasChanges {
-			logInfo(prefix, p.filename,
-				fmt.Sprintf("index columns '%v' exists! New columns '%v'", oldInd.Columns, ind.Columns),
+			logInfo(preDB_CONFIG, p.filename,
+				fmt.Sprintf("index '%s' exists! New columns '%v'", oldInd.Name, ind.Columns),
 				p.line)
 
 		}
@@ -326,33 +342,33 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 				continue
 			}
 
-			logInfo(prefix, p.filename,
+			logInfo(preDB_CONFIG, p.filename,
 				fmt.Sprintf("index '%s' exists! New column '%s'", oldInd.Name, name),
 				p.line)
 		}
 
 		if oldInd.Expr != ind.Expr {
 			if strings.Replace(oldInd.Expr, ")", "", -1) == strings.Replace(ind.Expr, ")", "", -1) {
-				logWarning(prefix, p.filename,
-					fmt.Sprintf("index '%s' exists & expr: '%s' diff with config:'%s' but this is some index expression", ind.Name, ind.Expr, oldInd.Expr),
+				logWarning(alreadyExists, p.filename,
+					fmt.Sprintf("index '%s' expr has diff: '%s' <-> '%s' but this is some index expression", ind.Name, ind.Expr, oldInd.Expr),
 					p.line)
 			} else {
-				logInfo(prefix, p.filename,
-					fmt.Sprintf("index '%s' exists! New expr '%s' (old ='%s')", ind.Name, ind.Expr, oldInd.Expr),
+				logInfo(preDB_CONFIG, p.filename,
+					fmt.Sprintf("index '%s' has new expr '%s' (old ='%s')", ind.Name, ind.Expr, oldInd.Expr),
 					p.line)
 				hasChanges = true
 			}
 		}
 
 		if ind.foreignTable > "" && ind.deleteCascade == "set null" {
-			logInfo(prefix, p.filename,
+			logInfo(preDB_CONFIG, p.filename,
 				fmt.Sprintf("reference to '%s' exists! Update  '%s' delete '%s'", ind.foreignTable,
 					ind.updateCascade, ind.deleteCascade),
 				p.line)
 		}
 
 		if oldInd.Unique != ind.Unique {
-			logInfo(prefix, p.filename,
+			logInfo(preDB_CONFIG, p.filename,
 				fmt.Sprintf("New unique condition '%v' exists! Old  '%v'", ind.Unique, oldInd.Unique),
 				p.line)
 			hasChanges = true
@@ -368,11 +384,7 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 			}
 			p.runDDL(ddl)
 		}
-
-		return true
 	}
-	// create new index
-	p.runDDL(ddl)
 
 	return true
 }
@@ -380,22 +392,20 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 func (p *ParserCfgDDL) alterColumn(colName string, sAlter ...string) error {
 	ddl := fmt.Sprintf(`ALTER TABLE %s %s`, p.Name(), strings.Join(sAlter, ","))
 
-	p.runDDL(ddl)
-	switch {
-	case p.err == nil:
-		logInfo(prefix, p.filename, ddl, p.line)
+	switch err := p.runDDL(ddl); {
+	case err == nil:
+		logInfo(preDB_CONFIG, p.filename, ddl, p.line)
 		p.ReReadColumn(p.DB.ctx, colName)
-	case IsErrorForReplace(p.err):
+
+	case IsErrorForReplace(err):
 		logs.ErrorLog(p.err, `Field %s.%s, different with define: '%s' %v`, p.Name(), ddl)
-	case IsErrorNullValues(p.err):
+
+	case IsErrorNullValues(err):
 		defaults := RegDefault.FindStringSubmatch(strings.ToLower(ddl))
 		if len(defaults) > 1 && defaults[1] > "" {
-			p.runDDL(fmt.Sprintf(`UPDATE %s SET %s=$1`, p.Name(), colName), defaults[1])
-			if p.err != nil {
-				logError(p.err, ddl, p.filename)
-				return p.err
-			}
+			return p.runDDL(fmt.Sprintf(`UPDATE %s SET %s=$1`, p.Name(), colName), defaults[1])
 		}
+
 	default:
 	}
 
@@ -410,4 +420,11 @@ func (p *ParserCfgDDL) alterTable(ddl string) bool {
 	p.runDDL(ddl)
 
 	return true
+}
+
+func isDigTYpe(def string) bool {
+	return strings.HasPrefix(strings.ToLower(def), "double") ||
+		strings.HasPrefix(strings.ToLower(def), "float") ||
+		strings.HasPrefix(strings.ToLower(def), "int") ||
+		strings.HasPrefix(strings.ToLower(def), "numeric")
 }

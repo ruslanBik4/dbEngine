@@ -126,9 +126,9 @@ func (db *DB) readCfg(ctx context.Context, cfg *CfgDB) error {
 		}
 	}
 
-	logs.StatusLog("Create or replace functions on DB: '%s'", strings.Join(db.FuncsAdded, "', '"))
+	logInfo(preDB_CONFIG, "Create or replace functions on DB", strings.Join(db.FuncsAdded, ","), len(db.FuncsAdded))
 	if len(db.FuncsReplaced) > 0 {
-		logs.StatusLog("Modify func on DB : '%s'", strings.Join(db.FuncsReplaced, "', '"))
+		logInfo(preDB_CONFIG, "Modify func on DB", strings.Join(db.FuncsReplaced, ","), len(db.FuncsReplaced))
 	}
 
 	var err error
@@ -369,7 +369,7 @@ func (db *DB) alterEnumType(t *Types, fileName, typeName string, enumerates []st
 						if err := db.Conn.ExecDDL(db.ctx, ddlAddAttr); err != nil {
 							return err
 						}
-						logInfo(prefix, fileName, ddlAddAttr, 1)
+						logInfo(preDB_CONFIG, fileName, ddlAddAttr, 1)
 					} else if ord-offset < len(t.Enumerates) {
 						logs.StatusLog(ddlType+fmt.Sprintf(addEnumAfter, name, t.Enumerates[ord-offset-1]), ord-offset, len(t.Enumerates))
 					} else {
@@ -408,7 +408,7 @@ func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []s
 					ddlAddAttr := ddlType + " add attribute " + name
 					err := db.Conn.ExecDDL(db.ctx, ddlAddAttr)
 					if err == nil {
-						logInfo(prefix, fileName, ddlAddAttr, 1)
+						logInfo(preDB_CONFIG, fileName, ddlAddAttr, 1)
 					} else if IsErrorAlreadyExists(err) {
 						logs.ErrorLog(err)
 					}
@@ -439,7 +439,7 @@ func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []s
 					logs.ErrorLog(err, ddlAlter)
 					return err
 				}
-				logInfo(prefix, fileName, ddlAlter, 1)
+				logInfo(preDB_CONFIG, fileName, ddlAlter, 1)
 
 				logs.StatusLog(t.Attr[i], t.Attr[i].Column.Type(), attrName, newType)
 

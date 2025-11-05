@@ -143,8 +143,10 @@ func IsErrorDoesNotExists(err error) bool {
 
 const ErrCannotAlterColumnUsedView = "cannot alter type of a column used by a view or rule"
 
-var regErrView = regexp.MustCompile(`[\s\S]+?on\s+(materialized\s+)?view\s+(\w+)`)
-var regErrNullVallues = regexp.MustCompile(`[\s\S]+?column\s+"(\w+)"\s+of\s+relation\s+"(\w+)"\s+contains\s+null\s+values`)
+var (
+	regErrView       = regexp.MustCompile(`[\s\S]+?on\s+(materialized\s+)?view\s+(\w+)`)
+	regErrNullValues = regexp.MustCompile(`[\s\S]+?column\s+"(\w+)"\s+of\s+relation\s+"(\w+)"\s+contains\s+null\s+values`)
+)
 
 // IsErrorForReplace indicates about errors 'cannot change or replace"
 func IsErrorForReplace(err error) bool {
@@ -296,5 +298,5 @@ func logError(err error, ddlSQL string, fileName string) {
 }
 
 func printError(fileName string, line int, msg string) {
-	logs.CustomLog(logs.CRITICAL, "ERROR_"+prefix, fileName, line, msg, logs.FgErr)
+	logs.CustomLog(logs.CRITICAL, "ERROR_"+preDB_CONFIG, fileName, line, msg, logs.FgErr)
 }

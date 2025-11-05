@@ -16,14 +16,14 @@ func (p *ParserCfgDDL) runDDL(ddl string, args ...any) error {
 	err := p.DB.Conn.ExecDDL(p.DB.ctx, ddl, args...)
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
-			logInfo(prefix, p.filename, ddl, p.line)
+			logInfo(preDB_CONFIG, p.filename, ddl, p.line)
 		} else if !strings.HasPrefix(strings.ToLower(ddl), "insert") {
-			logInfo(prefix, p.filename, "executed: "+ddl, p.line)
+			logInfo(preDB_CONFIG, p.filename, "executed: "+ddl, p.line)
 		}
 		p.err = nil
 	} else if IsErrorAlreadyExists(err) {
 		p.err = nil
-		logInfo("DEBUG", p.filename, "already exists: "+ddl, p.line)
+		logInfo(alreadyExists, p.filename, "already exists: "+ddl, p.line)
 	} else if IsErrorForReplace(err) {
 		p.err = err
 	} else if err != nil {
@@ -103,7 +103,7 @@ func (p *ParserCfgDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
 			}
 
 		default:
-			logInfo(prefix, p.filename, name+token, p.line)
+			logInfo(preDB_CONFIG, p.filename, name+token, p.line)
 		}
 	}
 
