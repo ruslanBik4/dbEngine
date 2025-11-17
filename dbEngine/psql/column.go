@@ -264,6 +264,8 @@ func UdtNameToType(udtName string, dbTypes map[string]dbEngine.Types, tables map
 		return typesExt.TMap
 	case "anyrange":
 		return typesExt.TStruct
+	case "anyarray":
+		return typesExt.TArray
 
 	default:
 
