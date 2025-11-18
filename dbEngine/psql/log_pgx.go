@@ -61,6 +61,8 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 			}
 
 			l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
+		} else if err, ok := data["err"].(error); ok {
+			logs.ErrorLog(err, msg, data)
 		} else {
 			logs.DebugLog(msg, data)
 		}
