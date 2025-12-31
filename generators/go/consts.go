@@ -126,6 +126,7 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan err
 	t.poolDuration = d
 
 	go func() {
+		defer t.ticket.Stop()
 		for {
 			select {
 			case <-t.ticket.C:
@@ -135,6 +136,8 @@ func (t *%[1]s) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan err
 				if err != nil {
 					if chErr != nil {
 					   *chErr <- err
+					} else {
+						logs.ErrorLog(err, "during doCopy")
 					}
 					t.doCopyErr = err
 					return
