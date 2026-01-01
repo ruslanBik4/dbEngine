@@ -15,6 +15,7 @@ require (
 	github.com/valyala/fasthttp v1.68.0
 	github.com/valyala/quicktemplate v1.8.0
 	golang.org/x/net v0.48.0
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 	gopkg.in/yaml.v3 v3.0.1
 )
 

@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v4"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+	"golang.org/x/xerrors"
 
 	"github.com/ruslanBik4/logs"
 
@@ -22,62 +23,68 @@ type pgxLog struct {
 }
 
 func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[string]any) {
-	sql, hasSQL := data["sql"].(string)
-	_, isPgErr := data["err"].(*pgconn.PgError)
-	switch err := data["err"].(type) {
-	//case *pgconn.connectError:
-	case *pgconn.PgError:
-		if !hasSQL && isPgErr {
-			sql = err.Where
+
+	switch ll {
+	case pgx.LogLevelTrace, pgx.LogLevelDebug:
+		logs.DebugLog("[[PGX]] %s %+v", msg, data)
+
+	case pgx.LogLevelInfo:
+		logs.StatusLog("[[PGX]] %s %+v", msg, data)
+
+	case pgx.LogLevelWarn, pgx.LogLevelError:
+		l.chkError(msg, data)
+
+	case pgx.LogLevelNone:
+		if ch, ok := ctx.Value("debugChan").(chan any); ok {
+			ch <- data
 		}
-		if len(sql) > 255 {
+
+	default:
+		logs.ErrorLog(errors.New("invalid level "), ll.String())
+	}
+}
+
+func (l *pgxLog) chkError(msg string, data map[string]any) {
+	sql, hasSQL := data["sql"].(string)
+	switch err := data["err"].(type) {
+	case nil:
+		logs.DebugLog(msg, data)
+	case error:
+		logs.ErrorLog(err, msg, data)
+	case xerrors.Wrapper:
+		logs.ErrorLog(err.Unwrap(), msg, data)
+	case *pgconn.PgError:
+		if !hasSQL && len(sql) > 255 {
 			sql = sql[:255]
 		}
-		if isPgErr {
-			sql += fmt.Sprintf("(%s) %s %s:%d", err.Hint, err.Where, err.File, err.Line)
+
+		if dbEngine.IsErrorAlreadyExists(err) {
+			submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
+			fileName := submatch[2] + ".ddl"
+			logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
+		} else {
+			logs.CustomLog(
+				logs.ERROR,
+				"PGX",
+				err.File, int(err.Line),
+				fmt.Sprintf("%s: %s, '%s %s(%s)', args: %+v, %v",
+					msg,
+					err.Detail,
+					sql, err.Where, err.Hint,
+					data["args"], err),
+				logs.FgErr,
+			)
 		}
 
-		switch ll {
-		case pgx.LogLevelTrace, pgx.LogLevelDebug:
-			logs.DebugLog("[[PGX]] %s %+v", msg, data)
-		case pgx.LogLevelInfo:
-			logs.StatusLog("[[PGX]] %s %+v", msg, data)
-		case pgx.LogLevelWarn:
-			if isPgErr {
-				logs.ErrorLog(err, msg, sql, data["args"])
-			} else {
-				logs.DebugLog(msg, data)
-			}
+		l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
+		return
 
-		case pgx.LogLevelError:
-			if isPgErr {
-				if dbEngine.IsErrorAlreadyExists(err) {
-					submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
-					fileName := submatch[2] + ".ddl"
-					//switch submatch[0] {
-					//case "role":
-					//	fileName = err.
-					//}
-					logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
-				} else {
-					logs.ErrorLog(err, "%s: %s, '%s', args: %+v", msg, err.Detail, sql, data["args"])
-				}
+	default:
+		logs.DebugLog("%v, %s, %v, %[1]T", err, msg, data)
+	}
 
-				l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
-			} else if err, ok := data["err"].(error); ok {
-				logs.ErrorLog(err, msg, data)
-			} else {
-				logs.DebugLog(msg, data)
-			}
-
-		case pgx.LogLevelNone:
-			if ch, ok := ctx.Value("debugChan").(chan any); ok {
-				ch <- data
-			}
-
-		default:
-			logs.ErrorLog(errors.New("invalid level "), ll.String())
-		}
+	if hasSQL {
+		logs.StatusLog("[PGX]", sql)
 	}
 }
 
