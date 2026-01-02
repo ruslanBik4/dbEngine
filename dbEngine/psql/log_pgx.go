@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	"golang.org/x/xerrors"
 
+	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -46,38 +47,20 @@ func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[
 
 func (l *pgxLog) chkError(msg string, data map[string]any) {
 	sql, hasSQL := data["sql"].(string)
+	if !hasSQL && len(sql) > 255 {
+		sql = gotools.StartEndString(sql, 200)
+	}
+
 	switch err := data["err"].(type) {
 	case nil:
 		logs.DebugLog(msg, data)
-	case error:
-		logs.ErrorLog(err, msg, data)
 	case xerrors.Wrapper:
 		logs.ErrorLog(err.Unwrap(), msg, data)
 	case *pgconn.PgError:
-		if !hasSQL && len(sql) > 255 {
-			sql = sql[:255]
-		}
-
-		if dbEngine.IsErrorAlreadyExists(err) {
-			submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
-			fileName := submatch[2] + ".ddl"
-			logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
-		} else {
-			logs.CustomLog(
-				logs.ERROR,
-				"PGX",
-				err.File, int(err.Line),
-				fmt.Sprintf("%s: %s, '%s %s(%s)', args: %+v, %v",
-					msg,
-					err.Detail,
-					sql, err.Where, err.Hint,
-					data["args"], err),
-				logs.FgErr,
-			)
-		}
-
-		l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
+		sql = l.printPgError(msg, data, sql, err)
 		return
+	case error:
+		logs.ErrorLog(err, msg, data)
 
 	default:
 		logs.DebugLog("%v, %s, %v, %[1]T", err, msg, data)
@@ -86,6 +69,31 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 	if hasSQL {
 		logs.StatusLog("[PGX]", sql)
 	}
+}
+
+func (l *pgxLog) printPgError(msg string, data map[string]any, sql string, err *pgconn.PgError) string {
+	if dbEngine.IsErrorAlreadyExists(err) {
+		submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
+		fileName := submatch[2] + ".ddl"
+		logs.CustomLog(logs.WARNING, "ALREADY_EXISTS", fileName, int(err.Line), err.Message, logs.FgInfo)
+	} else {
+		logs.CustomLog(
+			logs.ERROR,
+			"PGX_ERROR",
+			err.File, int(err.Line),
+			fmt.Sprintf("%s: %s, '%s %s(%s)', args: %+v, %v",
+				msg,
+				err.Detail,
+				sql,
+				gotools.StartEndString(err.Where, 100),
+				err.Hint,
+				data["args"], err),
+			logs.FgErr,
+		)
+	}
+
+	l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
+	return sql
 }
 
 // SetLogLevel set logs level DB operations
