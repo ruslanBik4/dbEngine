@@ -24,6 +24,10 @@ type PgxRoutineParams struct {
 	Position int32
 }
 
+func (p PgxRoutineParams) String() string {
+	return fmt.Sprintf("%s:%s", p.name, p.comment)
+}
+
 // Routine consist data of DB routine and operation for reading it and perform query
 type Routine struct {
 	conn      *Conn
@@ -40,6 +44,13 @@ type Routine struct {
 	sName     string
 	DataType  string
 	UdtName   string
+}
+
+func (r *Routine) String() string {
+	if r == nil {
+		return "<nil>"
+	}
+	return fmt.Sprintf("&Routine{name:%s, ID:%d, Type:%s, Columns:%v, params:%v}", r.name, r.ID, r.Type, r.columns, r.params)
 }
 
 // ReturnType get type of routine result

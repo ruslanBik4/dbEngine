@@ -115,5 +115,4 @@ func SetLogLevel(lvl string) pgx.LogLevel {
 	default:
 		return pgx.LogLevelError
 	}
-
 }

@@ -8,9 +8,11 @@ import (
 	"context"
 	"fmt"
 	"go/types"
+	"maps"
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 
@@ -99,6 +101,8 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	}
 
 	packagesAsDefault := []string{
+		"io",
+		"encoding/gob",
 		"errors",
 		"fmt",
 		"time",
@@ -114,13 +118,13 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 		"github.com/ruslanBik4/dbEngine/dbEngine/psql",
 	}
 
-	imports := make(map[string]struct{})
-	for _, name := range packagesAsDefault {
-		imports[name] = struct{}{}
-	}
-	for _, name := range cfg.Imports {
-		imports[name] = struct{}{}
-	}
+	imports := maps.Collect(func(yield func(string, struct{}) bool) {
+		for _, name := range packagesAsDefault {
+			if !yield(name, struct{}{}) {
+				return
+			}
+		}
+	})
 
 	_, ok := DB.Types["citext"]
 	if ok {
@@ -183,17 +187,23 @@ func (c *Creator) MakeInterfaceDB() error {
 	if err != nil {
 		return err
 	}
-	routines := make([]string, 0, len(c.Routines))
-	for name := range c.Routines {
-		routines = append(routines, name)
-	}
-	sort.Strings(routines)
-	packages := make([]string, 0, len(c.imports))
-	for name := range c.imports {
-		packages = append(packages, name)
-	}
-	sort.Strings(packages)
-	c.WriteCreateDatabase(f, packages, routines)
+	tables := slices.Collect(maps.Keys(c.Tables))
+	slices.Sort(tables)
+	routines := slices.Collect(maps.Keys(c.Routines))
+	slices.Sort(routines)
+	imports := slices.Collect(maps.Keys(c.imports))
+	slices.SortFunc(imports, func(a, b string) int {
+		c := strings.Count(a, "/")
+		d := strings.Count(b, "/")
+		if c < 2 && d < 2 || c > 1 && d > 1 {
+			return strings.Compare(a, b)
+		}
+		if c < 2 {
+			return -1
+		}
+		return 1
+	})
+	c.WriteCreateDatabase(f, imports, tables, routines)
 
 	return err
 }

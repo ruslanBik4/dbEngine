@@ -61,7 +61,7 @@ func (d *Database) {%s camelName %}(
 {%- if r.Comment > "" -%}// DB comment: '{%s r.Comment %}'
 {%- endif -%}
 // ATTENTION! It returns only 1 row {%s typeReturn %}
-// {%s= fmt.Sprintf("%+v", r) %}
+// {%s= fmt.Sprintf("%s", r) %}
 func (d *Database) {%s camelName %}(
 	ctx context.Context,{%= c.paramsTitle(r) %}
 ) (res {%s typeReturn %}, err error) {

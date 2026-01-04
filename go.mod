@@ -10,12 +10,12 @@ require (
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/pkg/errors v0.9.1
 	github.com/ruslanBik4/gotools v0.0.3
-	github.com/ruslanBik4/logs v0.0.131
+	github.com/ruslanBik4/logs v0.1.1
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.68.0
 	github.com/valyala/quicktemplate v1.8.0
 	golang.org/x/net v0.48.0
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	gopkg.in/yaml.v3 v3.0.1
 )
 
