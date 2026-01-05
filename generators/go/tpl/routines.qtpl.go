@@ -2,7 +2,7 @@
 // See https://github.com/valyala/quicktemplate for details.
 
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/routines.qtpl:1
-package _go
+package tpl
 
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/routines.qtpl:2
 import (

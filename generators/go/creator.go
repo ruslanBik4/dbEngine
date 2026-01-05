@@ -20,6 +20,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
+	"github.com/ruslanBik4/dbEngine/generators/go/tpl"
 	"github.com/ruslanBik4/gotools/typesExt"
 
 	"github.com/iancoleman/strcase"
@@ -192,7 +193,14 @@ func (c *Creator) MakeInterfaceDB() error {
 	routines := slices.Collect(maps.Keys(c.Routines))
 	slices.Sort(routines)
 	imports := slices.Collect(maps.Keys(c.imports))
-	slices.SortFunc(imports, func(a, b string) int {
+	slices.SortFunc(imports, sortImports())
+	tpl.WriteCreateDatabase(f, c, imports, tables, routines)
+
+	return err
+}
+
+func sortImports() func(a string, b string) int {
+	return func(a, b string) int {
 		c := strings.Count(a, "/")
 		d := strings.Count(b, "/")
 		if c < 2 && d < 2 || c > 1 && d > 1 {
@@ -202,10 +210,7 @@ func (c *Creator) MakeInterfaceDB() error {
 			return -1
 		}
 		return 1
-	})
-	c.WriteCreateDatabase(f, imports, tables, routines)
-
-	return err
+	}
 }
 
 // when type is tables record or DB  type
@@ -329,8 +334,6 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 		}{},
 		"sync": struct {
 		}{},
-		//"database/sql": struct {
-		//}{},
 		"time": struct {
 		}{},
 
@@ -346,53 +349,47 @@ func (c *Creator) MakeStruct(table dbEngine.Table) error {
 
 	c.addImport(moduloPgType, "sync")
 	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
-	for ind, col := range table.Columns() {
-		propName := strcase.ToCamel(col.Name())
+	columns := slices.Collect(func(yield func(string2 string) bool) {
 
-		typeCol, defValue := c.chkTypes(col, propName)
+		for ind, col := range table.Columns() {
+			propName := strcase.ToCamel(col.Name())
 
-		if !col.AutoIncrement() && defValue != nil {
-			def, ok := defValue.(string)
-			if ok {
-				if typeCol == "string" {
-					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf(`"%s"`, def))
+			typeCol, defValue := c.chkTypes(col, propName)
+
+			if !col.AutoIncrement() && defValue != nil {
+				def, ok := defValue.(string)
+				if ok {
+					if typeCol == "string" {
+						c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf(`"%s"`, def))
+					}
+				} else {
+					c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
 				}
-			} else {
-				c.initValues += fmt.Sprintf(initFormat, propName, fmt.Sprintf("%v", defValue))
+			}
+
+			sTypeField += fmt.Sprintf(scanFormat,
+				c.GetFuncForDecode(&dbEngine.TypesAttr{
+					Name:      col.Name(),
+					Type:      typeCol,
+					IsNotNull: false,
+				}, ind))
+
+			fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
+			caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
+			caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
+			if !yield(col.Name()) {
+				return
 			}
 		}
+	})
 
-		sTypeField += fmt.Sprintf(scanFormat,
-			c.GetFuncForDecode(&dbEngine.TypesAttr{
-				Name:      col.Name(),
-				Type:      typeCol,
-				IsNotNull: false,
-			}, ind))
+	imports := slices.Collect(maps.Keys(c.imports))
+	slices.SortFunc(imports, sortImports())
 
-		fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
-		caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
-		caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
-	}
+	tpl.Newtable(name, table.Name(), table.Comment(), table.(*psql.Table).Type, columns).WriteTable(f, imports, c.Schema)
+	//_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
 
-	packages := make([]string, 0, len(c.imports))
-	for name := range c.imports {
-		packages = append(packages, name)
-	}
-	_, err = fmt.Fprintf(f, title, c.Name, c.Schema, table.Name(), strings.Join(packages, `"
-	"`))
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	// todo: add Type to interface Table
-	_, err = fmt.Fprintf(f, formatTable, name, fields, table.Name(), table.Comment(), table.(*psql.Table).Type)
-	if err != nil {
-		return errors.Wrap(err, "WriteString title")
-	}
-
-	_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
-
-	NewColumnType(name, table.Name(), table.Columns()).WriteColumnType(f)
+	tpl.NewColumnType(name, table.Name(), table.Columns()).WriteColumnType(f)
 
 	return err
 }

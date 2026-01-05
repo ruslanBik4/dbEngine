@@ -1,0 +1,400 @@
+table structures generator
+{% code
+type Table struct {
+    name string
+    dbName string
+    columns []string
+    comment string
+    typ string
+}
+
+func Newtable(name, dbName, comment, typ string, columns []string) *Table {
+    return &table{
+        name: name,
+        dbName: dbName,
+        columns: columns,
+        comment: comment,
+        typ: typ,
+    }
+} 
+%}
+{% func (t *Table) Table(imports []string, title string) %}
+{%= Header(imports, title) %}
+// %s implement operations for {%s t.typ %}
+// DB comment: '{%s t.comment %}'
+type {%s t.name %} struct {
+	*psql.Table
+	Record 				*{%s t.name %}Fields
+	DoCopyPoll      	[]*{%s t.name %}Fields
+
+	chErr               *chan error
+	doCopyPoolCount 	int
+	doCopyPoolColumns 	[]string
+	doCopyValuesCount 	int
+	doCopyErr       	error
+	lock       			sync.RWMutex
+	ticket	 			*time.Ticker
+	poolDuration 	    time.Duration
+}
+
+// New{%s t.name %} create new instance of table object
+func New{%s t.name %}(DB *dbEngine.DB) (*{%s t.name %}, error) {
+	table, ok := DB.Tables["{%s t.dbName %}"]
+    if !ok {
+      return nil, dbEngine.ErrNotFoundTable{Table: "{%s t.dbName %}"}
+    }
+
+    return &{%s t.name %}{
+		Table: table.(*psql.Table),
+    }, nil
+}
+// New{%s t.name %} create new instance of table object from Connection
+// it's necessary if Database create without reading schema of DB
+func New{%s t.name %}FromConn(ctx context.Context, conn *psql.Conn) (*{%s t.name %}, error) {
+	t, err := conn.NewTableWithCheck(ctx, "{%s t.dbName %}")
+	if err != nil {
+		logs.ErrorLog(err, "during NewTableWithCheck")
+		return nil, err
+	}
+
+    return &{%s t.name %}{
+		Table: t,
+    }, nil
+}
+// implementation pgx.CopyFromSource
+// CopyFromSource is the interface used by *Conn.CopyFrom as the source for copy data.
+
+// Next returns true if there is another row and makes the next row data
+// available to Values(). When there are no more rows available or an error
+// has occurred it returns false.
+func (t *{%s t.name %}) Next() bool {
+	t.doCopyValuesCount++
+	return t.doCopyValuesCount < len(t.DoCopyPoll)
+}
+// Values returns the values for the current row.
+func (t *{%s t.name %}) Values() ([]any, error) {
+	return slices.Collect(func(yield func(any) bool) {
+		for i, col := range t.doCopyPoolColumns {
+			res[i] = t.DoCopyPoll[t.doCopyValuesCount].ColValue(col)
+		}
+	}), nil
+}
+// Err returns any error that has been encountered by the CopyFromSource. If
+// this is not nil *Conn.CopyFrom will abort the copy.
+func (t *{%s t.name %}) Err() error {
+	return t.doCopyErr
+}
+// InitPoolCopy init environments for CopyFrom operation
+// capOfPool define max pool capacity
+// d - interval for flash
+// columns - names of columns for CopyFrom (all columns of table if it not present)
+// chErr - channel for error when CopyFrom return it
+// on this case operation will terminated
+func (t *{%s t.name %}) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan error, d time.Duration, columns ...string) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.DoCopyPoll = make([]*{%s t.name %}Fields, 0, capOfPool)
+	t.doCopyPoolCount = 0
+	if len(columns) > 0 {
+		t.doCopyPoolColumns = columns
+	} else {
+		t.doCopyPoolColumns = make([]string, len(t.Columns()))
+		for i, col := range t.Columns() {
+			t.doCopyPoolColumns[i] = col.Name()
+		}
+	}
+	t.chErr = chErr
+	t.ticket = time.NewTicker(d)
+	t.doCopyErr = nil
+	t.poolDuration = d
+
+	// run DoCopy every 'd' ms
+	go func() {
+		defer t.ticket.Stop()
+		for {
+			select {
+			case <-t.ticket.C:
+				err := t.doCopy(ctx)
+				if err != nil {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+}
+// AddToPoolCopy add 'record' into copy pool
+func (t *{%s t.name %}) AddToPoolCopy(ctx context.Context, record ... *{%s t.name %}Fields) error {
+	if t.doCopyErr != nil {
+		return t.doCopyErr
+	}
+
+	if cap(t.DoCopyPoll) == 0 {
+		t.InitPoolCopy(ctx, 3, nil,  100 * time.Millisecond)
+	}
+
+	t.lock.Lock()
+	t.DoCopyPoll = append(t.DoCopyPoll, record... )
+	t.doCopyPoolCount++
+	t.lock.Unlock()
+
+	if t.doCopyPoolCount == cap(t.DoCopyPoll) {
+		err := t.doCopy(ctx)
+		if err != nil {
+			t.ticket.Stop()
+			return err
+		}
+		t.ticket.Reset(t.poolDuration)
+	}
+
+	return nil
+}
+// FlashPoolAndReset inserted all record from Poll as is
+// returns slice of records which were be not inserted
+func (t *{%s t.name %}) FlashPoolAndReset(ctx context.Context) ([]*{%s t.name %}Fields, error) {
+	t.ticket.Reset(t.poolDuration)
+	err := t.doCopy(ctx)
+	if err != nil {
+		t.ticket.Stop()
+		if m, ok := dbEngine.IsErrorDuplicated(err); ok {
+			logs.ErrorLog(err, m)
+			return t.InsertPoolAndReset(ctx), err
+		}
+		return nil, err
+	}
+
+	return nil, nil
+}
+// InsertPoolAndReset inserted all record from Poll as is
+// returns slice of records which were be not inserted
+func (t *{%s t.name %}) InsertPoolAndReset(ctx context.Context) []*{%s t.name %}Fields {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	columns := t.doCopyPoolColumns
+	failRecords := make([]*{%s t.name %}Fields,0)
+	allInserted := int64(0)
+
+	for _, record := range t.DoCopyPoll {
+		v := make([]any, len(columns))
+		for i, name := range columns {
+			v[i] = record.RefColValue(name)
+		}
+		i, err := t.Insert(ctx,
+			dbEngine.Columns(columns...),
+			dbEngine.Values(v...),
+		)
+		if err != nil {
+			failRecords = append(failRecords, record)
+			continue
+		}
+		allInserted += i
+	}
+
+	t.DoCopyPoll = t.DoCopyPoll[:0]
+	t.doCopyPoolCount = 0
+	logs.DebugLog("%%d record inserted by InsertPoolAndReset", allInserted)
+
+	return failRecords
+}
+// {%s t.name %}Fields data object for '{%s t.name %}' columns
+type {%s t.name %}Fields struct {
+	// columns of table %s
+}`
+	footer = `
+// New%sFields create new instance & fill struct fill for avoid panic
+func New{%s t.name %}Fields() *{%s t.name %}Fields{
+	return &{%s t.name %}Fields{
+		// init properties {%s t.typ %} initValues
+	}
+}
+// RefColValue return referral of column
+func (r *{%s t.name %}Fields) RefColValue(name string) any{
+	switch name {	%scaseRefFields
+	{% for _, name := range r.columns %}
+		case "{%s name %}":
+    		return &r.{%s strcase.ToCamel(name)%}
+    {% endfor %}
+   	default:
+		return nil
+	}
+}
+// ColValue return value of column
+func (r *{%s t.name %}Fields) ColValue(name string) any{
+	switch name {	{%s t.dbName %}
+	{% for _, name := range r.columns %}
+		case "{%s name %}":
+    		return r.{%s strcase.ToCamel(name)%}
+    {% endfor %}
+   	default:
+		return nil
+	}
+}
+// GetFields implement dbEngine.RowScanner interface
+func (r *{%s t.name %}Fields) GetFields(columns []dbEngine.Column) []any {
+	v := make([]any, len(columns))
+	for i, col := range columns {
+		v[i] = r.RefColValue( col.Name() )
+	}
+
+	return v
+}
+// GetValue implement httpgo.RouteDTO interface
+func (r *{%s t.name %}Fields) GetValue() any {
+	return r
+}
+// NewValue implement httpgo.RouteDTO interface
+func (r *{%s t.name %}Fields) NewValue() any {
+	return New{%s t.name %}Fields()
+}
+// NewRecord return new row of table
+func (t *{%s t.name %}) NewRecord() *{%s t.name %}Fields{
+   t.Record = New{%s t.name %}Fields()
+	return t.Record
+}
+// GetFields implement dbEngine.RowScanner interface
+func (t *{%s t.name %}) GetFields(columns []dbEngine.Column) []any {
+	if len(columns) == 0 {
+		columns = t.Columns()
+	}
+
+	return t.NewRecord().GetFields(columns)
+}
+// SelectSelfScanEach exec request to DB & populate record & call each for each row of query
+func (t *{%s t.name %}) SelectSelfScanEach(ctx context.Context, each func(record *{%s t.name %}Fields) error, Options ...dbEngine.BuildSqlOptions) error {
+	return t.SelectAndScanEach(ctx,
+			func() error {
+			 	if each != nil {
+					return each(t.Record)
+				}
+
+				 return nil
+			}, t, Options ... )
+}
+// SelectAll run sql according to Options & return slice of record
+func (t *{%s t.name %}) SelectAll(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (res []*{%s t.name %}Fields, err error) {
+	err = t.SelectAndScanEach(ctx,
+			func() error {
+			 	res = append(res, t.Record)
+				return nil
+			}, t, Options ... )
+	if err != nil {
+		logs.ErrorLog(err, "during doCopy")
+		return nil, err
+	}
+
+	return res, nil
+}
+// Insert new record into table
+func (t *{%s t.name %}) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	if len(Options) == 0 {
+		v := make([]any, 0, len(t.Columns()))
+		columns := make([]string, 0, len(t.Columns()))
+		for _, col := range t.Columns() {
+			if col.AutoIncrement() {
+				continue
+			}
+
+			columns = append(columns, col.Name())
+			v = append(v, t.Record.ColValue( col.Name() ) )
+		}
+		Options = append(
+			Options,
+			dbEngine.Columns(columns...),
+			dbEngine.Values(v... ),
+		)
+   }
+
+	return t.Table.Insert(ctx, Options...)
+}
+// Update record of table according to Options
+func (t *{%s t.name %}) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	if len(Options) == 0 {
+		v := make([]any, 0, len(t.Columns()))
+		priV := make([]any, 0)
+		columns := make([]string, 0, len(t.Columns()))
+		priColumns := make([]string, 0, len(t.Columns()))
+		for _, col := range t.Columns() {
+			if col.Primary() {
+				priColumns = append( priColumns, col.Name() )
+				priV = append(priV, t.Record.ColValue( col.Name() ))
+				continue
+			}
+
+			columns = append( columns, col.Name() )
+			v = append(v, t.Record.ColValue( col.Name() ) )
+		}
+
+		Options = append(
+			Options,
+			dbEngine.Columns(columns...),
+			dbEngine.WhereForSelect(priColumns...),
+			dbEngine.Values(append(v, priV...)... ),
+		)
+	}
+
+	return t.Table.Update(ctx, Options...)
+}
+
+// Upsert insert new Record into table according to Options or update if this record exists
+func (t *{%s t.name %}) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
+	if len(Options) == 0 {
+		v := make([]any, 0, len(t.Columns()))
+		priV := make([]any, 0)
+		columns := make([]string, 0, len(t.Columns()))
+		priColumns := make([]string, 0, len(t.Columns()))
+		for _, col := range t.Columns() {
+			if col.Primary() {
+				priColumns = append( priColumns, col.Name() )
+				priV = append(priV, t.Record.ColValue( col.Name() ))
+			}
+
+			if col.AutoIncrement() {
+				continue
+			}
+
+			columns = append( columns, col.Name() )
+			v = append(v, t.Record.ColValue( col.Name() ) )
+		}
+
+		Options = append(
+			Options,
+			dbEngine.Columns(columns...),
+			dbEngine.WhereForSelect(priColumns...),
+			dbEngine.Values(v... ),
+		)
+	}
+
+	return t.Table.Upsert(ctx, Options...)
+}
+
+func (t *{%s t.name %}) doCopy(ctx context.Context) error {
+	if len(t.DoCopyPoll) == 0 {
+		return nil
+	}
+
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.doCopyValuesCount = -1
+	i, err := t.DoCopy(ctx, t, t.doCopyPoolColumns...)
+	if err != nil {
+		t.doCopyErr = err
+		if t.chErr != nil {
+		   *t.chErr <- err
+		} else {
+			logs.ErrorLog(err, "during doCopy")
+		}
+
+		return err
+	}
+
+	t.DoCopyPoll = t.DoCopyPoll[:0]
+	t.doCopyPoolCount = 0
+	logs.DebugLog("record insert with CopyFrom: %d from %d ", i, t.doCopyValuesCount)
+
+	return nil
+}
+{% endfunc %}

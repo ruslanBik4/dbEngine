@@ -1,4 +1,4 @@
-{% package _go %}
+{% package tpl %}
 {% import (
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
