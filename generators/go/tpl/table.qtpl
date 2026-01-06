@@ -125,7 +125,7 @@ func (t *{%s t.name %}) InitPoolCopy(ctx context.Context, capOfPool int, chErr *
 		for {
 			select {
 			case <-t.ticket.C:
-				err := t.doCopy(ctx)
+				_, err := t.doCopy(ctx)
 				if err != nil {
 					return
 				}
@@ -151,7 +151,7 @@ func (t *{%s t.name %}) AddToPoolCopy(ctx context.Context, record ... *{%s t.nam
 	t.lock.Unlock()
 
 	if t.doCopyPoolCount == cap(t.DoCopyPoll) {
-		err := t.doCopy(ctx)
+		_, err := t.doCopy(ctx)
 		if err != nil {
 			t.ticket.Stop()
 			return err
@@ -165,7 +165,7 @@ func (t *{%s t.name %}) AddToPoolCopy(ctx context.Context, record ... *{%s t.nam
 // returns slice of records which were be not inserted
 func (t *{%s t.name %}) FlashPoolAndReset(ctx context.Context) ([]*{%s t.name %}Fields, error) {
 	t.ticket.Reset(t.poolDuration)
-	err := t.doCopy(ctx)
+	_, err := t.doCopy(ctx)
 	if err != nil {
 		t.ticket.Stop()
 		if m, ok := dbEngine.IsErrorDuplicated(err); ok {
@@ -382,9 +382,9 @@ func (t *{%s t.name %}) Upsert(ctx context.Context, Options ...dbEngine.BuildSql
 	return t.Table.Upsert(ctx, Options...)
 }
 
-func (t *{%s t.name %}) doCopy(ctx context.Context) error {
+func (t *{%s t.name %}) doCopy(ctx context.Context) (int64, error) {
 	if len(t.DoCopyPoll) == 0 {
-		return nil
+		return -1, nil
 	}
 
 	t.lock.Lock()
@@ -400,13 +400,13 @@ func (t *{%s t.name %}) doCopy(ctx context.Context) error {
 			logs.ErrorLog(err, "during doCopy")
 		}
 
-		return err
+		return -1, err
 	}
 
 	t.DoCopyPoll = t.DoCopyPoll[:0]
 	t.doCopyPoolCount = 0
 	logs.DebugLog("record insert with CopyFrom: %d from %d ", i, t.doCopyValuesCount)
 
-	return nil
+	return i, nil
 }
 {% endfunc %}

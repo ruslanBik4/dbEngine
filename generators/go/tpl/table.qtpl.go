@@ -237,7 +237,7 @@ func (t *`)
 		for {
 			select {
 			case <-t.ticket.C:
-				err := t.doCopy(ctx)
+				_, err := t.doCopy(ctx)
 				if err != nil {
 					return
 				}
@@ -271,7 +271,7 @@ func (t *`)
 	t.lock.Unlock()
 
 	if t.doCopyPoolCount == cap(t.DoCopyPoll) {
-		err := t.doCopy(ctx)
+		_, err := t.doCopy(ctx)
 		if err != nil {
 			t.ticket.Stop()
 			return err
@@ -293,7 +293,7 @@ func (t *`)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:166
 	qw422016.N().S(`Fields, error) {
 	t.ticket.Reset(t.poolDuration)
-	err := t.doCopy(ctx)
+	_, err := t.doCopy(ctx)
 	if err != nil {
 		t.ticket.Stop()
 		if m, ok := dbEngine.IsErrorDuplicated(err); ok {
@@ -665,9 +665,9 @@ func (t *`)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:385
 	qw422016.E().S(t.name)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:385
-	qw422016.N().S(`) doCopy(ctx context.Context) error {
+	qw422016.N().S(`) doCopy(ctx context.Context) (int64, error) {
 	if len(t.DoCopyPoll) == 0 {
-		return nil
+		return -1, nil
 	}
 
 	t.lock.Lock()
@@ -683,14 +683,14 @@ func (t *`)
 			logs.ErrorLog(err, "during doCopy")
 		}
 
-		return err
+		return -1, err
 	}
 
 	t.DoCopyPoll = t.DoCopyPoll[:0]
 	t.doCopyPoolCount = 0
 	logs.DebugLog("record insert with CopyFrom: %d from %d ", i, t.doCopyValuesCount)
 
-	return nil
+	return i, nil
 }
 `)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412

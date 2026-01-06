@@ -361,7 +361,7 @@ func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reade
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/database_tpl.qtpl:256
 		qw422016.N().S(`	`)
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/database_tpl.qtpl:257
-		if c.DB.Tables[name].(*psql.Table).Type == "table" {
+		if c.DB.Tables[name].(*psql.Table).Type == "BASE TABLE" {
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/database_tpl.qtpl:257
 			qw422016.N().S(`
 	case "`)
@@ -375,12 +375,12 @@ func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reade
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/database_tpl.qtpl:259
 			qw422016.N().S(`(ctx)
 		if err != nil {
-			return err
+			return -1, err
 		}
 
 		err = gob.NewDecoder(r).Decode(&t.DoCopyPoll)
 		if err != nil {
-			return err
+			return -1, err
 		}
 
 		t.doCopyPoolCount = len(t.DoCopyPoll)
@@ -397,7 +397,7 @@ func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reade
 	}
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/database_tpl.qtpl:274
 	qw422016.N().S(`	default:
-		return dbEngine.NewErrNotFoundTable(table)
+		return -1, dbEngine.NewErrNotFoundTable(table)
 	}
 }
 `)
