@@ -1,25 +1,33 @@
-table structures generator
+{% package tpl %}
+{% import (
+"strings"
+"fmt"
+	"github.com/iancoleman/strcase"
+)
+%}table structures generator
 {% code
 type Table struct {
     name string
     dbName string
     columns []string
     comment string
+    imports []string
     typ string
 }
 
-func Newtable(name, dbName, comment, typ string, columns []string) *Table {
-    return &table{
+func NewTable(name, dbName, comment, typ string, columns, imports []string) *Table {
+    return &Table{
         name: name,
         dbName: dbName,
         columns: columns,
         comment: comment,
+        imports: imports,
         typ: typ,
     }
 } 
 %}
-{% func (t *Table) Table(imports []string, title string) %}
-{%= Header(imports, title) %}
+{% func (t *Table) Table(title string) %}
+{%= Header(t.imports, title) %}
 // %s implement operations for {%s t.typ %}
 // DB comment: '{%s t.comment %}'
 type {%s t.name %} struct {
@@ -75,7 +83,9 @@ func (t *{%s t.name %}) Next() bool {
 func (t *{%s t.name %}) Values() ([]any, error) {
 	return slices.Collect(func(yield func(any) bool) {
 		for i, col := range t.doCopyPoolColumns {
-			res[i] = t.DoCopyPoll[t.doCopyValuesCount].ColValue(col)
+			if !yield( t.DoCopyPoll[t.doCopyValuesCount].ColValue(col) ) {
+				return
+			}
 		}
 	}), nil
 }
@@ -202,8 +212,10 @@ func (t *{%s t.name %}) InsertPoolAndReset(ctx context.Context) []*{%s t.name %}
 // {%s t.name %}Fields data object for '{%s t.name %}' columns
 type {%s t.name %}Fields struct {
 	// columns of table %s
-}`
-	footer = `
+	{%- for _, name := range t.columns %}
+	{%s fmt.Sprintf(colFormat, strcase.ToCamel(name), "typeCol", strings.ToLower(name)) %}
+    {% endfor %}
+}
 // New%sFields create new instance & fill struct fill for avoid panic
 func New{%s t.name %}Fields() *{%s t.name %}Fields{
 	return &{%s t.name %}Fields{
@@ -212,10 +224,10 @@ func New{%s t.name %}Fields() *{%s t.name %}Fields{
 }
 // RefColValue return referral of column
 func (r *{%s t.name %}Fields) RefColValue(name string) any{
-	switch name {	%scaseRefFields
-	{% for _, name := range r.columns %}
+	switch name {
+	{%- for _, name := range t.columns %}
 		case "{%s name %}":
-    		return &r.{%s strcase.ToCamel(name)%}
+    		return &r.{%s strcase.ToCamel(name) %}
     {% endfor %}
    	default:
 		return nil
@@ -223,8 +235,8 @@ func (r *{%s t.name %}Fields) RefColValue(name string) any{
 }
 // ColValue return value of column
 func (r *{%s t.name %}Fields) ColValue(name string) any{
-	switch name {	{%s t.dbName %}
-	{% for _, name := range r.columns %}
+	switch name {
+	{%- for _, name := range t.columns -%}
 		case "{%s name %}":
     		return r.{%s strcase.ToCamel(name)%}
     {% endfor %}

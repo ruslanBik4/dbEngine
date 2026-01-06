@@ -1,4 +1,4 @@
-{% package _go %}
+{% package tpl %}
 {% import (
 	"fmt"
 	"strings"
@@ -9,7 +9,7 @@
 )
 %}
 
-{%- func (c *Creator) CreateRoutinesInvoker(r *psql.Routine, name string) -%}
+{%- func (c *PackageBuilder) CreateRoutinesInvoker(r *psql.Routine, name string) -%}
 {%- code
 	camelName := strcase.ToCamel(name)
 	args := make([]any, len(r.Params()))
@@ -32,7 +32,7 @@ func (d *Database) {%s camelName %}(
 {%- endif -%}
 {%- endfunc -%} CreateRoutinesInvoker
 
-{%- func (c *Creator) CreateFunctionInvoker(r *psql.Routine, name, camelName, sql string) -%}
+{%- func (c *PackageBuilder) CreateFunctionInvoker(r *psql.Routine, name, camelName, sql string) -%}
 {%- code
 	typeReturn, initReturn, needReference := "", "", true
 -%}
@@ -161,7 +161,7 @@ func (d *Database) {%s camelName %}All(
 {%- endif -%}{% comment %} ReturnType {% endcomment %}
 {%- endfunc -%} CreateFunctionInvoker
 
-{%- func (c *Creator) CreateRowScanner(r *psql.Routine, camelName string) -%}
+{%- func (c *PackageBuilder) CreateRowScanner(r *psql.Routine, camelName string) -%}
 
 // {%s camelName %}RowScanner run query with select
 type {%s camelName %}RowScanner struct {
@@ -199,7 +199,7 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 }
 {%- endfunc -%}
 
-{%- func (c *Creator) paramsTitle(r *psql.Routine) -%}
+{%- func (c *PackageBuilder) paramsTitle(r *psql.Routine) -%}
 	{%- code
 		maxLen := 0
 		for _, param := range r.Params() {
@@ -218,7 +218,7 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 	{%- endfor -%}
 {%- endfunc -%}
 
-{%- func (c *Creator) paramsArgs(r *psql.Routine) -%}
+{%- func (c *PackageBuilder) paramsArgs(r *psql.Routine) -%}
 	{%- for _, param := range r.Params() -%}
 	{%s strcase.ToLowerCamel(param.Name()) %},
 	{%- endfor -%}

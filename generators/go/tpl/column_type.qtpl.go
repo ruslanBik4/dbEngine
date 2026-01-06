@@ -30,11 +30,11 @@ type ColumnType struct {
 	columns []dbEngine.Column
 }
 
-func NewColumnType(name, sName string, columns []dbEngine.Column) *ColumnType {
+func NewColumnType(table dbEngine.Table) *ColumnType {
 	return &ColumnType{
-		name:    name,
-		sName:   sName,
-		columns: columns,
+		name:    strcase.ToCamel(table.Name()),
+		sName:   table.Name(),
+		columns: table.Columns(),
 	}
 }
 

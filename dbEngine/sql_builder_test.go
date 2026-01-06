@@ -7,6 +7,7 @@ package dbEngine
 import (
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -226,6 +227,16 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 		Table         Table
 		SelectColumns []Column
 	}
+	tableString := TableString{
+		name: "StringTable",
+		columns: slices.Collect(func(yield func(column Column) bool) {
+			for _, name := range []string{"id", "id_roles", "last_login", "name"} {
+				col := &StringColumn{name: name}
+				if !yield(col) {
+					return
+				}
+			}
+		})}
 	tests := []struct {
 		name    string
 		fields  fields
@@ -241,10 +252,10 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				nil,
 				nil,
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
-			"SELECT * FROM StringTable",
+			"SELECT id,id_roles,last_login,name FROM StringTable",
 			false,
 		},
 		{
@@ -255,10 +266,10 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id"},
 				[]string{"id"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
-			"SELECT * FROM StringTable WHERE id=$1 order by id",
+			"SELECT id,id_roles,last_login,name FROM StringTable WHERE id=$1 order by id",
 			false,
 		},
 		{
@@ -269,7 +280,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id"},
 				[]string{"last_login"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"SELECT last_login FROM StringTable WHERE id=$1 order by last_login",
@@ -283,7 +294,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id"},
 				[]string{"last_login", "name"},
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"SELECT last_login,name FROM StringTable WHERE id=$1 order by last_login,name",
@@ -297,7 +308,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id", "id_roles"},
 				nil,
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"SELECT last_login,name FROM StringTable WHERE id=$1 AND id_roles=$2",
@@ -311,7 +322,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id", "id_roles"},
 				nil,
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"",
@@ -325,7 +336,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id", "id_roles"},
 				nil,
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			"SELECT last_login,name FROM StringTable WHERE id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only ",
@@ -339,7 +350,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 				[]string{"id", "id_roles"},
 				nil,
 				0,
-				TableString{name: "StringTable"},
+				tableString,
 				nil,
 			},
 			`SELECT "last Login","name of Organization" FROM StringTable WHERE id=$1 AND id_roles=$2 offset 5  fetch first 1 rows only `,
@@ -363,7 +374,7 @@ func TestSQLBuilder_SelectSql(t *testing.T) {
 			}
 			got, err := b.SelectSql()
 			assert.Equal(t, tt.wantErr, err != nil, "SelectSql() error = %v, wantErr %v", err, tt.wantErr)
-			assert.Equal(t, got, tt.want, "SelectSql() got = %v, want %v", got, tt.want)
+			assert.Equal(t, tt.want, got, "SelectSql() got = %v, want %v", got, tt.want)
 
 		})
 	}
@@ -928,7 +939,7 @@ func TestSQLBuilder_UpsertSql(t *testing.T) {
 	threeColumns := append(columns, "name")
 	const sqlTmpl2Columns = "INSERT INTO StringTable(%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s"
 	const sqlTmpl3Columns = "INSERT INTO StringTable(%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s"
-	const sqlTmpl4Columns = "INSERT INTO StringTable(%s,%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s, %s=EXCLUDED.%[4]s"
+	//const sqlTmpl4Columns = "INSERT INTO StringTable(%s,%s,%s,%s) VALUES (%s) ON CONFLICT (%[1]s) DO UPDATE SET %s=EXCLUDED.%[2]s, %s=EXCLUDED.%[3]s, %s=EXCLUDED.%[4]s"
 	tests := []struct {
 		name    string
 		fields  fields

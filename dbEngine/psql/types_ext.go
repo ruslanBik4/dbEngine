@@ -5,12 +5,16 @@
 package psql
 
 import (
+	"context"
 	"math/big"
 	"strconv"
 
 	"github.com/pkg/errors"
 
 	"github.com/jackc/pgtype"
+
+	"github.com/ruslanBik4/dbEngine/dbEngine"
+	"github.com/ruslanBik4/logs"
 )
 
 // Numeric expanded pgtype.Numeric
@@ -137,4 +141,14 @@ func (src *Numeric) Float64() float64 {
 	}
 
 	return dst
+}
+
+func ChkDataType(ctx context.Context, db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
+	conn, err := db.Conn.(*Conn).Acquire(ctx)
+	if err != nil {
+		logs.ErrorLog(err)
+		return nil, false
+	}
+	defer conn.Release()
+	return conn.Conn().ConnInfo().DataTypeForName(typeCol)
 }
