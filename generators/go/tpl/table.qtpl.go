@@ -13,74 +13,53 @@ import (
 
 // table structures generator
 
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:8
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:9
 import (
 	qtio422016 "io"
 
 	qt422016 "github.com/valyala/quicktemplate"
 )
 
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:8
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:9
 var (
 	_ = qtio422016.Copy
 	_ = qt422016.AcquireByteBuffer
 )
 
 //line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:9
-type Table struct {
-	name    string
-	dbName  string
-	columns []string
-	comment string
-	imports []string
-	typ     string
-}
-
-func NewTable(name, dbName, comment, typ string, columns, imports []string) *Table {
-	return &Table{
-		name:    name,
-		dbName:  dbName,
-		columns: columns,
-		comment: comment,
-		imports: imports,
-		typ:     typ,
-	}
-}
-
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
 func (t *Table) StreamTable(qw422016 *qt422016.Writer, title string) {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:9
 	qw422016.N().S(`
 `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:30
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:10
 	StreamHeader(qw422016, t.imports, title)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:30
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:10
 	qw422016.N().S(`
 // %s implement operations for `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:31
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:11
 	qw422016.E().S(t.typ)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:31
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:11
 	qw422016.N().S(`
 // DB comment: '`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:32
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:12
 	qw422016.E().S(t.comment)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:32
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:12
 	qw422016.N().S(`'
 type `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:33
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:13
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:33
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:13
 	qw422016.N().S(` struct {
 	*psql.Table
 	Record 				*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:35
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:15
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:35
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:15
 	qw422016.N().S(`Fields
 	DoCopyPoll      	[]*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:36
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:16
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:36
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:16
 	qw422016.N().S(`Fields
 
 	chErr               *chan error
@@ -94,59 +73,59 @@ type `)
 }
 
 // New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:48
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:28
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:48
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:28
 	qw422016.N().S(` create new instance of table object
 func New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:49
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:49
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
 	qw422016.N().S(`(DB *dbEngine.DB) (*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:49
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:49
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:29
 	qw422016.N().S(`, error) {
 	table, ok := DB.Tables["`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:50
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:30
 	qw422016.E().S(t.dbName)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:50
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:30
 	qw422016.N().S(`"]
     if !ok {
       return nil, dbEngine.ErrNotFoundTable{Table: "`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:52
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:32
 	qw422016.E().S(t.dbName)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:52
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:32
 	qw422016.N().S(`"}
     }
 
     return &`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:55
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:35
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:55
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:35
 	qw422016.N().S(`{
 		Table: table.(*psql.Table),
     }, nil
 }
 // New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:59
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:39
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:59
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:39
 	qw422016.N().S(` create new instance of table object from Connection
 // it's necessary if Database create without reading schema of DB
 func New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:61
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:41
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:61
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:41
 	qw422016.N().S(`FromConn(ctx context.Context, conn *psql.Conn) (*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:61
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:41
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:61
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:41
 	qw422016.N().S(`, error) {
 	t, err := conn.NewTableWithCheck(ctx, "`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:62
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:42
 	qw422016.E().S(t.dbName)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:62
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:42
 	qw422016.N().S(`")
 	if err != nil {
 		logs.ErrorLog(err, "during NewTableWithCheck")
@@ -154,9 +133,9 @@ func New`)
 	}
 
     return &`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:68
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:48
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:68
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:48
 	qw422016.N().S(`{
 		Table: t,
     }, nil
@@ -168,21 +147,21 @@ func New`)
 // available to Values(). When there are no more rows available or an error
 // has occurred it returns false.
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:78
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:58
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:78
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:58
 	qw422016.N().S(`) Next() bool {
 	t.doCopyValuesCount++
 	return t.doCopyValuesCount < len(t.DoCopyPoll)
 }
 // Values returns the values for the current row.
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:83
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:63
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:83
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:63
 	qw422016.N().S(`) Values() ([]any, error) {
 	return slices.Collect(func(yield func(any) bool) {
-		for i, col := range t.doCopyPoolColumns {
+		for _, col := range t.doCopyPoolColumns {
 			if !yield( t.DoCopyPoll[t.doCopyValuesCount].ColValue(col) ) {
 				return
 			}
@@ -192,9 +171,9 @@ func (t *`)
 // Err returns any error that has been encountered by the CopyFromSource. If
 // this is not nil *Conn.CopyFrom will abort the copy.
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:94
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:74
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:94
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:74
 	qw422016.N().S(`) Err() error {
 	return t.doCopyErr
 }
@@ -205,17 +184,17 @@ func (t *`)
 // chErr - channel for error when CopyFrom return it
 // on this case operation will terminated
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:103
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:83
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:103
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:83
 	qw422016.N().S(`) InitPoolCopy(ctx context.Context, capOfPool int, chErr *chan error, d time.Duration, columns ...string) {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	t.DoCopyPoll = make([]*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:107
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:87
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:107
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:87
 	qw422016.N().S(`Fields, 0, capOfPool)
 	t.doCopyPoolCount = 0
 	if len(columns) > 0 {
@@ -249,13 +228,13 @@ func (t *`)
 }
 // AddToPoolCopy add 'record' into copy pool
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:139
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:119
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:139
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:119
 	qw422016.N().S(`) AddToPoolCopy(ctx context.Context, record ... *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:139
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:119
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:139
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:119
 	qw422016.N().S(`Fields) error {
 	if t.doCopyErr != nil {
 		return t.doCopyErr
@@ -284,13 +263,13 @@ func (t *`)
 // FlashPoolAndReset inserted all record from Poll as is
 // returns slice of records which were be not inserted
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:166
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:146
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:166
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:146
 	qw422016.N().S(`) FlashPoolAndReset(ctx context.Context) ([]*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:166
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:146
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:166
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:146
 	qw422016.N().S(`Fields, error) {
 	t.ticket.Reset(t.poolDuration)
 	_, err := t.doCopy(ctx)
@@ -308,22 +287,22 @@ func (t *`)
 // InsertPoolAndReset inserted all record from Poll as is
 // returns slice of records which were be not inserted
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:182
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:162
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:182
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:162
 	qw422016.N().S(`) InsertPoolAndReset(ctx context.Context) []*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:182
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:162
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:182
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:162
 	qw422016.N().S(`Fields {
 	t.lock.Lock()
 	defer t.lock.Unlock()
 
 	columns := t.doCopyPoolColumns
 	failRecords := make([]*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:187
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:167
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:187
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:167
 	qw422016.N().S(`Fields,0)
 	allInserted := int64(0)
 
@@ -350,84 +329,84 @@ func (t *`)
 	return failRecords
 }
 // `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:212
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:192
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:212
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:192
 	qw422016.N().S(`Fields data object for '`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:212
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:192
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:212
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:192
 	qw422016.N().S(`' columns
 type `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:213
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:193
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:213
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:193
 	qw422016.N().S(`Fields struct {
 	// columns of table %s
 `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:215
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:195
 	for _, name := range t.columns {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:215
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:195
 		qw422016.N().S(`
 	`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:216
-		qw422016.E().S(fmt.Sprintf(colFormat, strcase.ToCamel(name), "typeCol", strings.ToLower(name)))
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:216
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:196
+		qw422016.N().S(fmt.Sprintf(colFormat, strcase.ToCamel(name), t.properties[name], strings.ToLower(name)))
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:196
 		qw422016.N().S(`
     `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:217
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:197
 	}
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:217
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:197
 	qw422016.N().S(`
 }
 // New%sFields create new instance & fill struct fill for avoid panic
 func New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:200
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:200
 	qw422016.N().S(`Fields() *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:200
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:200
 	qw422016.N().S(`Fields{
 	return &`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:221
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:201
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:221
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:201
 	qw422016.N().S(`Fields{
 		// init properties `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:222
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:202
 	qw422016.E().S(t.typ)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:222
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:202
 	qw422016.N().S(` initValues
 	}
 }
 // RefColValue return referral of column
 func (r *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:226
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:206
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:226
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:206
 	qw422016.N().S(`Fields) RefColValue(name string) any{
 	switch name {
 `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:228
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:208
 	for _, name := range t.columns {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:228
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:208
 		qw422016.N().S(`
 		case "`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:229
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:209
 		qw422016.E().S(name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:229
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:209
 		qw422016.N().S(`":
     		return &r.`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:230
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:210
 		qw422016.E().S(strcase.ToCamel(name))
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:230
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:210
 		qw422016.N().S(`
     `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:231
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:211
 	}
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:231
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:211
 	qw422016.N().S(`
    	default:
 		return nil
@@ -435,29 +414,29 @@ func (r *`)
 }
 // ColValue return value of column
 func (r *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:237
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:217
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:237
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:217
 	qw422016.N().S(`Fields) ColValue(name string) any{
 	switch name {
 `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:239
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:219
 	for _, name := range t.columns {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:239
-		qw422016.N().S(`		case "`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:240
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:219
+		qw422016.N().S(`case "`)
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:219
 		qw422016.E().S(name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:240
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:219
 		qw422016.N().S(`":
-    		return r.`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:241
+        return r.`)
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
 		qw422016.E().S(strcase.ToCamel(name))
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:241
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:220
 		qw422016.N().S(`
     `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:242
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:221
 	}
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:242
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:221
 	qw422016.N().S(`
    	default:
 		return nil
@@ -465,9 +444,9 @@ func (r *`)
 }
 // GetFields implement dbEngine.RowScanner interface
 func (r *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:248
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:227
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:248
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:227
 	qw422016.N().S(`Fields) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
 	for i, col := range columns {
@@ -478,46 +457,46 @@ func (r *`)
 }
 // GetValue implement httpgo.RouteDTO interface
 func (r *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:236
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:236
 	qw422016.N().S(`Fields) GetValue() any {
 	return r
 }
 // NewValue implement httpgo.RouteDTO interface
 func (r *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:261
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:240
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:261
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:240
 	qw422016.N().S(`Fields) NewValue() any {
 	return New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:262
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:241
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:262
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:241
 	qw422016.N().S(`Fields()
 }
 // NewRecord return new row of table
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:265
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:244
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:265
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:244
 	qw422016.N().S(`) NewRecord() *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:265
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:244
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:265
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:244
 	qw422016.N().S(`Fields{
    t.Record = New`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:266
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:245
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:266
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:245
 	qw422016.N().S(`Fields()
 	return t.Record
 }
 // GetFields implement dbEngine.RowScanner interface
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:270
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:249
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:270
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:249
 	qw422016.N().S(`) GetFields(columns []dbEngine.Column) []any {
 	if len(columns) == 0 {
 		columns = t.Columns()
@@ -527,13 +506,13 @@ func (t *`)
 }
 // SelectSelfScanEach exec request to DB & populate record & call each for each row of query
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:278
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:278
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
 	qw422016.N().S(`) SelectSelfScanEach(ctx context.Context, each func(record *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:278
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:278
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:257
 	qw422016.N().S(`Fields) error, Options ...dbEngine.BuildSqlOptions) error {
 	return t.SelectAndScanEach(ctx,
 			func() error {
@@ -546,13 +525,13 @@ func (t *`)
 }
 // SelectAll run sql according to Options & return slice of record
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:289
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:268
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:289
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:268
 	qw422016.N().S(`) SelectAll(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (res []*`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:289
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:268
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:289
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:268
 	qw422016.N().S(`Fields, err error) {
 	err = t.SelectAndScanEach(ctx,
 			func() error {
@@ -568,9 +547,9 @@ func (t *`)
 }
 // Insert new record into table
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:303
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:282
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:303
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:282
 	qw422016.N().S(`) Insert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
 		v := make([]any, 0, len(t.Columns()))
@@ -594,9 +573,9 @@ func (t *`)
 }
 // Update record of table according to Options
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:325
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:304
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:325
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:304
 	qw422016.N().S(`) Update(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
 		v := make([]any, 0, len(t.Columns()))
@@ -627,9 +606,9 @@ func (t *`)
 
 // Upsert insert new Record into table according to Options or update if this record exists
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:354
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:333
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:354
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:333
 	qw422016.N().S(`) Upsert(ctx context.Context, Options ...dbEngine.BuildSqlOptions) (int64, error) {
 	if len(Options) == 0 {
 		v := make([]any, 0, len(t.Columns()))
@@ -662,9 +641,9 @@ func (t *`)
 }
 
 func (t *`)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:385
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:364
 	qw422016.E().S(t.name)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:385
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:364
 	qw422016.N().S(`) doCopy(ctx context.Context) (int64, error) {
 	if len(t.DoCopyPoll) == 0 {
 		return -1, nil
@@ -693,31 +672,31 @@ func (t *`)
 	return i, nil
 }
 `)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 }
 
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 func (t *Table) WriteTable(qq422016 qtio422016.Writer, title string) {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	t.StreamTable(qw422016, title)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	qt422016.ReleaseWriter(qw422016)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 }
 
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 func (t *Table) Table(title string) string {
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	qb422016 := qt422016.AcquireByteBuffer()
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	t.WriteTable(qb422016, title)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	qs422016 := string(qb422016.B)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	qt422016.ReleaseByteBuffer(qb422016)
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 	return qs422016
-//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:412
+//line /Users/ruslan_bik/GolandProjects/dbEngine/generators/go/tpl/table.qtpl:391
 }

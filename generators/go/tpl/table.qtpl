@@ -4,28 +4,8 @@
 "fmt"
 	"github.com/iancoleman/strcase"
 )
-%}table structures generator
-{% code
-type Table struct {
-    name string
-    dbName string
-    columns []string
-    comment string
-    imports []string
-    typ string
-}
-
-func NewTable(name, dbName, comment, typ string, columns, imports []string) *Table {
-    return &Table{
-        name: name,
-        dbName: dbName,
-        columns: columns,
-        comment: comment,
-        imports: imports,
-        typ: typ,
-    }
-} 
 %}
+table structures generator
 {% func (t *Table) Table(title string) %}
 {%= Header(t.imports, title) %}
 // %s implement operations for {%s t.typ %}
@@ -82,7 +62,7 @@ func (t *{%s t.name %}) Next() bool {
 // Values returns the values for the current row.
 func (t *{%s t.name %}) Values() ([]any, error) {
 	return slices.Collect(func(yield func(any) bool) {
-		for i, col := range t.doCopyPoolColumns {
+		for _, col := range t.doCopyPoolColumns {
 			if !yield( t.DoCopyPoll[t.doCopyValuesCount].ColValue(col) ) {
 				return
 			}
@@ -213,7 +193,7 @@ func (t *{%s t.name %}) InsertPoolAndReset(ctx context.Context) []*{%s t.name %}
 type {%s t.name %}Fields struct {
 	// columns of table %s
 	{%- for _, name := range t.columns %}
-	{%s fmt.Sprintf(colFormat, strcase.ToCamel(name), "typeCol", strings.ToLower(name)) %}
+	{%s= fmt.Sprintf(colFormat, strcase.ToCamel(name), t.properties[name], strings.ToLower(name)) %}
     {% endfor %}
 }
 // New%sFields create new instance & fill struct fill for avoid panic
@@ -236,9 +216,8 @@ func (r *{%s t.name %}Fields) RefColValue(name string) any{
 // ColValue return value of column
 func (r *{%s t.name %}Fields) ColValue(name string) any{
 	switch name {
-	{%- for _, name := range t.columns -%}
-		case "{%s name %}":
-    		return r.{%s strcase.ToCamel(name)%}
+	{%- for _, name := range t.columns -%} case "{%s name %}":
+        return r.{%s strcase.ToCamel(name)%}
     {% endfor %}
    	default:
 		return nil

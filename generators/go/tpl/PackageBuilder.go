@@ -67,6 +67,7 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 	})
 
 	fields, caseRefFields, caseColFields, sTypeField := "", "", "", ""
+	properties := make(map[string]string)
 	columns := slices.Collect(func(yield func(string2 string) bool) {
 
 		for ind, col := range table.Columns() {
@@ -98,12 +99,13 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 			if !yield(col.Name()) {
 				return
 			}
+			properties[col.Name()] = typeCol
 		}
 	})
 	imports := slices.Collect(maps.Keys(c.Imports))
 	slices.SortFunc(imports, sortImports())
 
-	return NewTable(name, table.Name(), table.Comment(), table.(*psql.Table).Type, columns, imports)
+	return NewTable(name, table.Name(), table.Comment(), table.(*psql.Table).Type, columns, imports, properties)
 	//_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
 }
 
