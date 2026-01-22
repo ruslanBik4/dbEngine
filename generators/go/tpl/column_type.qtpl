@@ -150,7 +150,7 @@ func (dst *{%s c.name %}Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) erro
 	return dst.scanAll(c)
 }
 
-// DecodeText implement pgtype.TextDecoder interface
+// DecodeBinary implement pgtype.TextDecoder interface
 func (dst *{%s c.name %}Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
 	*dst = {%s c.name %}Fields{}
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
