@@ -79,4 +79,21 @@ const (
 	RECREATE_MATERIAZE_VIEW = TypeCfgDB("drop materiaze view before create")
 )
 
-// todo: add hint & where to DB errors
+// regexp const for parsing pgError. Examples:
+// Key (id)=(3) already exists. duplicate key value violates unique constraint "candidates_name_uindex"
+// duplicate key value violates unique constraint "candidates_mobile_uindex"
+// Key (digest(blob, 'sha1'::text))=(\x34d3fb7ceb19bf448d89ab76e7b1e16260c1d8b0) already exists.
+// key (phone)=(+380) already exists.
+//can't scan into dest[4]: unknown oid 16815 cannot be scanned into *[]string
+
+var (
+	regKeyWrong      = regexp.MustCompile(`[Kk]ey\s+(?:[(\w\s]+)?\((\w+)(?:,[^=]+)?\)+=\(([^)]+)\)([^.]+)`)
+	RegAlreadyExists = regexp.MustCompile(`(\w+)\s+"(\w+)"(\.+"(\w+)")?\s+already\s+exists`)
+	regDuplicated    = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
+	regErrScanDest   = regexp.MustCompile(`can't scan into dest\[(\d+)]`)
+	regErrOID        = regexp.MustCompile(`unknown oid (\d+) cannot be scanned into (\.+)`)
+	regErrView       = regexp.MustCompile(`[\s\S]+?on\s+(materialized\s+)?view\s+(\w+)`)
+	regErrNullValues = regexp.MustCompile(`[\s\S]+?column\s+"(\w+)"\s+of\s+relation\s+"(\w+)"\s+contains\s+null\s+values`)
+)
+
+const ErrCannotAlterColumnUsedView = "cannot alter type of a column used by a view or rule"

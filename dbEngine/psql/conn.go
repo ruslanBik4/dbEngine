@@ -430,7 +430,7 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 
 	rows, err := conn.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
@@ -452,7 +452,7 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 	}
 
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
 		return err
 	}
 
@@ -499,7 +499,7 @@ func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValu
 	}
 
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, "%+v", sql, rows.FieldDescriptions())...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, "%+v", sql, rows.FieldDescriptions())...)
 		return err
 	}
 
@@ -526,7 +526,7 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, 
 
 	row, err := conn.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
@@ -761,7 +761,7 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 
 	rows, err := conn.Query(ctx, sql, args...)
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, args)...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
@@ -792,7 +792,7 @@ func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 	}
 
 	if err != nil {
-		logs.ErrorLog(err, c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
 		return err
 	}
 

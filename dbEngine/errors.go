@@ -6,7 +6,7 @@ package dbEngine
 
 import (
 	"fmt"
-	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgconn"
@@ -122,6 +122,25 @@ func IsErrorAlreadyExists(err error) bool {
 	return false
 }
 
+// IsErrorScanDest indicates about errors duplicated
+func IsErrorScanDest(err error) (int, bool) {
+	if err == nil {
+		return 0, false
+	}
+
+	//  constraint "valid_email_check" for relation "users" already exists
+	if regErrScanDest.MatchString(err.Error()) {
+		// must be as numeric striing
+		n, err := strconv.Atoi(regErrScanDest.FindAllStringSubmatch(err.Error(), -1)[0][1])
+		if err != nil {
+			logs.ErrorLog(err)
+		}
+		return n, true
+	}
+
+	return 0, false
+}
+
 // IsErrorDoesNotExists indicates about errors not exists
 func IsErrorDoesNotExists(err error) bool {
 	if err == nil {
@@ -140,13 +159,6 @@ func IsErrorDoesNotExists(err error) bool {
 
 	return false
 }
-
-const ErrCannotAlterColumnUsedView = "cannot alter type of a column used by a view or rule"
-
-var (
-	regErrView       = regexp.MustCompile(`[\s\S]+?on\s+(materialized\s+)?view\s+(\w+)`)
-	regErrNullValues = regexp.MustCompile(`[\s\S]+?column\s+"(\w+)"\s+of\s+relation\s+"(\w+)"\s+contains\s+null\s+values`)
-)
 
 // IsErrorForReplace indicates about errors 'cannot change or replace"
 func IsErrorForReplace(err error) bool {
@@ -188,12 +200,6 @@ func IsErrorCntChgView(err error) bool {
 	return false
 }
 
-var (
-	regKeyWrong      = regexp.MustCompile(`[Kk]ey\s+(?:[(\w\s]+)?\((\w+)(?:,[^=]+)?\)+=\(([^)]+)\)([^.]+)`)
-	RegAlreadyExists = regexp.MustCompile(`(\w+)\s+"(\w+)"(\.+"(\w+)")?\s+already\s+exists`)
-	regDuplicated    = regexp.MustCompile(`duplicate key value violates unique constraint "(\w*)"`)
-)
-
 // IsErrorDuplicated indicate about abort updating because there is a duplicated key found
 func IsErrorDuplicated(err error) (map[string]string, bool) {
 	if err == nil {
@@ -208,11 +214,6 @@ func IsErrorDuplicated(err error) (map[string]string, bool) {
 	if ok {
 		msg = e.Detail
 	}
-
-	// Key (id)=(3) already exists. duplicate key value violates unique constraint "candidates_name_uindex"
-	// duplicate key value violates unique constraint "candidates_mobile_uindex"
-	// Key (digest(blob, 'sha1'::text))=(\x34d3fb7ceb19bf448d89ab76e7b1e16260c1d8b0) already exists.
-	// key (phone)=(+380) already exists.
 
 	if s := regKeyWrong.FindStringSubmatch(msg); len(s) > 0 {
 		return map[string]string{

@@ -54,11 +54,11 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 	switch err := data["err"].(type) {
 	case nil:
 		logs.DebugLog(msg, data)
-	case xerrors.Wrapper:
-		logs.ErrorLog(err.Unwrap(), msg, data)
 	case *pgconn.PgError:
 		sql = l.printPgError(msg, data, sql, err)
 		return
+	case xerrors.Wrapper:
+		logs.ErrorLog(err.Unwrap(), msg, data)
 	case error:
 		logs.ErrorLog(err, msg, data)
 
@@ -67,11 +67,18 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 	}
 
 	if hasSQL {
-		logs.StatusLog("[PGX]", sql)
+		logs.CustomLog(logs.DEBUG, "[PGX]", "sgl", 0, sql, logs.FgErr)
 	}
 }
 
 func (l *pgxLog) printPgError(msg string, data map[string]any, sql string, err *pgconn.PgError) string {
+	logPgError(msg, data["args"], sql, err)
+
+	l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
+	return sql
+}
+
+func logPgError(msg string, args any, sql string, err *pgconn.PgError) {
 	if dbEngine.IsErrorAlreadyExists(err) {
 		submatch := dbEngine.RegAlreadyExists.FindStringSubmatch(err.Error())
 		fileName := submatch[2] + ".ddl"
@@ -87,13 +94,10 @@ func (l *pgxLog) printPgError(msg string, data map[string]any, sql string, err *
 				sql,
 				gotools.StartEndString(err.Where, 100),
 				err.Hint,
-				data["args"], err),
+				args, err),
 			logs.FgErr,
 		)
 	}
-
-	l.pool.addNotice(data["pid"].(uint32), (*pgconn.Notice)(err))
-	return sql
 }
 
 // SetLogLevel set logs level DB operations
