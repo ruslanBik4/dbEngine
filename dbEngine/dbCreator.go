@@ -12,7 +12,7 @@ import (
 	"github.com/ruslanBik4/logs"
 )
 
-func (p *ParserCfgDDL) runDDL(ddl string, args ...any) error {
+func (p *ParserCfgDDL) runDDL(ddl string, args ...any) {
 	err := p.DB.Conn.ExecDDL(p.DB.ctx, ddl, args...)
 	if err == nil {
 		if p.DB.Conn.LastRowAffected() > 0 {
@@ -27,10 +27,9 @@ func (p *ParserCfgDDL) runDDL(ddl string, args ...any) error {
 	} else if IsErrorForReplace(err) {
 		p.err = err
 	} else if err != nil {
-		logError(err, ddl, p.filename)
+		logError(&ErrUnknownSql{Line: p.line, Msg: err.Error(), sql: ddl}, ddl, p.filename)
 		p.err = err
 	}
-	return p.err
 }
 
 func (p *ParserCfgDDL) checkDDLCreateIndex(ddl string) (*Index, error) {
@@ -149,24 +148,22 @@ func NewParserCfgDDL(db *DB, table Table) *ParserCfgDDL {
 func (p *ParserCfgDDL) Parse(ddl string) error {
 	p.line = 1
 	for _, sql := range strings.Split(ddl, ";") {
-		p.line += strings.Count(sql, "\n")
 
+		lines := strings.Count(sql, "\n")
 		sql = strings.TrimSpace(strings.TrimPrefix(sql, "\n"))
-		if sql == "" || strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" ||
-			strings.HasPrefix(sql, "--") {
-			continue
+		if !(sql == "" || strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" ||
+			strings.HasPrefix(sql, "--")) {
+			if err := p.execSql(sql); err != nil {
+				logError(err, ddl, p.filename)
+			}
+
+			if p.err != nil {
+				logError(p.err, ddl, p.filename)
+			}
+
+			p.err = nil
 		}
-
-		if err := p.execSql(sql); err != nil {
-			logError(err, ddl, p.filename)
-		}
-
-		if p.err != nil {
-			logError(p.err, ddl, p.filename)
-		}
-
-		p.err = nil
-
+		p.line += lines
 	}
 
 	return nil

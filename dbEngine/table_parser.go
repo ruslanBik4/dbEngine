@@ -17,7 +17,9 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 		return false
 	}
 
+	p.line++
 	for i, name := range regTable.SubexpNames() {
+		p.line++
 		if !(i < len(fields)) {
 			return false
 		}
@@ -47,7 +49,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 				}
 				sql := p.updDLL.String() + sqlDefaults.String()
 
-				for err := p.runDDL(sql); err != nil; err = p.runDDL(sql) {
+				for p.runDDL(sql); p.err != nil; p.runDDL(sql) {
 					if pgErr, ok := p.err.(*pgconn.PgError); ok {
 						if pgErr.Message == ErrCannotAlterColumnUsedView {
 							if r := regErrView.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
@@ -61,7 +63,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 							}
 							break
 						} else {
-							logs.ErrorLog(err)
+							//logs.ErrorLog(err)
 							break
 						}
 
@@ -70,12 +72,10 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 					}
 				}
 
-				if p.err != nil {
-					logError(p.err, sql, p.filename)
-				}
 				p.updDLL = nil
-				err := p.Table.GetColumns(p.DB.ctx, p.DB.Types)
-				if err != nil {
+				p.err = nil
+
+				if err := p.Table.GetColumns(p.DB.ctx, p.DB.Types); err != nil {
 					logs.ErrorLog(err, "during reread table columns")
 				}
 			}
@@ -264,10 +264,8 @@ func (p *ParserCfgDDL) addComment(ddl string) bool {
 		if tokens[2] == p.Table.Comment() {
 			return true
 		}
-		err := p.runDDL(ddl)
-		if err != nil {
-			logs.ErrorLog(err)
-		}
+
+		p.runDDL(ddl)
 		return true
 
 	} else if res := regCommentColumn.FindAllStringSubmatch(ddl, -1); len(res) > 0 {
@@ -287,10 +285,7 @@ func (p *ParserCfgDDL) addComment(ddl string) bool {
 		}
 
 		if col.Comment() != strings.ReplaceAll(tokens[3], "''", "'") {
-			err := p.runDDL(ddl)
-			if err != nil {
-				logs.ErrorLog(err)
-			}
+			p.runDDL(ddl)
 		}
 		return true
 	}
@@ -392,18 +387,18 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 func (p *ParserCfgDDL) alterColumn(colName string, sAlter ...string) error {
 	ddl := fmt.Sprintf(`ALTER TABLE %s %s`, p.Name(), strings.Join(sAlter, ","))
 
-	switch err := p.runDDL(ddl); {
-	case err == nil:
+	switch p.runDDL(ddl); {
+	case p.err == nil:
 		logInfo(preDB_CONFIG, p.filename, ddl, p.line)
 		p.ReReadColumn(p.DB.ctx, colName)
 
-	case IsErrorForReplace(err):
+	case IsErrorForReplace(p.err):
 		logs.ErrorLog(p.err, `Field %s.%s, different with define: '%s' %v`, p.Name(), ddl)
 
-	case IsErrorNullValues(err):
+	case IsErrorNullValues(p.err):
 		defaults := RegDefault.FindStringSubmatch(strings.ToLower(ddl))
 		if len(defaults) > 1 && defaults[1] > "" {
-			return p.runDDL(fmt.Sprintf(`UPDATE %s SET %s=$1`, p.Name(), colName), defaults[1])
+			p.runDDL(fmt.Sprintf(`UPDATE %s SET %s=$1`, p.Name(), colName), defaults[1])
 		}
 
 	default:
