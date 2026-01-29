@@ -13,7 +13,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
@@ -201,6 +200,7 @@ func (db *DB) syncTableDDL(path string, tType string) error {
 
 func (db *DB) createTable(path, ddl, tableName, tType string) error {
 
+	fileName := filepath.Base(path)
 	switch err := db.Conn.ExecDDL(db.ctx, ddl); {
 	case err == nil:
 		table := db.Conn.NewTable(tableName, "table")
@@ -209,7 +209,7 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 			return err
 		}
 		db.Tables[tableName] = table
-		logs.StatusLog("New %s added to DB: %s", tType, tableName)
+		logInfo(preDB_CONFIG, fileName, fmt.Sprintf("New %s added to DB: %s", tType, tableName), 1)
 
 		// create all relations tables
 		if rel, ok := db.relationTables[tableName]; ok {
@@ -223,7 +223,7 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 		}
 
 	case IsErrorAlreadyExists(err) && !strings.Contains(err.Error(), tableName):
-		logs.ErrorLog(err, "Already exists - "+tableName+" but it don't found on schema")
+		logError(err, "Already exists - "+tableName+" but it don't found on schema", fileName)
 
 	//	DDL has relation into non-creating tables - save path for creating after relations tables
 	case IsErrorDoesNotExists(err):
@@ -234,7 +234,7 @@ func (db *DB) createTable(path, ddl, tableName, tType string) error {
 		}
 
 	default:
-		logs.ErrorLog(err, "During create- "+tableName)
+		logError(err, "During create- "+tableName, fileName)
 	}
 
 	return nil
@@ -432,6 +432,8 @@ func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []s
 					case ChgLength:
 						ddlAlter += " SET DATA TYPE " + newType
 					case ChgToArray:
+					default:
+						logs.ErrorLog(fmt.Errorf("unhandled default case: %v", flag), fileName)
 					}
 				}
 				err := db.Conn.ExecDDL(db.ctx, ddlAlter)
@@ -514,9 +516,4 @@ func logInfo(prefix, fileName, msg string, line int) {
 
 func logWarning(prefix, fileName, msg string, line int) {
 	logs.CustomLog(logs.WARNING, prefix, fileName, line, msg, logs.FgInfo)
-}
-
-func timeLogFormat() string {
-	hh, mm, ss := time.Now().Clock()
-	return fmt.Sprintf("%.2d:%.2d:%.2d", hh, mm, ss)
 }
