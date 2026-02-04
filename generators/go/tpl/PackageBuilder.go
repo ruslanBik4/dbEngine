@@ -36,12 +36,15 @@ func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 	slices.Sort(tables)
 	routines := slices.Collect(maps.Keys(c.Routines))
 	slices.Sort(routines)
-	imports := slices.Collect(maps.Keys(c.Imports))
-	slices.SortFunc(imports, sortImports())
-
-	c.WriteCreateDatabase(f, c.DB.Schema, imports, tables, routines)
+	c.WriteCreateDatabase(f, c.DB.Schema, c.SortImports(), tables, routines)
 
 	return nil
+}
+
+func (c *PackageBuilder) SortImports() []string {
+	imports := slices.Collect(maps.Keys(c.Imports))
+	slices.SortFunc(imports, sortImports())
+	return imports
 }
 
 func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
@@ -102,10 +105,8 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 			properties[col.Name()] = typeCol
 		}
 	})
-	imports := slices.Collect(maps.Keys(c.Imports))
-	slices.SortFunc(imports, sortImports())
 
-	return NewTable(name, table.Name(), table.Comment(), table.(*psql.Table).Type, columns, imports, properties)
+	return NewTable(name, table.Name(), table.Comment(), table.(*psql.Table).Type, columns, c.SortImports(), properties)
 	//_, err = fmt.Fprintf(f, footer, name, caseRefFields, caseColFields, table.Name(), c.initValues)
 }
 
