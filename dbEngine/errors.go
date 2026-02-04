@@ -282,6 +282,9 @@ func logError(err error, ddlSQL string, fileName string) {
 		if pos <= 0 {
 			pos = strings.Index(ddlSQL, pgErr.ConstraintName) + 1
 		}
+		if pos > len(ddlSQL)-1 {
+			pos = len(ddlSQL) - 1
+		}
 		line := strings.Count(ddlSQL[:pos], "\n") + 1
 		msg := fmt.Sprintf("%s: %s", pgErr.Message, pgErr.Detail)
 		if pgErr.Where > "" {

@@ -91,7 +91,7 @@ func logPgError(msg string, args any, sql string, err *pgconn.PgError) {
 			fmt.Sprintf("%s: %s, '%s %s(%s)', args: %+v, %v",
 				msg,
 				err.Detail,
-				sql,
+				gotools.StartEndString(sql, 125),
 				gotools.StartEndString(err.Where, 100),
 				err.Hint,
 				args, err),
