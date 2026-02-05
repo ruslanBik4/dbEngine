@@ -212,7 +212,7 @@ type Database struct {
 // NewDatabase create new Database with minimal necessary handlers
 func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channelHandler pgconn.NotificationHandler, channels ...string) (*Database, error) {
 	if noticeHandler == nil {
-		noticeHandler = printNotice
+		noticeHandler = psql.PrintNotice
 	}
 	conn := psql.NewConnWithOptions(
 		{%- if hasCitext -%}psql.AfterConnect(afterConnect),{%- endif -%}
@@ -278,33 +278,6 @@ func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reade
 }
 {%- for _, name := range listTables -%}{%= CreateTableConstructor(strcase.ToCamel(name), name) %}{%- endfor -%}
 {%- for _, name := range listRoutines -%}{%= c.CreateRoutinesInvoker(c.Routines[name].(*psql.Routine), name) %}{%- endfor -%}
-// printNotice logging some psql messages (invoked command 'RAISE ...')
-func printNotice(c *pgconn.PgConn, n *pgconn.Notice) {
-	switch {
-    case n.Code == "42P07" || strings.Contains(n.Message, "skipping"):
-		logs.DebugLog("skip operation: %s", n.Message)
-
-	case n.Severity == "INFO":
-		logs.StatusLog(n.Message)
-
-	case n.Code > "00000":
-		err := (*pgconn.PgError)(n)
-		logs.CustomLog(
-				logs.CRITICAL,
-				"DB_EXEC",
-				err.File,
-				int(err.Line),
-				fmt.Sprintf("%v, hint: %s, where: %s, %s %s", err, n.Hint, gotools.StartEndString(n.Where, 100), err.SQLState(), err.Routine),
-				logs.FgErr,
-			)
-
-	case strings.HasPrefix(n.Message, "[[ERROR]]"):
-		logs.ErrorLog(errors.New(strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity))
-
-	default: // DEBUG
-		logs.DebugLog("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
-	}
-}
 {% endfunc %}
 
 {%- func (c *PackageBuilder) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string) -%}

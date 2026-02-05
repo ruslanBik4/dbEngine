@@ -93,10 +93,10 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	packagesAsDefault := []string{
 		"io",
 		"encoding/gob",
-		"errors",
+		//"errors",
 		"fmt",
 		"time",
-		"strings",
+		//"strings",
 
 		"github.com/jackc/pgconn",
 		"github.com/jackc/pgtype",

@@ -6,6 +6,7 @@ package psql
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgx/v4"
@@ -119,4 +120,51 @@ func SetLogLevel(lvl string) pgx.LogLevel {
 	default:
 		return pgx.LogLevelError
 	}
+}
+
+// PrintNotice logging some psql messages (invoked command 'RAISE ...')
+func PrintNotice(c *pgconn.PgConn, n *pgconn.Notice) {
+	level := logs.CRITICAL
+	fgErr := logs.FgDebug
+	msg := n.Message
+
+	switch {
+	case n.Code == "42P07" || strings.Contains(n.Message, "skipping"):
+		level = logs.NOTICE
+		msg = fmt.Sprintf("skip operation: %s", n.Message)
+
+	case n.Severity == "INFO":
+		level = logs.INFO
+		fgErr = logs.FgInfo
+
+	case n.Code > "00000":
+		err := (*pgconn.PgError)(n)
+		fgErr = logs.FgErr
+		msg = fmt.Sprintf(
+			"%v, hint: %s, where: %s, %s %s",
+			err,
+			n.Hint,
+			gotools.StartEndString(n.Where, 100),
+			err.SQLState(),
+			err.Routine,
+		)
+
+	case strings.HasPrefix(n.Message, "[[ERROR]]"):
+		level = logs.ERROR
+		fgErr = logs.FgErr
+		msg = strings.TrimPrefix(n.Message, "[[ERROR]]") + n.Severity
+
+	default: // DEBUG
+		level = logs.DEBUG
+		msg = fmt.Sprintf("%+v %s (PID:%d)", n.Severity, n.Message, c.PID())
+	}
+
+	logs.CustomLog(
+		level,
+		"DB_EXEC",
+		n.File,
+		int(n.Line),
+		msg,
+		fgErr,
+	)
 }
