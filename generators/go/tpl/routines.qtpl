@@ -44,7 +44,7 @@ func (d *Database) {%s camelName %}(
 {%- case 1 -%}
 	{%- code
 		param := r.Columns()[0]
-		typeReturn, _ = c.chkTypes(param, strcase.ToCamel(param.Name()))
+		typeReturn, _ = c.ChkTypes(param, strcase.ToCamel(param.Name()))
 		if a, ok := strings.CutPrefix(typeReturn, "[]"); param.BasicType()  < 0 && ok {
 		   typeReturn = "WrapArray[*" + a + "]"
 		}
@@ -174,7 +174,7 @@ type {%s camelName %}RowScanner struct {
 	{%- for _, param := range r.Columns() -%}
 		{%- code
 			s := strcase.ToCamel(param.Name())
-			typeCol, _ := c.chkTypes(param, s)
+			typeCol, _ := c.ChkTypes(param, s)
 			if a, ok := strings.CutPrefix(typeCol, "[]"); param.BasicType()  < 0 && ok {
 			   typeCol = "WrapArray[*" + a + "]"
 			}
@@ -209,12 +209,12 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 	{% for _, param := range r.Params() %}
 	{%- code
 		s := strcase.ToLowerCamel(param.Name())
-		typeCol, _ := c.chkTypes(param, s)
+		typeCol, _ := c.ChkTypes(param, s)
 		if param.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
 			typeCol = "*"+typeCol
 		}
 	-%}
-	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}, // {%s param.Comment() %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}, def: {%v param.Default() %}{%- endif -%}
+	{%s fmt.Sprintf("%-[2]*[1]s\t%s\t//%s", s, maxLen, typeCol, param.Comment()) %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}, def: {%v param.Default() %}{%- endif -%}
 	{%- endfor -%}
 {%- endfunc -%}
 
