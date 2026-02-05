@@ -740,7 +740,7 @@ func (c *PackageBuilder) streamparamsTitle(qw422016 *qt422016.Writer, r *psql.Ro
 //line routines.qtpl:216
 		qw422016.N().S(`	`)
 //line routines.qtpl:217
-		qw422016.E().S(fmt.Sprintf("%-*s\t%s\t//%s", maxLen, s, typeCol, param.Comment()))
+		qw422016.E().S(fmt.Sprintf("%-*s\t%s,\t//%s", maxLen, s, typeCol, param.Comment()))
 //line routines.qtpl:217
 		qw422016.N().S(` pg type: `)
 //line routines.qtpl:217

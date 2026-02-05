@@ -6,6 +6,8 @@ package psql
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/jackc/pgconn"
@@ -122,6 +124,8 @@ func SetLogLevel(lvl string) pgx.LogLevel {
 	}
 }
 
+var regWarning = regexp.MustCompile(`function\s+([^(\s]+)\([^)]+\)\s+line\s+(\d+)\s+at\s+RAISE`)
+
 // PrintNotice logging some psql messages (invoked command 'RAISE ...')
 func PrintNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	level := logs.CRITICAL
@@ -140,14 +144,26 @@ func PrintNotice(c *pgconn.PgConn, n *pgconn.Notice) {
 	case n.Code > "00000":
 		err := (*pgconn.PgError)(n)
 		fgErr = logs.FgErr
-		msg = fmt.Sprintf(
-			"%v, hint: %s, where: %s, %s %s",
-			err,
-			n.Hint,
-			gotools.StartEndString(n.Where, 100),
-			err.SQLState(),
-			err.Routine,
-		)
+		if n.Severity == "WARNING" {
+			level = logs.WARNING
+		}
+
+		if regWarning.MatchString(n.Where) {
+			for _, i := range regWarning.FindAllStringSubmatch(n.Where, -1) {
+				n.File = i[1] + ".ddl"
+				line, _ := strconv.Atoi(i[2])
+				n.Line = int32(line)
+			}
+		} else {
+			msg = fmt.Sprintf(
+				"%v, hint: %s, where: %s, %s %s",
+				err,
+				n.Hint,
+				gotools.StartEndString(n.Where, 100),
+				err.SQLState(),
+				err.Routine,
+			)
+		}
 
 	case strings.HasPrefix(n.Message, "[[ERROR]]"):
 		level = logs.ERROR
