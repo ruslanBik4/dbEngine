@@ -10,12 +10,12 @@ import (
 
 func TestPrintNotice(t *testing.T) {
 	type args struct {
-		c pgconn.PgConn
+		c *pgconn.PgConn
 		n pgconn.Notice
 	}
 
 	logs.SetDebug(true)
-	c := pgconn.PgConn{}
+	c := &pgconn.PgConn{}
 	tests := []struct {
 		name string
 		args args
@@ -147,7 +147,7 @@ func TestPrintNotice(t *testing.T) {
 			},
 		},
 		{
-			name: "TestPrintDebug",
+			name: "TestPrintWarning",
 			args: args{
 				c,
 				(pgconn.Notice)(pgconn.PgError{
@@ -160,6 +160,31 @@ func TestPrintNotice(t *testing.T) {
 					InternalPosition: 0,
 					InternalQuery:    "",
 					Where:            "PL/pgSQL function check_and_recalc(date,integer,integer[]) line 87 at RAISE",
+					SchemaName:       "",
+					TableName:        "",
+					ColumnName:       "",
+					DataTypeName:     "",
+					ConstraintName:   "",
+					File:             "test.prn",
+					Line:             8,
+					Routine:          "",
+				}),
+			},
+		},
+		{
+			name: "TestPrintWarning",
+			args: args{
+				c,
+				(pgconn.Notice)(pgconn.PgError{
+					Severity:         "WARNING",
+					Code:             "01000",
+					Message:          "2026-02-07 07:06:42.935035+00:sunPnl 2026-02-07 07:06:42.934678+00 Error Name:function init_tradestate(trade_agg, trad>\nSQL statement \"call chec...val)::date, 100000, '{52}')",
+					Detail:           "",
+					Hint:             "",
+					Position:         0,
+					InternalPosition: 0,
+					InternalQuery:    "",
+					Where:            "pgSQL function daily_recalc(integer,integer,integer) line 41 at CALL",
 					SchemaName:       "",
 					TableName:        "",
 					ColumnName:       "",
@@ -199,7 +224,7 @@ func TestPrintNotice(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			PrintNotice(&tt.args.c, &tt.args.n)
+			PrintNotice(tt.args.c, &tt.args.n)
 		})
 	}
 }

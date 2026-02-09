@@ -124,7 +124,7 @@ func SetLogLevel(lvl string) pgx.LogLevel {
 	}
 }
 
-var regWarning = regexp.MustCompile(`function\s+([^(\s]+)\([^)]+\)\s+line\s+(\d+)\s+at\s+RAISE`)
+var regWarning = regexp.MustCompile(`function\s+([^(\s]+)\([^)]+\)\s+line\s+(\d+)\s+at\s+(RAISE|CALL)`)
 
 // PrintNotice logging some psql messages (invoked command 'RAISE ...')
 func PrintNotice(c *pgconn.PgConn, n *pgconn.Notice) {
