@@ -384,8 +384,7 @@ func GetTimeTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time
 
 // GetRefTimeFromByte convert data from src into *time.Time
 func GetRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) *time.Time {
-	t := GetTimeFromByte(ci, src, name)
-	return &t
+	return new(GetTimeFromByte(ci, src, name))
 }
 
 // GetArrayTimeTimeFromByte convert data from src into []time.Time (alias for GetArrayTimeFromByte)

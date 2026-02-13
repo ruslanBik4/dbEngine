@@ -35,11 +35,10 @@ func main() {
 	}
 
 	conn := psql.NewConn(nil, nil, nil)
-	dbCfgPath := path.Join(path.Join(*fCfgPath, "DB"), "DB")
 	cfgDB := dbEngine.CfgDB{
 		Url:       "",
 		GetSchema: &struct{}{},
-		PathCfg:   &dbCfgPath,
+		PathCfg:   new(path.Join(path.Join(*fCfgPath, "DB"), "DB")),
 		Excluded:  cfg.Excluded,
 		Included:  cfg.Included,
 	}
