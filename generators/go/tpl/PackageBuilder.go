@@ -177,33 +177,38 @@ func (c *PackageBuilder) udtToReturnType(udtName string) string {
 
 // MakeDBUsersTypes create interface of DB
 func (c *PackageBuilder) MakeDBUsersTypes() error {
-	for tName, t := range c.DB.Types {
-		for i, tAttr := range t.Attr {
-			name := tAttr.Name
-			ud := &t
-			if tAttr.Name == "domain" {
-				logs.StatusLog("%s, %c %v", tName, t.Type, tAttr)
-				ud = nil
+	c.types = slices.AppendSeq(c.types, func(yield func(string) bool) {
+		for tName, t := range c.DB.Types {
+			for i, tAttr := range t.Attr {
+				name := tAttr.Name
+				ud := &t
+				if tAttr.Name == "domain" {
+					logs.StatusLog("%s, %c %v", tName, t.Type, tAttr)
+					ud = nil
+				}
+				typeCol, _ := c.ChkTypes(
+					&psql.Column{
+						UdtName:     tAttr.Type,
+						DataType:    tAttr.Type,
+						UserDefined: ud,
+					},
+					strcase.ToCamel(name))
+				if typeCol == "" {
+					logs.ErrorLog(dbEngine.NewErrNotFoundType(name, tAttr.Type), tAttr)
+				}
+				tAttr.Type = typeCol
+				t.Attr[i] = tAttr
+				if len(t.Enumerates) == 0 {
+					c.addImport(moduloPgType, moduloGoTools)
+				}
 			}
-			typeCol, _ := c.ChkTypes(
-				&psql.Column{
-					UdtName:     tAttr.Type,
-					DataType:    tAttr.Type,
-					UserDefined: ud,
-				},
-				strcase.ToCamel(name))
-			if typeCol == "" {
-				logs.ErrorLog(dbEngine.NewErrNotFoundType(name, tAttr.Type), tAttr)
+			c.DB.Types[tName] = t
+			if !yield(tName) {
+				return
 			}
-			tAttr.Type = typeCol
-			t.Attr[i] = tAttr
-			if len(t.Enumerates) == 0 {
-				c.addImport(moduloPgType, moduloGoTools)
-			}
+			c.Imports["fmt"] = struct{}{}
 		}
-		c.DB.Types[tName] = t
-		c.types = append(c.types, tName)
-	}
+	})
 
 	slices.Sort(c.types)
 
