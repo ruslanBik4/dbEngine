@@ -199,14 +199,13 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 				tAttr.Type = typeCol
 				t.Attr[i] = tAttr
 				if len(t.Enumerates) == 0 {
-					c.addImport(moduloPgType, moduloGoTools)
+					c.addImport(moduloPgType, moduloGoTools, "fmt")
 				}
 			}
 			c.DB.Types[tName] = t
 			if !yield(tName) {
 				return
 			}
-			c.Imports["fmt"] = struct{}{}
 		}
 	})
 
