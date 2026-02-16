@@ -93,10 +93,7 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	packagesAsDefault := []string{
 		"io",
 		"encoding/gob",
-		//"errors",
-		//"fmt",
 		"time",
-		//"strings",
 
 		"github.com/jackc/pgconn",
 		"github.com/jackc/pgtype",
@@ -136,6 +133,12 @@ func (c *Creator) MakeInterfaceDB() error {
 		return errors.Wrap(err, "creator")
 	}
 
+	defer func(f *os.File) {
+		err := f.Close()
+		if err != nil {
+			logs.ErrorLog(err, "close file '%s' failed", f.Name())
+		}
+	}(f)
 	return c.PrepareDatabase(f)
 }
 

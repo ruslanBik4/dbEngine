@@ -206,6 +206,9 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 			if !yield(tName) {
 				return
 			}
+			if tName == "citext" {
+				c.addImport("fmt")
+			}
 		}
 	})
 
