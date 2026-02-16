@@ -192,9 +192,9 @@ func (t *{%s t.name %}) InsertPoolAndReset(ctx context.Context) []*{%s t.name %}
 // {%s t.name %}Fields data object for '{%s t.name %}' columns
 type {%s t.name %}Fields struct {
 	// columns of table %s
-	{%- for _, name := range t.columns %}
+	{%- for _, name := range t.columns -%}
 	{%s= fmt.Sprintf(colFormat, strcase.ToCamel(name), t.properties[name], strings.ToLower(name)) %}
-    {% endfor %}
+    {%- endfor -%}
 }
 // New%sFields create new instance & fill struct fill for avoid panic
 func New{%s t.name %}Fields() *{%s t.name %}Fields{
@@ -205,9 +205,8 @@ func New{%s t.name %}Fields() *{%s t.name %}Fields{
 // RefColValue return referral of column
 func (r *{%s t.name %}Fields) RefColValue(name string) any{
 	switch name {
-	{%- for _, name := range t.columns %}
-		case "{%s name %}":
-    		return &r.{%s strcase.ToCamel(name) %}
+	{% for _, name := range t.columns %}case "{%s name %}":
+        return &r.{%s strcase.ToCamel(name) %}
     {% endfor %}
    	default:
 		return nil
@@ -216,7 +215,7 @@ func (r *{%s t.name %}Fields) RefColValue(name string) any{
 // ColValue return value of column
 func (r *{%s t.name %}Fields) ColValue(name string) any{
 	switch name {
-	{%- for _, name := range t.columns -%} case "{%s name %}":
+	{% for _, name := range t.columns -%} case "{%s name %}":
         return r.{%s strcase.ToCamel(name)%}
     {% endfor %}
    	default:
