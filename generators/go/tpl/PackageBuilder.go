@@ -96,7 +96,7 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 					IsNotNull: false,
 				}, ind))
 
-			fields += fmt.Sprintf(colFormat, propName, typeCol, strings.ToLower(col.Name()))
+			fields += fmt.Sprintf("\n\t"+colFormat, propName, typeCol, strings.ToLower(col.Name()))
 			caseRefFields += fmt.Sprintf(caseRefFormat, col.Name(), propName)
 			caseColFields += fmt.Sprintf(caseColFormat, col.Name(), propName)
 			if !yield(col.Name()) {
