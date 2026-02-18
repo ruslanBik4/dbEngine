@@ -4,7 +4,7 @@
 
 package psql
 
-// ROUTINE_TYPE_PROC & ROUTINE_TYPE_FUNC are named POsqgreSQL routine
+// ROUTINE_TYPE_PROC & ROUTINE_TYPE_FUNC are named PostgreSQL routine
 const (
 	ROUTINE_TYPE_PROC = "PROCEDURE"
 	ROUTINE_TYPE_FUNC = "FUNCTION"

@@ -134,6 +134,7 @@ func NewColumn(
 		characterMaximumLength: characterMaximumLength,
 		PrimaryKey:             primaryKey,
 		IsHidden:               isHidden,
+		Constraints:            make(map[string]*dbEngine.ForeignKey),
 	}
 
 	col.SetDefault(colDefault)
@@ -146,7 +147,8 @@ func (col *Column) BasicTypeInfo() types.BasicInfo {
 	switch col.BasicType() {
 	case types.Bool:
 		return types.IsBoolean
-	case types.Int32, types.Int64:
+	case types.Int, types.Int8, types.Int16, types.Int32, types.Int64,
+		types.Uint, types.Uint8, types.Uint16, types.Uint32, types.Uint64:
 		return types.IsInteger
 	case types.Float32, types.Float64, types.UntypedFloat:
 		return types.IsFloat
