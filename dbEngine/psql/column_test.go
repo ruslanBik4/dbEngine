@@ -834,14 +834,14 @@ func TestNewColumn(t *testing.T) {
 		{
 			"int",
 			args{name: "intField", dataType: "int4"},
-			&Column{name: "intField", DataType: "int4"},
+			&Column{name: "intField", DataType: "int4", Constraints: make(map[string]*dbEngine.ForeignKey)},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := NewColumn(tt.args.table, tt.args.name, tt.args.dataType, tt.args.columnDefault, tt.args.isNullable, tt.args.characterSetName, tt.args.comment, tt.args.udtName, tt.args.characterMaximumLength, tt.args.primaryKey, tt.args.isHidden)
 			assert.Implements(t, (*dbEngine.Column)(nil), got)
-			if !assert.Equal(t, got, tt.want) {
+			if !assert.Equal(t, tt.want, got) {
 				t.Errorf("NewColumn() = %v, want %v", got, tt.want)
 			}
 		})

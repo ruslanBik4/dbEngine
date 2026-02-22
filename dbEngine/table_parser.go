@@ -339,7 +339,7 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 			logInfo(preDB_CONFIG, p.filename,
 				fmt.Sprintf("index '%s' exists! New columns '%v'", oldInd.Name, ind.Columns),
 				p.line)
-			logs.DebugLog(columns, ind.Columns)
+			logs.DebugLog(oldInd, ind)
 		}
 		for i, name := range ind.Columns {
 
