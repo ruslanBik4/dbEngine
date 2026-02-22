@@ -3,6 +3,7 @@ package dbEngine
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 
 	"github.com/go-errors/errors"
@@ -343,7 +344,7 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 		}
 		for i, name := range ind.Columns {
 
-			hasChanges = !(i < len(columns) && columns[i] == name)
+			hasChanges = !slices.Contains(columns, name)
 			if !hasChanges {
 				continue
 			}
