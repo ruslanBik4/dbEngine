@@ -342,7 +342,7 @@ func (p *ParserCfgDDL) updateIndex(ddl string) bool {
 				p.line)
 			logs.DebugLog(oldInd, ind)
 		}
-		for i, name := range ind.Columns {
+		for _, name := range ind.Columns {
 
 			hasChanges = !slices.Contains(columns, name)
 			if !hasChanges {
