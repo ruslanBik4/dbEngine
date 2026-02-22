@@ -149,7 +149,7 @@ func (p *ParserCfgDDL) Parse(ddl string) error {
 	p.line = 1
 	for _, sql := range strings.Split(ddl, ";") {
 
-		lines := strings.Count(sql, "\n")
+		next_line := p.line + strings.Count(sql, "\n")
 		sql = strings.TrimSpace(strings.TrimPrefix(sql, "\n"))
 		if !(sql == "" || strings.TrimSpace(strings.Replace(sql, "\n", "", -1)) == "" ||
 			strings.HasPrefix(sql, "--")) {
@@ -163,7 +163,7 @@ func (p *ParserCfgDDL) Parse(ddl string) error {
 
 			p.err = nil
 		}
-		p.line += lines
+		p.line = next_line
 	}
 
 	return nil

@@ -17,9 +17,7 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 		return false
 	}
 
-	p.line++
 	for i, name := range regTable.SubexpNames() {
-		p.line++
 		if !(i < len(fields)) {
 			return false
 		}
@@ -31,46 +29,17 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 				p.err = errors.Errorf("bad table name '%s'", fields[i])
 				return false
 			}
+			p.line++
 		case "builderOpts":
 
 			newNotNulls, sqlDefaults := p.chkColumns(fields[i])
 
 			if p.updDLL != nil {
 				if len(newNotNulls) > 0 {
-					p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + strings.Join(newNotNulls, "=DEFAULT, ") + "=DEFAULT;\n")
-					for j, col := range newNotNulls {
-						if j == 0 {
-							p.updDLL.WriteString("ALTER TABLE " + p.Name())
-						} else {
-							p.updDLL.WriteRune(',')
-						}
-						p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col))
-					}
+					p.writeNotNullColumns(newNotNulls)
 				}
-				sql := p.updDLL.String() + sqlDefaults.String()
 
-				for p.runDDL(sql); p.err != nil; p.runDDL(sql) {
-					if pgErr, ok := p.err.(*pgconn.PgError); ok {
-						if pgErr.Message == ErrCannotAlterColumnUsedView {
-							if r := regErrView.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
-								sql = "drop " + r[1] + " view " + r[2] + "  CASCADE ;" + sql
-							}
-						} else if pgErr.Detail > "" {
-							logs.StatusLog(sql, pgErr.Detail)
-							if r := regErrNullValues.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
-								logs.StatusLog(r)
-								//	todo: convert r to alter column
-							}
-							break
-						} else {
-							//logs.ErrorLog(err)
-							break
-						}
-
-					} else {
-						break
-					}
-				}
+				p.writeColumns(p.updDLL.String() + sqlDefaults.String())
 
 				p.updDLL = nil
 				p.err = nil
@@ -85,14 +54,54 @@ func (p *ParserCfgDDL) updateTable(ddl string) bool {
 	return true
 }
 
+func (p *ParserCfgDDL) writeColumns(sql string) {
+
+	for p.runDDL(sql); p.err != nil; p.runDDL(sql) {
+		if pgErr, ok := p.err.(*pgconn.PgError); ok {
+			if pgErr.Message == ErrCannotAlterColumnUsedView {
+				if r := regErrView.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
+					sql = "drop " + r[1] + " view " + r[2] + "  CASCADE ;" + sql
+				}
+			} else if pgErr.Detail > "" {
+				logs.StatusLog(sql, pgErr.Detail)
+				if r := regErrNullValues.FindStringSubmatch(pgErr.Detail); len(r) > 0 {
+					logs.StatusLog(r)
+					//	todo: convert r to alter column
+				}
+				break
+			} else {
+				//logs.ErrorLog(err)
+				break
+			}
+
+		} else {
+			break
+		}
+	}
+}
+
+func (p *ParserCfgDDL) writeNotNullColumns(newNotNulls []string) {
+	p.updDLL.WriteString(";\nUPDATE " + p.Name() + " SET " + strings.Join(newNotNulls, "=DEFAULT, ") + "=DEFAULT;\n")
+	for j, col := range newNotNulls {
+		if j == 0 {
+			p.updDLL.WriteString("ALTER TABLE " + p.Name())
+		} else {
+			p.updDLL.WriteRune(',')
+		}
+		p.updDLL.WriteString(fmt.Sprintf(tplAlterNotNull, col))
+	}
+}
+
 func (p *ParserCfgDDL) chkColumns(columns string) (newNotNulls []string, sqlDefaults *strings.Builder) {
 	nameFields := strings.Split(columns, ",\n")
 	newNotNulls = make([]string, 0)
 	sqlDefaults = &strings.Builder{}
 
 	for i, name := range nameFields {
+		p.line++
 		title := regField.FindStringSubmatch(name)
 		if len(title) < 3 ||
+			strings.HasPrefix(strings.ToLower(title[1]), "unique") ||
 			strings.HasPrefix(strings.ToLower(title[1]), "primary") ||
 			strings.HasPrefix(strings.ToLower(title[1]), "constraint") {
 			continue
@@ -113,10 +122,12 @@ func (p *ParserCfgDDL) chkColumns(columns string) (newNotNulls []string, sqlDefa
 		}
 
 		if col := p.FindColumn(colName); col == nil {
-			if strings.Contains(sAlter, "not null") && defaults > "" {
-				newNotNulls = append(newNotNulls, colName)
-			} else {
-				logWarning("COLUMN", p.filename, colName+" has't default will be add without flag SET NULL", i+1)
+			if strings.Contains(sAlter, "not null") {
+				if defaults > "" {
+					newNotNulls = append(newNotNulls, colName)
+				} else {
+					logWarning("COLUMN", p.filename, colName+" has't default will be add without flag SET NULL", i+1)
+				}
 			}
 			p.addColumn(sAlter)
 
