@@ -183,7 +183,7 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 				name := tAttr.Name
 				ud := &t
 				if tAttr.Name == "domain" {
-					logs.StatusLog("%s, %c %v", tName, t.Type, tAttr)
+					logs.StatusLog("%s: '%c' %+v", tName, t.Type, tAttr)
 					ud = nil
 				}
 				typeCol, _ := c.ChkTypes(

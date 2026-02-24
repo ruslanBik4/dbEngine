@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgtype v1.14.4
 	github.com/jackc/pgx/v4 v4.18.3
 	github.com/pkg/errors v0.9.1
-	github.com/ruslanBik4/gotools v0.0.3
+	github.com/ruslanBik4/gotools v0.0.4
 	github.com/ruslanBik4/logs v0.1.3
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.69.0
