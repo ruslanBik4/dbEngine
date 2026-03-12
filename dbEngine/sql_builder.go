@@ -7,6 +7,7 @@ package dbEngine
 import (
 	"fmt"
 	"go/types"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -660,6 +661,8 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 	return Where(columns...)
 }
 
+var regPSQLParams = regexp.MustCompile(`^(Any\()?\$(\d+)(\))?$`)
+
 // Where is short alias for WhereForSelect
 func Where(columns ...string) BuildSqlOptions {
 	return func(b *SQLBuilder) error {
@@ -667,32 +670,54 @@ func Where(columns ...string) BuildSqlOptions {
 		b.filter = make([]string, len(columns))
 		if b.Table != nil {
 			for _, name := range columns {
-				if isOperator(name[0]) {
-					switch {
-					case isOperatorPre(name[1]):
-						name = name[2:]
-					default:
-						name = name[1:]
+				for i, token := range strings.Split(name, " ") {
+					switch strings.ToUpper(token) {
+					case "IN", "IS", "OR", "AND":
+						continue
 					}
-				} else if tokens := strings.Split(name, " "); len(tokens) > 1 {
-					if tokens[1] == "in" || tokens[1] == "is" {
-						name = tokens[0]
-					} else if len(tokens) > 2 && isOperatorPre(tokens[1][0]) {
-						name = tokens[0]
-						secName := tokens[2]
-						if regFieldName.MatchString(secName) && b.Table.FindColumn(secName) == nil {
-							return NewErrNotFoundColumn(b.Table.Name(), secName)
+
+					if tt := strings.Split(token, "="); len(tt) == 2 {
+						if b.Table.FindColumn(tt[0]) == nil {
+							return NewErrNotFoundColumn(b.Table.Name(), tt[0])
 						}
+						continue
+					}
+
+					name = token
+					switch {
+					case regPSQLParams.MatchString(token):
+						continue
+
+					case i > 1:
+						if regFieldName.MatchString(name) && b.Table.FindColumn(name) == nil {
+							return NewErrNotFoundColumn(b.Table.Name(), name)
+						}
+						continue
+
+					case isOperator(name[0]):
+						if len(name) == 1 {
+							continue
+						}
+						if isOperatorPre(name[1]) {
+							name = name[2:]
+						} else {
+							name = name[1:]
+						}
+
+						//	if isOperatorPre(token[0]) {
+						//		name = token[0]
+						//		secName := token[2]
+						//	}
+					}
+
+					if tokens := strings.Split(name, "::"); len(tokens) > 1 {
+						name = tokens[0]
+					}
+
+					if b.Table.FindColumn(name) == nil {
+						return NewErrNotFoundColumn(b.Table.Name(), name)
 					}
 				}
-				if tokens := strings.Split(name, "::"); len(tokens) > 1 {
-					name = tokens[0]
-				}
-
-				if b.Table.FindColumn(name) == nil {
-					return NewErrNotFoundColumn(b.Table.Name(), name)
-				}
-
 			}
 		}
 

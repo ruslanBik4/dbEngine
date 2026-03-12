@@ -848,6 +848,10 @@ func TestWhereForSelect(t *testing.T) {
 			"borrowed > repaid",
 			assert.Equal,
 		},
+		{
+			"id=ANY($1) OR id_projects=16",
+			assert.Equal,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
