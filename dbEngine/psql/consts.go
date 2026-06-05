@@ -75,7 +75,7 @@ UNION ALL
                    WHEN nt.nspname = 'pg_catalog'::name THEN format_type(a.atttypid, NULL::integer)
                    ELSE 'USER-DEFINED'::text
                    END
-           END::information_schema.character_data                                                                                      AS data_type,
+           END::information_schema.character_data AS data_type,
 		NULL,  true,  '', -1, 
         COALESCE(bt.typname, t.typname)::information_schema.sql_identifier,
 		COALESCE(pg_catalog.col_description((SELECT ('"' || $1 || '"')::regclass::oid), ordinal_position::int), ''),

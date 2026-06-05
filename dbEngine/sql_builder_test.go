@@ -535,32 +535,54 @@ var (
 			TableString{name: "StringTable"},
 			nil,
 		},
+		"account between": {
+			[]any{1, 2},
+			[]string{"account"},
+			[]string{">=account", "<=account"},
+			0,
+			TableString{
+				name: "StringTable",
+				columns: []Column{
+					NewStringColumn("account", "", true),
+				},
+			},
+			nil,
+		},
 		"case": {
 			[]any{1},
-			nil,
-			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END"},
+			[]string{"wallet_type", "pair_id", "_pair_id"},
+			[]string{"CASE WHEN wallet_type = 3 THEN pair_id = _pair_id ELSE true END"},
 			0,
-			TableString{name: "StringTable"},
+			TableString{
+				name:    "StringTable",
+				columns: SimpleColumns("wallet_type", "pair_id", "_pair_id"),
+			},
 			nil,
 		},
 		"case with included param": {
 			[]any{1},
-			nil,
-			[]string{"CASE WHEN m.wallet_type = 3 THEN m.pair_id = %s ELSE true END"},
+			[]string{"wallet_type", "pair_id", "_pair_id"},
+			[]string{"CASE WHEN wallet_type = 3 THEN pair_id = %s ELSE true END"},
 			0,
-			TableString{name: "StringTable"},
+			TableString{
+				name:    "StringTable",
+				columns: SimpleColumns("wallet_type", "pair_id", "_pair_id"),
+			},
 			nil,
 		},
 		"some params with OR condition one of them included param": {
 			[]any{"name", 1, 3},
-			nil,
+			[]string{"wallet_type", "pair_id", "_pair_id", "id"},
 			[]string{
 				"name",
-				"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)",
+				"(wallet_type = %s or pair_id = %[1]s OR wallet_type > pair_id)",
 				"id",
 			},
 			0,
-			TableString{name: "StringTable"},
+			TableString{
+				name:    "StringTable",
+				columns: SimpleColumns("name", "wallet_type", "pair_id", "_pair_id", "id"),
+			},
 			nil,
 		},
 		"null": {
@@ -632,9 +654,12 @@ var (
 		"or": {
 			[]any{1},
 			nil,
-			[]string{"(m.wallet_type = %s or m.pair_id = %[1]s OR m.wallet_type > m.pair_id)"},
+			[]string{"(wallet_type = %s or pair_id = %[1]s OR wallet_type > pair_id)"},
 			0,
-			TableString{name: "StringTable"},
+			TableString{
+				name:    "StringTable",
+				columns: SimpleColumns("wallet_type", "pair_id", "_pair_id"),
+			},
 			nil,
 		},
 		"one columns & one filter select": {
@@ -721,12 +746,12 @@ func TestSQLBuilder_Where(t *testing.T) {
 		},
 		{
 			"case",
-			" WHERE CASE WHEN m.wallet_type = 3 THEN m.pair_id = _pair_id ELSE true END",
+			" WHERE CASE WHEN wallet_type = 3 THEN pair_id = _pair_id ELSE true END",
 			assert.Equal,
 		},
 		{
 			"case with included param",
-			" WHERE CASE WHEN m.wallet_type = 3 THEN m.pair_id = $1 ELSE true END",
+			" WHERE CASE WHEN wallet_type = 3 THEN pair_id = $1 ELSE true END",
 			assert.Equal,
 		},
 		{
@@ -736,12 +761,12 @@ func TestSQLBuilder_Where(t *testing.T) {
 		},
 		{
 			"or",
-			" WHERE (m.wallet_type = $1 or m.pair_id = $1 OR m.wallet_type > m.pair_id)",
+			" WHERE (wallet_type = $1 or pair_id = $1 OR wallet_type > pair_id)",
 			assert.Equal,
 		},
 		{
 			"some params with OR condition one of them included param",
-			" WHERE name=$1 AND (m.wallet_type = $2 or m.pair_id = $2 OR m.wallet_type > m.pair_id) AND id=$3",
+			" WHERE name=$1 AND (wallet_type = $2 or pair_id = $2 OR wallet_type > pair_id) AND id=$3",
 			assert.Equal,
 		},
 		{
@@ -772,6 +797,11 @@ func TestSQLBuilder_Where(t *testing.T) {
 		{
 			"two column with wrong args",
 			" WHERE name ~ $1 AND name ~ concat('^.*', $2)",
+			assert.Equal,
+		},
+		{
+			"account between",
+			" WHERE account >= $1 AND account <= $2",
 			assert.Equal,
 		},
 	}
@@ -852,6 +882,10 @@ func TestWhereForSelect(t *testing.T) {
 			"id=ANY($1) OR id_projects=16",
 			assert.Equal,
 		},
+		{
+			"account between",
+			assert.Equal,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -859,13 +893,11 @@ func TestWhereForSelect(t *testing.T) {
 			b := &SQLBuilder{
 				Args:      opt.Args,
 				columns:   opt.columns,
-				filter:    opt.filter,
 				posFilter: opt.posFilter,
 				Table:     opt.Table,
 			}
-			err := WhereForSelect(opt.columns...)(b)
-			assert.Nil(t, err)
-			//tt.fnc(t, )
+			err := WhereForSelect(opt.filter...)(b)
+			assert.Nil(t, err, "%v", opt.filter)
 		})
 	}
 }

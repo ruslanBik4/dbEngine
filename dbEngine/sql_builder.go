@@ -662,6 +662,7 @@ func WhereForSelect(columns ...string) BuildSqlOptions {
 }
 
 var regPSQLParams = regexp.MustCompile(`^(Any\()?\$(\d+)(\))?$`)
+var regPSQLDigits = regexp.MustCompile(`^-?[\d.,]+$`)
 
 // Where is short alias for WhereForSelect
 func Where(columns ...string) BuildSqlOptions {
@@ -669,45 +670,49 @@ func Where(columns ...string) BuildSqlOptions {
 
 		b.filter = make([]string, len(columns))
 		if b.Table != nil {
-			for _, name := range columns {
-				for i, token := range strings.Split(name, " ") {
+			for _, column := range columns {
+				for _, token := range strings.Split(column, " ") {
 					switch strings.ToUpper(token) {
-					case "IN", "IS", "OR", "AND":
+					case "IN", "IS", "OR", "AND", "CASE", "WHEN", "THEN", "ELSE", "END", "FROM", "WHERE", "=", "(", ")", "TRUE", "FALSE":
 						continue
 					}
 
-					if tt := strings.Split(token, "="); len(tt) == 2 {
-						if b.Table.FindColumn(tt[0]) == nil {
-							return NewErrNotFoundColumn(b.Table.Name(), tt[0])
-						}
-						continue
-					}
-
-					name = token
+					name := token
 					switch {
 					case regPSQLParams.MatchString(token):
 						continue
 
-					case i > 1:
-						if regFieldName.MatchString(name) && b.Table.FindColumn(name) == nil {
-							return NewErrNotFoundColumn(b.Table.Name(), name)
-						}
-						continue
+					//case i > 1:
+					//	if regFieldName.MatchString(name) && b.Table.FindColumn(name) == nil {
+					//		return NewErrNotFoundColumn(b.Table.Name(), name)
+					//	}
+					//	continue
 
 					case isOperator(name[0]):
 						if len(name) == 1 {
 							continue
 						}
+
 						if isOperatorPre(name[1]) {
 							name = name[2:]
 						} else {
 							name = name[1:]
 						}
 
-						//	if isOperatorPre(token[0]) {
-						//		name = token[0]
-						//		secName := token[2]
-						//	}
+					case strings.HasPrefix(name, "%") || strings.HasPrefix(name, "'") ||
+						regPSQLDigits.MatchString(name):
+						continue
+
+					case strings.HasPrefix(name, "("):
+						name = strings.Trim(name, "()")
+
+					case strings.HasSuffix(name, ")"):
+						name = strings.Trim(name, ")")
+
+					}
+
+					if tt := strings.Split(name, "="); len(tt) == 2 {
+						name = tt[0]
 					}
 
 					if tokens := strings.Split(name, "::"); len(tokens) > 1 {

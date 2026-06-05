@@ -420,6 +420,7 @@ func (col *Column) SetDefault(d any) {
 	str, ok := d.(string)
 	if !ok {
 		col.colDefault = nil
+		logs.ErrorLog(fmt.Errorf("column '%s' has a default value of '%s'", col.name, col.colDefault))
 		return
 	}
 
@@ -433,9 +434,9 @@ func (col *Column) SetDefault(d any) {
 	}
 
 	const DEFAULT_SERIAL = "nextval("
-	isSerial := strings.HasPrefix(str, DEFAULT_SERIAL)
+	seq, isSerial := strings.CutPrefix(str, DEFAULT_SERIAL)
 	if isSerial {
-		col.colDefault = strings.Trim(strings.TrimPrefix(str, DEFAULT_SERIAL), "'")
+		col.colDefault = strings.Trim(seq, "'")
 	} else {
 		col.colDefault = strings.Trim(str, "'")
 	}
