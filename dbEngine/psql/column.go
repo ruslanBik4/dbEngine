@@ -417,10 +417,15 @@ func (col *Column) Default() any {
 
 // SetDefault set default value into column
 func (col *Column) SetDefault(d any) {
+	if d == nil {
+		col.colDefault = nil
+		return
+	}
+
 	str, ok := d.(string)
 	if !ok {
+		logs.ErrorLog(fmt.Errorf("column '%s' has a non-string value: '%v'", col.name, col.colDefault))
 		col.colDefault = nil
-		logs.ErrorLog(fmt.Errorf("column '%s' has a default value of '%s'", col.name, col.colDefault))
 		return
 	}
 
