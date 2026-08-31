@@ -11,13 +11,10 @@ const (
 )
 
 const (
-	colFormat    = "%-21s\t%-13s\t`json:\"%s\"`"
-	initFormat   = "\n\t\t%-21s:\t%s,"
-	scanFormat   = "\n\t\t%s,"
-	paramsFormat = `
-				[]any{
-					%s
-				},`
+	colFormat  = "%-21s\t%-13s\t`json:\"%s\"`"
+	initFormat = "\n\t\t%-21s:\t%s,"
+	scanFormat = "\n\t\t%s,"
+
 	caseRefFormat = `
 	case "%s":
 		return &r.%s

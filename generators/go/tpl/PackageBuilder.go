@@ -355,17 +355,6 @@ func (c *PackageBuilder) getTypeCol(col dbEngine.Column) string {
 	}
 }
 
-var mapTypes = map[string]string{
-	"Inet":      "pgtype.Inet",
-	"Interval":  "pgtype.Interval",
-	"Json":      "any",
-	"jsonb":     "any",
-	"RefTime":   "*time.Time",
-	"Time":      "time.Time",
-	"ArrayTime": "[]time.Time",
-	"Any":       "any",
-}
-
 func sortImports() func(a string, b string) int {
 	return func(a, b string) int {
 		c := strings.Count(a, "/")

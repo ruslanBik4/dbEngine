@@ -18,10 +18,9 @@ require (
 )
 
 require (
-	github.com/andybalholm/brotli v1.2.2 // indirect
-	github.com/getsentry/sentry-go v0.48.0 // indirect
+	github.com/andybalholm/brotli v1.2.3 // indirect
+	github.com/getsentry/sentry-go v0.49.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.3 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/klauspost/compress v1.19.2 // indirect
