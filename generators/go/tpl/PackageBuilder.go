@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/iancoleman/strcase"
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
@@ -52,14 +52,14 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 	c.initValues = ""
 	c.Imports = maps.Collect(func(yield func(string, struct{}) bool) {
 		for _, name := range []string{
-			"fmt",
+			//"fmt",
 			"slices",
 			"sync",
 			"time",
-			moduloPgType,
+
 			"golang.org/x/net/context",
 			"github.com/ruslanBik4/logs",
-			"github.com/jackc/pgtype",
+			"database/sql/driver",
 			"github.com/ruslanBik4/dbEngine/dbEngine",
 			"github.com/ruslanBik4/dbEngine/dbEngine/psql",
 		} {
@@ -122,6 +122,7 @@ func (c *PackageBuilder) GetFuncForDecode(tAttr *dbEngine.TypesAttr, ind int) st
 			tName)
 
 	case strings.HasPrefix(tName, "pgtype.") || strings.HasPrefix(tName, "psql.") || isTypes:
+		c.Imports[moduloPgType] = struct{}{}
 		return fmt.Sprintf(
 			`%-21s:	*(psql.GetTextDecoder(ci, srcPart[%d], "%s", &%s{}))`,
 			strcase.ToCamel(name),
@@ -152,7 +153,7 @@ func (c *PackageBuilder) udtToReturnType(udtName string) string {
 		if typeReturn == "" {
 			name, ok := c.ChkDataType(udtName)
 			if ok {
-				typeReturn = fmt.Sprintf("%T", name.Value)
+				typeReturn = fmt.Sprintf("%T", name.Codec)
 			} else {
 				typeReturn = "*" + strcase.ToCamel(udtName)
 			}
@@ -242,7 +243,7 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 		if typeCol == "" {
 			name, ok := c.ChkDataType(col.Type())
 			if ok {
-				typeCol = strings.TrimPrefix(fmt.Sprintf("%T", name.Value), "*")
+				typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", name.Codec), "*"), "Codec")
 			} else {
 				logs.StatusLog(typeCol, col.Type())
 				typeCol = "sql.RawBytes"
@@ -286,7 +287,7 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 	return typeCol, defValue
 }
 
-func (c *PackageBuilder) ChkDataType(typeCol string) (*pgtype.DataType, bool) {
+func (c *PackageBuilder) ChkDataType(typeCol string) (*pgtype.Type, bool) {
 	return psql.ChkDataType(context.TODO(), c.DB, typeCol)
 }
 

@@ -24,7 +24,7 @@ func TestCreator_MakeStruct(t *testing.T) {
 		table dbEngine.Table
 	}
 
-	table, err := csv.NewTable("/Users/ruslan_bik/GolandProjects/polymer/data/polymers.csv")
+	table, err := csv.NewTable("/Users/ruslan/GolandProjects/gozaurus/examples/e-commerce/products.csv")
 	if !assert.Nil(t, err) {
 		t.FailNow()
 	}

@@ -10,8 +10,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"golang.org/x/xerrors"
@@ -26,19 +26,19 @@ type pgxLog struct {
 	pool *Conn
 }
 
-func (l *pgxLog) Log(ctx context.Context, ll pgx.LogLevel, msg string, data map[string]any) {
+func (l *pgxLog) Log(ctx context.Context, ll tracelog.LogLevel, msg string, data map[string]any) {
 
 	switch ll {
-	case pgx.LogLevelTrace, pgx.LogLevelDebug:
+	case tracelog.LogLevelTrace, tracelog.LogLevelDebug:
 		logs.DebugLog("[[PGX]] %s %+v", msg, data)
 
-	case pgx.LogLevelInfo:
+	case tracelog.LogLevelInfo:
 		logs.StatusLog("[[PGX]] %s %+v", msg, data)
 
-	case pgx.LogLevelWarn, pgx.LogLevelError:
+	case tracelog.LogLevelWarn, tracelog.LogLevelError:
 		l.chkError(msg, data)
 
-	case pgx.LogLevelNone:
+	case tracelog.LogLevelNone:
 		if ch, ok := ctx.Value("debugChan").(chan any); ok {
 			ch <- data
 		}
@@ -104,23 +104,23 @@ func logPgError(msg string, args any, sql string, err *pgconn.PgError) {
 }
 
 // SetLogLevel set logs level DB operations
-func SetLogLevel(lvl string) pgx.LogLevel {
-	logLvl, err := pgx.LogLevelFromString(lvl)
+func SetLogLevel(lvl string) tracelog.LogLevel {
+	logLvl, err := tracelog.LogLevelFromString(lvl)
 	if err == nil {
 		return logLvl
 	}
 
 	switch lvl {
 	case "WARNING":
-		return pgx.LogLevelWarn
+		return tracelog.LogLevelWarn
 	case "INFO":
-		return pgx.LogLevelInfo
+		return tracelog.LogLevelInfo
 	case "DEBUG":
-		return pgx.LogLevelDebug
+		return tracelog.LogLevelDebug
 	case "TRACE":
-		return pgx.LogLevelTrace
+		return tracelog.LogLevelTrace
 	default:
-		return pgx.LogLevelError
+		return tracelog.LogLevelError
 	}
 }
 

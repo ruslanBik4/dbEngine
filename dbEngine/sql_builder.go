@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pkg/errors"
 
 	"github.com/ruslanBik4/logs"
@@ -457,23 +457,30 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 		cond = "is null"
 
 	case []int, []int8, []int16, []int32, []int64, []float32, []float64, []string, types.Slice, []time.Time, []*time.Time,
-		pgtype.ArrayType, pgtype.Int2Array, pgtype.Int4Array, pgtype.Int8Array, pgtype.DateArray,
-		pgtype.TimestampArray, pgtype.TimestamptzArray,
-		pgtype.Float4Array, pgtype.Float8Array, pgtype.NumericArray, pgtype.BPCharArray, pgtype.TextArray:
+		pgtype.Array[any]:
+		//, pgtype.Array, pgtype.Int4Array, pgtype.Int8Array, pgtype.DateArray,
+		//pgtype.TimestampArray, pgtype.TimestamptzArray,
+		//pgtype.Float4Array, pgtype.Float8Array, pgtype.NumericArray, pgtype.BPCharArray, pgtype.TextArray:
 		// todo: chk column type
 		if isArray {
 			return fmt.Sprintf("%s@>$%d", name, b.posFilter)
 		}
 		cond = "ANY($%[1]d)"
 
-	case pgtype.Numrange, pgtype.Int4range, pgtype.Int8range, *pgtype.Numrange, *pgtype.Int4range, *pgtype.Int8range:
-		return fmt.Sprintf("%s::numeric<@($%d::numrange)", name, b.posFilter)
+	case pgtype.Range[any]:
+		//], pgtype.Int4range, pgtype.Int8range, *pgtype.Numrange, *pgtype.Int4range, *pgtype.Int8range:
 
-	case pgtype.Daterange:
-		return b.dateRangeChk(name, &arg, column)
+		switch arg.Lower.(type) {
+		case int, int8, int16, int32, int64:
 
-	case *pgtype.Daterange:
-		return b.dateRangeChk(name, arg, column)
+			return fmt.Sprintf("%s::numeric<@($%d::numrange)", name, b.posFilter)
+
+		case pgtype.Date:
+			return b.dateRangeChk(name, arg, column)
+
+		case *pgtype.Date:
+			return b.dateRangeChk(name, arg, column)
+		}
 
 	case string:
 		if strings.Contains(arg, "is ") {
@@ -501,45 +508,45 @@ func (b *SQLBuilder) chkSpecialParams(name string, hasTpl bool) string {
 	return fmt.Sprintf(cond, b.posFilter)
 }
 
-func (b *SQLBuilder) dateRangeChk(name string, arg *pgtype.Daterange, column Column) string {
+func (b *SQLBuilder) dateRangeChk(name string, arg pgtype.Range[any], column Column) string {
 	switch column.Type() {
 	case "date":
 		return fmt.Sprintf("%s<@($%d::daterange)", name, b.posFilter)
 
 	case "timestamptz":
-		b.Args[b.posFilter-1] = &pgtype.Tstzrange{
-			Lower: pgtype.Timestamptz{
-				Time:             arg.Lower.Time,
-				Status:           arg.Lower.Status,
-				InfinityModifier: arg.Lower.InfinityModifier,
-			},
-			Upper: pgtype.Timestamptz{
-				Time:             arg.Upper.Time,
-				Status:           arg.Upper.Status,
-				InfinityModifier: arg.Upper.InfinityModifier,
-			},
-			LowerType: arg.LowerType,
-			UpperType: arg.UpperType,
-			Status:    arg.Status,
-		}
+		//b.Args[b.posFilter-1] = &pgtype.Tstzrange{
+		//	Lower: pgtype.Timestamptz{
+		//		Time:             arg.Lower.Time,
+		//		Status:           arg.Lower.Status,
+		//		InfinityModifier: arg.Lower.InfinityModifier,
+		//	},
+		//	Upper: pgtype.Timestamptz{
+		//		Time:             arg.Upper.Time,
+		//		Status:           arg.Upper.Status,
+		//		InfinityModifier: arg.Upper.InfinityModifier,
+		//	},
+		//	LowerType: arg.LowerType,
+		//	UpperType: arg.UpperType,
+		//	Status:    arg.Status,
+		//}
 		return fmt.Sprintf("%s<@$%d::tsrange", name, b.posFilter)
 
 	case "timestamp":
-		b.Args[b.posFilter-1] = &pgtype.Tsrange{
-			Lower: pgtype.Timestamp{
-				Time:             arg.Lower.Time,
-				Status:           arg.Lower.Status,
-				InfinityModifier: arg.Lower.InfinityModifier,
-			},
-			Upper: pgtype.Timestamp{
-				Time:             arg.Upper.Time,
-				Status:           arg.Upper.Status,
-				InfinityModifier: arg.Upper.InfinityModifier,
-			},
-			LowerType: arg.LowerType,
-			UpperType: arg.UpperType,
-			Status:    arg.Status,
-		}
+		//b.Args[b.posFilter-1] = &pgtype.Tsrange{
+		//	Lower: pgtype.Timestamp{
+		//		Time:             arg.Lower.Time,
+		//		Status:           arg.Lower.Status,
+		//		InfinityModifier: arg.Lower.InfinityModifier,
+		//	},
+		//	Upper: pgtype.Timestamp{
+		//		Time:             arg.Upper.Time,
+		//		Status:           arg.Upper.Status,
+		//		InfinityModifier: arg.Upper.InfinityModifier,
+		//	},
+		//	LowerType: arg.LowerType,
+		//	UpperType: arg.UpperType,
+		//	Status:    arg.Status,
+		//}
 		return fmt.Sprintf("%s<@$%d::tsrange", name, b.posFilter)
 
 	case "daterange":

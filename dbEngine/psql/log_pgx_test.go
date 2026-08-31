@@ -3,7 +3,7 @@ package psql
 import (
 	"testing"
 
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/ruslanBik4/logs"
 )

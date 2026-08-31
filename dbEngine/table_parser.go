@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-errors/errors"
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/ruslanBik4/logs"
 )

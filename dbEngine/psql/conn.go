@@ -13,9 +13,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/net/context"
@@ -127,8 +128,11 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 		}
 	}
 
-	poolCfg.ConnConfig.LogLevel = SetLogLevel(os.Getenv("PGX_LOG"))
-	poolCfg.ConnConfig.Logger = &pgxLog{c}
+	poolCfg.ConnConfig.Tracer = &tracelog.TraceLog{
+		Logger:   &pgxLog{c},
+		LogLevel: SetLogLevel(os.Getenv("PGX_LOG")),
+		Config:   nil,
+	}
 
 	poolCfg.AfterConnect = c.AfterConnect
 	poolCfg.BeforeAcquire = c.BeforeAcquire
@@ -147,9 +151,14 @@ func (c *Conn) InitConn(ctx context.Context, dbURL string) error {
 		return true
 	}
 
-	c.Pool, err = pgxpool.ConnectConfig(ctx, poolCfg)
+	c.Pool, err = pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {
-		return errors.Wrap(err, "Unable to connect to database")
+		return errors.Wrap(err, "unable to create database pool")
+	}
+
+	if err := c.Ping(ctx); err != nil {
+		c.Close()
+		return errors.Wrap(err, "unable to ping database")
 	}
 
 	c.ctxPool, c.Cancel = context.WithCancel(ctx)
@@ -560,7 +569,10 @@ func (c *Conn) CopyCSV(ctx *fasthttp.RequestCtx, csv *csv.CsvReader) (string, er
 	}
 	defer conn.Release()
 	b := &dbEngine.SQLBuilder{}
-	dbEngine.ColumnsForSelect(csv.Columns...)(b)
+
+	if err := dbEngine.ColumnsForSelect(csv.Columns...)(b); err != nil {
+		return "", err
+	}
 
 	sql := fmt.Sprintf(
 		`COPY %s (%s) FROM STDIN WITH (FORMAT csv, DELIMITER '%c', QUOTE '"', NULL '', ENCODING 'UTF8', ON_ERROR 'ignore', LOG_VERBOSITY 'verbose')`,
@@ -803,11 +815,11 @@ func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {
 	fields := rows.FieldDescriptions()
 	columns := make([]dbEngine.Column, len(fields))
 	for i, col := range fields {
-		dType, ok := conn.Conn().ConnInfo().DataTypeForOID(col.DataTypeOID)
+		dType, ok := conn.Conn().TypeMap().TypeForOID(col.DataTypeOID)
 		if ok {
-			columns[i] = &Column{name: string(col.Name), DataType: dType.Name, UdtName: dType.Name}
+			columns[i] = &Column{name: col.Name, DataType: dType.Name, UdtName: dType.Name}
 		} else {
-			columns[i] = &Column{name: string(col.Name)}
+			columns[i] = &Column{name: col.Name}
 		}
 		// logs.StatusLog(fields)
 	}

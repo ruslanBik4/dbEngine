@@ -9,7 +9,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/ruslanBik4/logs"
 )
@@ -19,16 +19,17 @@ func TrimQuotes(src []byte) string {
 	return string(bytes.Trim(src, `"`))
 }
 
-func GetTextDecoder[T pgtype.TextDecoder](ci *pgtype.ConnInfo, src []byte, name string, dto T) T {
+/*
+func GetTextDecoder[T pgtype.TextDecoder](ci *pgtype.Map, src []byte, name string, dto T) T {
 	err := dto.DecodeText(ci, src)
 	if err != nil {
 		logs.ErrorLog(err, name)
 	}
 	return dto
 }
-
+*/
 // GetInt32FromByte convert data from src into int32
-func GetScanner[T sql.Scanner](ci *pgtype.ConnInfo, src []byte, name string, dto T) T {
+func GetScanner[T sql.Scanner](ci *pgtype.Map, src []byte, name string, dto T) T {
 	err := dto.Scan(src)
 	if err != nil {
 		logs.ErrorLog(err, name)
@@ -52,45 +53,46 @@ func GetDateFromByte(src []byte, name string) time.Time {
 }
 
 // GetFloat32FromByte convert data from src into float32
-func GetFloat32FromByte(ci *pgtype.ConnInfo, src []byte, name string) float32 {
+func GetFloat32FromByte(ci *pgtype.Map, src []byte, name string) float32 {
 	if len(src) == 0 {
 		return 0
 	}
 
 	var float4 pgtype.Float4
-	err := float4.DecodeText(ci, src)
+	err := float4.UnmarshalJSON(src)
 	if err != nil {
 		logs.ErrorLog(err, name)
 		return -1
 	}
 
-	return float4.Float
+	return float4.Float32
 }
 
 // GetFloat64FromByte convert data from src into float64
-func GetFloat64FromByte(ci *pgtype.ConnInfo, src []byte, name string) float64 {
+func GetFloat64FromByte(ci *pgtype.Map, src []byte, name string) float64 {
 	if len(src) == 0 {
 		return 0
 	}
 
 	var float8 pgtype.Float8
-	err := float8.DecodeText(ci, src)
+	err := float8.UnmarshalJSON(src)
 	if err != nil {
 		logs.ErrorLog(err, name)
 		return -1
 	}
 
-	return float8.Float
+	return float8.Float64
 }
 
 // GetFloat32FromByte convert data from src into float32
-func GetArrayFloat32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []float32 {
+func GetArrayFloat32FromByte(ci *pgtype.Map, src []byte, name string) []float32 {
 	if len(src) == 0 {
 		return nil
 	}
-
-	var dto pgtype.Float4Array
-	err := dto.DecodeText(ci, src)
+	return []float32{GetFloat32FromByte(ci, src, name)}
+	//var dto pgtype.ArrayCodec
+	/*[float32]
+	err := dto.DecodeValue(ci, src)
 	if err != nil {
 		logs.ErrorLog(err, name)
 		return nil
@@ -100,65 +102,66 @@ func GetArrayFloat32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []flo
 	for i, elem := range dto.Elements {
 		res[i] = elem.Float
 	}
-
-	return res
+	return res*/
 }
 
 // GetFloat64FromByte convert data from src into float64
-func GetArrayFloat64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []float64 {
+func GetArrayFloat64FromByte(ci *pgtype.Map, src []byte, name string) []float64 {
 	if len(src) == 0 {
 		return nil
 	}
+	return []float64{GetFloat64FromByte(ci, src, name)}
+	/*
+		var dto pgtype.Float8Array
+		err := dto.DecodeText(ci, src)
+		if err != nil {
+			logs.ErrorLog(err, name)
+			return nil
+		}
 
-	var dto pgtype.Float8Array
-	err := dto.DecodeText(ci, src)
-	if err != nil {
-		logs.ErrorLog(err, name)
-		return nil
-	}
+		res := make([]float64, len(dto.Elements))
+		for i, elem := range dto.Elements {
+			res[i] = elem.Float
+		}
 
-	res := make([]float64, len(dto.Elements))
-	for i, elem := range dto.Elements {
-		res[i] = elem.Float
-	}
-
-	return res
+		return res */
 }
 
 // GetInt64FromByte convert data from src into int64
-func GetInt64FromByte(ci *pgtype.ConnInfo, src []byte, name string) int64 {
+func GetInt64FromByte(ci *pgtype.Map, src []byte, name string) int64 {
+	if len(src) == 0 {
+		return 0
+	}
+	return GetInt64FromByte(ci, src, name)
+	//var dto pgtype.Int8
+	//err := dto.DecodeText(ci, src)
+	//if err != nil {
+	//	logs.ErrorLog(err, name)
+	//	return -1
+	//}
+	//
+	//return dto.Int
+}
+
+// GetInt32FromByte convert data from src into int32
+func GetInt32FromByte(ci *pgtype.Map, src []byte, name string) int32 {
 	if len(src) == 0 {
 		return 0
 	}
 
-	var dto pgtype.Int8
-	err := dto.DecodeText(ci, src)
-	if err != nil {
-		logs.ErrorLog(err, name)
-		return -1
-	}
-
-	return dto.Int
+	return GetInt32FromByte(ci, src, name)
+	//var dto pgtype.Int4
+	//err := dto.DecodeText(ci, src)
+	//if err != nil {
+	//	logs.ErrorLog(err, name)
+	//	return -1
+	//}
+	//
+	//return dto.Int
 }
 
 // GetInt32FromByte convert data from src into int32
-func GetInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) int32 {
-	if len(src) == 0 {
-		return 0
-	}
-
-	var dto pgtype.Int4
-	err := dto.DecodeText(ci, src)
-	if err != nil {
-		logs.ErrorLog(err, name)
-		return -1
-	}
-
-	return dto.Int
-}
-
-// GetInt32FromByte convert data from src into int32
-func GetSqlNullInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.NullInt32 {
+func GetSqlNullInt32FromByte(ci *pgtype.Map, src []byte, name string) sql.NullInt32 {
 	var dto sql.NullInt32
 	err := dto.Scan(src)
 	if err != nil {
@@ -168,8 +171,9 @@ func GetSqlNullInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.N
 	return dto
 }
 
+/*
 // GetArrayInt16FromByte convert data from src into []int16
-func GetArrayInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int16 {
+func GetArrayInt16FromByte(ci *pgtype.Map, src []byte, name string) []int16 {
 	if len(src) == 0 {
 		return nil
 	}
@@ -190,7 +194,7 @@ func GetArrayInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int16
 }
 
 // GetArrayInt32FromByte convert data from src into []int32
-func GetArrayInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int32 {
+func GetArrayInt32FromByte(ci *pgtype.Map, src []byte, name string) []int32 {
 	if len(src) == 0 {
 		return nil
 	}
@@ -211,7 +215,7 @@ func GetArrayInt32FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int32
 }
 
 // GetArrayInt64FromByte convert data from src into []int64
-func GetArrayInt64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int64 {
+func GetArrayInt64FromByte(ci *pgtype.Map, src []byte, name string) []int64 {
 	if len(src) == 0 {
 		return nil
 	}
@@ -232,7 +236,7 @@ func GetArrayInt64FromByte(ci *pgtype.ConnInfo, src []byte, name string) []int64
 }
 
 // GetArrayStringFromByte convert data from src into []string
-func GetArrayStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) []string {
+func GetArrayStringFromByte(ci *pgtype.Map, src []byte, name string) []string {
 	if len(src) == 0 {
 		return nil
 	}
@@ -253,7 +257,7 @@ func GetArrayStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) []stri
 }
 
 // GetInt16FromByte convert data from src into int16
-func GetInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) int16 {
+func GetInt16FromByte(ci *pgtype.Map, src []byte, name string) int16 {
 	if len(src) == 0 {
 		return 0
 	}
@@ -269,7 +273,7 @@ func GetInt16FromByte(ci *pgtype.ConnInfo, src []byte, name string) int16 {
 }
 
 // GetInetFromByte convert data from src into pgtype.Inet
-func GetInetFromByte(ci *pgtype.ConnInfo, src []byte, name string) pgtype.Inet {
+func GetInetFromByte(ci *pgtype.Map, src []byte, name string) pgtype.Inet {
 	if len(src) == 0 {
 		return pgtype.Inet{Status: pgtype.Null}
 	}
@@ -285,7 +289,7 @@ func GetInetFromByte(ci *pgtype.ConnInfo, src []byte, name string) pgtype.Inet {
 }
 
 // GetNumericFromByte convert data from src into Numeric
-func GetNumericFromByte(ci *pgtype.ConnInfo, src []byte, name string) Numeric {
+func GetNumericFromByte(ci *pgtype.Map, src []byte, name string) Numeric {
 	if len(src) == 0 {
 		return NewNumericNull()
 	}
@@ -301,7 +305,7 @@ func GetNumericFromByte(ci *pgtype.ConnInfo, src []byte, name string) Numeric {
 }
 
 // GetBoolFromByte convert data from src into bool
-func GetBoolFromByte(ci *pgtype.ConnInfo, src []byte, name string) bool {
+func GetBoolFromByte(ci *pgtype.Map, src []byte, name string) bool {
 	if len(src) == 0 {
 		return false
 	}
@@ -317,7 +321,7 @@ func GetBoolFromByte(ci *pgtype.ConnInfo, src []byte, name string) bool {
 }
 
 // GetStringFromByte convert data (As Text!) from src into string
-func GetStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) string {
+func GetStringFromByte(ci *pgtype.Map, src []byte, name string) string {
 	if len(src) == 0 {
 		return ""
 	}
@@ -334,7 +338,7 @@ func GetStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) string {
 }
 
 // GetStringFromByte convert data (As Text!) from src into string
-func GetSqlNullStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.NullString {
+func GetSqlNullStringFromByte(ci *pgtype.Map, src []byte, name string) sql.NullString {
 	var dto sql.NullString
 	err := dto.Scan(src)
 	if err != nil {
@@ -345,7 +349,7 @@ func GetSqlNullStringFromByte(ci *pgtype.ConnInfo, src []byte, name string) sql.
 }
 
 // GetJsonFromByte convert data from src into json
-func GetJsonFromByte(ci *pgtype.ConnInfo, src []byte, name string) interface{} {
+func GetJsonFromByte(ci *pgtype.Map, src []byte, name string) interface{} {
 	if len(src) == 0 {
 		return nil
 	}
@@ -361,7 +365,7 @@ func GetJsonFromByte(ci *pgtype.ConnInfo, src []byte, name string) interface{} {
 }
 
 // GetTimeFromByte convert data from src into time.Time
-func GetTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
+func GetTimeFromByte(ci *pgtype.Map, src []byte, name string) time.Time {
 	if len(src) == 0 {
 		return time.Time{}
 	}
@@ -378,22 +382,22 @@ func GetTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
 }
 
 // GetTimeTimeFromByte convert data from src into *time.Time (alias for GetTimeFromByte)
-func GetTimeTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) time.Time {
+func GetTimeTimeFromByte(ci *pgtype.Map, src []byte, name string) time.Time {
 	return GetTimeFromByte(ci, src, name)
 }
 
 // GetRefTimeFromByte convert data from src into *time.Time
-func GetRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) *time.Time {
+func GetRefTimeFromByte(ci *pgtype.Map, src []byte, name string) *time.Time {
 	return new(GetTimeFromByte(ci, src, name))
 }
 
 // GetArrayTimeTimeFromByte convert data from src into []time.Time (alias for GetArrayTimeFromByte)
-func GetArrayTimeTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.Time {
+func GetArrayTimeTimeFromByte(ci *pgtype.Map, src []byte, name string) []time.Time {
 	return GetArrayTimeFromByte(ci, src, name)
 }
 
 // GetArrayTimeFromByte convert data from src into []time.Time
-func GetArrayTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.Time {
+func GetArrayTimeFromByte(ci *pgtype.Map, src []byte, name string) []time.Time {
 	if len(src) == 0 {
 		return nil
 	}
@@ -414,7 +418,7 @@ func GetArrayTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []time.T
 }
 
 // GetArrayTimeFromByte convert data from src into []time.Time
-func GetArrayRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []*time.Time {
+func GetArrayRefTimeFromByte(ci *pgtype.Map, src []byte, name string) []*time.Time {
 	if len(src) == 0 {
 		return nil
 	}
@@ -435,7 +439,7 @@ func GetArrayRefTimeFromByte(ci *pgtype.ConnInfo, src []byte, name string) []*ti
 }
 
 // GetIntervalFromByte convert data from src into []time.Time
-func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgtype.Interval) {
+func GetIntervalFromByte(ci *pgtype.Map, src []byte, name string) (dto pgtype.Interval) {
 	if len(src) == 0 {
 		return
 	}
@@ -450,12 +454,12 @@ func GetIntervalFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto pgty
 }
 
 // GetArrayByteFromByte convert data from src into sql.RawBytes
-func GetArrayByteFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
+func GetArrayByteFromByte(ci *pgtype.Map, src []byte, name string) (dto sql.RawBytes) {
 	return GetRawBytesFromByte(ci, src, name)
 }
 
 // GetRawBytesFromByte convert data from src into sql.RawBytes
-func GetRawBytesFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.RawBytes) {
+func GetRawBytesFromByte(ci *pgtype.Map, src []byte, name string) (dto sql.RawBytes) {
 	if len(src) == 0 {
 		return
 	}
@@ -465,3 +469,4 @@ func GetRawBytesFromByte(ci *pgtype.ConnInfo, src []byte, name string) (dto sql.
 
 	return
 }
+*/

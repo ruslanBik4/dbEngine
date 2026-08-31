@@ -7,13 +7,11 @@ package psql
 import (
 	"context"
 	"math/big"
-	"strconv"
 
-	"github.com/pkg/errors"
-
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
+	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 )
 
@@ -24,23 +22,21 @@ type Numeric struct {
 
 // NewNumericNull create Numeric with NULL
 func NewNumericNull() Numeric {
-	return Numeric{&pgtype.Numeric{Status: pgtype.Null}}
+	return Numeric{&pgtype.Numeric{Valid: false}}
 }
 
 // NewNumericFromFloat64 create Numeric with float value
 func NewNumericFromFloat64(value float64) Numeric {
-	numeric := &pgtype.Numeric{Status: pgtype.Present}
-	_ = numeric.Set(value)
+	numeric := &pgtype.Numeric{Valid: true, Int: big.NewInt(int64(value))}
 
 	return Numeric{numeric}
 }
 
 // NewNumericFromBytes create Numeric from bytes
 func NewNumericFromBytes(value []byte) (*Numeric, error) {
-	numeric := &Numeric{&pgtype.Numeric{Status: pgtype.Present}}
-	err := numeric.Set(value)
+	numeric := &Numeric{&pgtype.Numeric{}}
+	err := numeric.Scan(gotools.BytesToString(value))
 	if err != nil {
-		numeric.Status = pgtype.Null
 		return nil, err
 	}
 
@@ -48,84 +44,84 @@ func NewNumericFromBytes(value []byte) (*Numeric, error) {
 }
 
 // Set has performing []byte src
-func (dst *Numeric) Set(src interface{}) error {
-
-	if dst.Numeric == nil {
-		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
-	}
-
-	switch value := src.(type) {
-	case nil:
-
-	case []byte:
-		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
-	case *big.Int:
-		dst.Numeric = &pgtype.Numeric{Int: value, Status: pgtype.Present}
-	case big.Int:
-		dst.Numeric = &pgtype.Numeric{Int: &value, Status: pgtype.Present}
-
-	default:
-		return dst.Numeric.Set(src)
-	}
-
-	return nil
-}
+//func (dst *Numeric) Set(src interface{}) error {
+//
+//	if dst.Numeric == nil {
+//		dst.Numeric = &pgtype.Numeric{}
+//	}
+//
+//	switch value := src.(type) {
+//	case nil:
+//
+//	case []byte:
+//		dst.Numeric = &pgtype.Numeric{Int: (&big.Int{}).SetBytes(value), Status: pgtype.Present}
+//	case *big.Int:
+//		dst.Numeric = &pgtype.Numeric{Int: value, Status: pgtype.Present}
+//	case big.Int:
+//		dst.Numeric = &pgtype.Numeric{Int: &value, Status: pgtype.Present}
+//
+//	default:
+//		return dst.Numeric.Set(src)
+//	}
+//
+//	return nil
+//}
 
 // AssignTo has performing []byte dst
-func (src *Numeric) AssignTo(dst interface{}) error {
-	switch dst.(type) {
-	case nil:
-		dst = nil
-	case []byte:
-		if src.Status == pgtype.Present {
-			dst = src.Numeric.Int.Bytes()
-		} else {
-			dst = nil
-		}
-	default:
-		return src.Numeric.AssignTo(dst)
-	}
-
-	return nil
-}
+//func (src *Numeric) AssignTo(dst interface{}) error {
+//	switch dst.(type) {
+//	case nil:
+//		dst = nil
+//	case []byte:
+//		if src.Valid {
+//			dst = src.Numeric.Int.Bytes()
+//		} else {
+//			dst = nil
+//		}
+//	default:
+//		return src.Numeric.AssignTo(dst)
+//	}
+//
+//	return nil
+//}
 
 // EncodeText expand pgtype.Numeric.EncodeText()
-func (src Numeric) EncodeText(ci *pgtype.ConnInfo, buf []byte) ([]byte, error) {
-	switch src.Status {
-	case pgtype.Undefined:
-		return nil, errors.New("cannot encode status undefined")
-	case pgtype.Null:
-		return nil, nil
-	}
-
-	if src.NaN {
-		buf = append(buf, "NaN"...)
-		return buf, nil
-	}
-
-	buf = append(buf, strconv.FormatUint(src.Int.Uint64(), 10)...)
-	buf = append(buf, 'e')
-	buf = append(buf, strconv.FormatInt(int64(src.Exp), 10)...)
-	return buf, nil
-}
+//func (src Numeric) EncodeText(ci *pgtype.Map, buf []byte) ([]byte, error) {
+//	switch src.Status {
+//	case pgtype.Undefined:
+//		return nil, errors.New("cannot encode status undefined")
+//	case pgtype.Null:
+//		return nil, nil
+//	}
+//
+//	if src.NaN {
+//		buf = append(buf, "NaN"...)
+//		return buf, nil
+//	}
+//
+//	buf = append(buf, strconv.FormatUint(src.Int.Uint64(), 10)...)
+//	buf = append(buf, 'e')
+//	buf = append(buf, strconv.FormatInt(int64(src.Exp), 10)...)
+//	return buf, nil
+//}
 
 // DecodeText expand pgtype.Numeric.DecodeText()
-func (dst *Numeric) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	if dst.Numeric == nil {
-		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
-	}
-
-	return dst.Numeric.DecodeText(ci, src)
-}
+//func (dst *Numeric) DecodeText(ci *pgtype.Map, src []byte) error {
+//	if dst.Numeric == nil {
+//		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
+//	}
+//
+//	return dst.Numeric.DecodeText(ci, src)
+//}
 
 // DecodeBinary expand pgtype.Numeric.DecodeBinary
-func (dst *Numeric) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	if dst.Numeric == nil {
-		dst.Numeric = &pgtype.Numeric{Status: pgtype.Null}
-	}
-
-	return dst.Numeric.DecodeBinary(ci, src)
-}
+//func (dst *Numeric) DecodeBinary(ci *pgtype.Map, src []byte) error {
+//	if dst.Numeric == nil {
+//		dst.Numeric = &pgtype.Numeric{}
+//	}
+//
+//	return dst.Numeric.DecodeBinary(ci, src)
+//}
 
 func (src *Numeric) Float64() float64 {
 	dst := float64(src.Int.Int64())
@@ -143,12 +139,13 @@ func (src *Numeric) Float64() float64 {
 	return dst
 }
 
-func ChkDataType(ctx context.Context, db *dbEngine.DB, typeCol string) (*pgtype.DataType, bool) {
+func ChkDataType(ctx context.Context, db *dbEngine.DB, typeCol string) (*pgtype.Type, bool) {
 	conn, err := db.Conn.(*Conn).Acquire(ctx)
 	if err != nil {
 		logs.ErrorLog(err)
 		return nil, false
 	}
+
 	defer conn.Release()
-	return conn.Conn().ConnInfo().DataTypeForName(typeCol)
+	return conn.Conn().TypeMap().TypeForName(typeCol)
 }

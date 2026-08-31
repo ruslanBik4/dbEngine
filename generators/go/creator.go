@@ -95,11 +95,11 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 		"encoding/gob",
 		"time",
 
-		"github.com/jackc/pgconn",
-		"github.com/jackc/pgtype",
+		"github.com/jackc/pgx/v5/pgconn",
+		"github.com/jackc/pgx/v5/pgtype",
 		"golang.org/x/net/context",
 
-		"github.com/ruslanBik4/gotools",
+		//"github.com/ruslanBik4/gotools",
 		"github.com/ruslanBik4/logs",
 		"github.com/ruslanBik4/dbEngine/dbEngine",
 		"github.com/ruslanBik4/dbEngine/dbEngine/psql",
@@ -115,7 +115,8 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 
 	if _, ok := DB.Types["citext"]; ok {
 		imports["bytes"] = struct{}{}
-		imports["github.com/jackc/pgx/v4"] = struct{}{}
+		imports["strings"] = struct{}{}
+		imports["github.com/jackc/pgx/v5"] = struct{}{}
 	}
 
 	return &Creator{

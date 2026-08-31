@@ -25,7 +25,7 @@ func NewColumnType(table dbEngine.Table) *ColumnType {
 type (
 	{%s c.name %}PsqlType struct {
 		{%s c.name %}Fields
-		Status      pgtype.Status 
+		Valid       bool
 		convertErrs []string
 	}
 )
@@ -44,17 +44,17 @@ func (r *{%s c.name %}PsqlType) GetFields(columns []dbEngine.Column) []any {
 
 	return v
 }
-// Set implement pgtype.Value interface
-func (dst *{%s c.name %}PsqlType) Set(src any) error {
+// Scan implement [database/sql.Scanner] interface
+func (dst *{%s c.name %}PsqlType) Scan(src any) error {
 	switch value := src.(type) {
 	// untyped nil and typed nil interfaces are different
 	case nil:
-		*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
+		*dst = {%s c.name %}PsqlType{}
 		return nil
 	case {%s c.name %}PsqlType:
 		*dst = {%s c.name %}PsqlType{
 			{%s c.name %}Fields: value.{%s c.name %}Fields,
-			Status:          pgtype.Present,
+			Valid: true,
 		}
 		return nil
 
@@ -62,18 +62,15 @@ func (dst *{%s c.name %}PsqlType) Set(src any) error {
 		return nil
 	}
 }
-// Get implement pgtype.Value interface
-func (dst *{%s c.name %}PsqlType) Get() any {
-	switch dst.Status {
-	case pgtype.Present:
-		return *dst
-	case pgtype.Null:
-		return nil
-	default:
-		return dst.Status
+// Value implements the [database/sql/driver.Valuer] interface.
+func (src *{%s c.name %}PsqlType) Value() (driver.Value, error)  {
+	if !src.Valid {
+		return nil, nil
 	}
+
+	return src, nil
 }
-// AssignTo implement pgtype.Value interface
+/* AssignTo implement pgtype.Value interface
 func (src *{%s c.name %}PsqlType) AssignTo(dst any) error {
 	switch src.Status {
 	case pgtype.Present:
@@ -156,5 +153,5 @@ func (dst *{%s c.name %}Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) er
 	c := pgtype.NewCompositeBinaryScanner(ci, src)
 
 	return dst.scanAll(c)
-}
+}*/
 {% endfunc %}

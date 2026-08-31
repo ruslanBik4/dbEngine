@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"go/types"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/net/context"
 
+	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"
 )
 
@@ -46,31 +47,36 @@ func (dst *TypesAttr) NotOmited() bool {
 	return dst.Type != "string"
 }
 
-func (dst *TypesAttr) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+func (dst *TypesAttr) DecodeText(ci *pgtype.Map, src []byte) error {
 	*dst = TypesAttr{}
 	if len(src) == 0 {
 		return nil
 	}
 
 	c := pgtype.NewCompositeTextScanner(ci, src)
-	c.ScanValue(&dst.Name)
+	if c.Next() {
+		dst.Name = gotools.BytesToString(c.Bytes())
+	}
+
 	if c.Err() != nil {
 		return c.Err()
 	}
-	c.ScanValue(&dst.Type)
+
+	if c.Next() {
+		dst.Type = gotools.BytesToString(c.Bytes())
+	}
 	if c.Err() != nil {
 		return c.Err()
 	}
-	c.ScanValue(&dst.IsNotNull)
-	if c.Err() != nil {
-		return c.Err()
+	if c.Next() {
+		dst.IsNotNull = gotools.BytesToString(c.Bytes()) == "true"
 	}
-	return nil
+	return c.Err()
 }
 
 type TypesAttrs []TypesAttr
 
-func (dst *TypesAttrs) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
+func (dst *TypesAttrs) DecodeText(ci *pgtype.Map, src []byte) error {
 	if len(src) == 0 {
 		*dst = TypesAttrs{}
 		return nil

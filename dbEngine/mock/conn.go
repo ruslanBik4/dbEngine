@@ -5,7 +5,7 @@
 package mock
 
 import (
-	"github.com/jackc/pgtype/pgxtype"
+	//"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/net/context"
@@ -17,7 +17,7 @@ import (
 
 // Conn for mock connection
 type Conn struct {
-	pgxtype.Querier
+	//pgtype.Querier
 	mock.Mock
 }
 

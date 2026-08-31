@@ -20,7 +20,7 @@
 DB implements interface for table, view and routines of Database
 versions:
 
- 	dbEngine v1.1.*
+ 	dbEngine v1.2.*
 
 source: {%s title %}
 */
@@ -42,13 +42,24 @@ type scanError interface {
 
 // ValueDecoder is a value that implements the text and binary encoding and decoding interfaces.
 type ValueDecoder[T any] interface {
-	pgtype.TextDecoder
-	pgtype.BinaryDecoder
+	pgtype.Codec
 	New() T
 }
 
 type WrapArray[T ValueDecoder[T]] []T
+/*
+func (dst *WrapArray[T]) Scan(src any) error {
+	if src == nil {
+		*n = Numeric{}
+		return nil
+	}
 
+	if src, ok := src.(string); ok {
+		return scanPlanTextAnyToNumericScanner{}.Scan([]byte(src), n)
+	}
+
+	return fmt.Errorf("cannot scan %T", src)
+}/*
 func (dst *WrapArray[T]) DecodeText(ci *pgtype.ConnInfo, src []byte) (err error) {
 	if len(src) == 0 {
 		return nil
@@ -101,38 +112,33 @@ func (dst *WrapArray[T]) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err erro
 	*dst = buf
 
 	return nil
-}
+}*/
 {% code hasCitext := false %}
 
 {%- for _, name := range c.types -%}
 {%- if name != "citext" -%}{%= c.CreateTypeInterface(c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name]) %}
 {% else %}
-type CitextArray struct {
-	pgtype.TextArray
-}
+type CitextArray []string
 
 func (dst CitextArray) MarshalJSON() ([]byte, error) {
 	buf := bytes.NewBufferString("[")
-	for i, text := range dst.Elements {
-		if i > 0 {
-			buf.WriteString(",")
-		}
-
-		buf.WriteString(text.String)
-	}
-
+	buf.WriteString(strings.Join(dst, ","))
 	buf.WriteString("]")
 
 	return buf.Bytes(), nil
 }
 
-var customTypes = map[string]*pgtype.DataType{
+var customTypes = map[string]*pgtype.Type{
 	"citext": {
-		Value: &pgtype.Text{},
+		Codec: pgtype.TextCodec{},
 		Name:  "citext",
 	},
 	"_citext": {
-		Value: &pgtype.TextArray{},
+		Codec: &pgtype.ArrayCodec{ElementType: &pgtype.Type{
+			Codec: pgtype.TextCodec{},
+			Name:  "citext",
+
+		}},
 		Name:  "[]string",
 	},
 }
@@ -159,14 +165,14 @@ func getOidCustomTypes(ctx context.Context, conn *pgx.Conn) error {
 		if err != nil {
 			return err
 		}
-		if c, ok := customTypes[name]; ok && c.Value == (*pgtype.ArrayType)(nil) {
-			c.Value = pgtype.NewArrayType(name, oid, func() pgtype.ValueTranscoder {
-				return &pgtype.Text{}
-			}).NewTypeValue()
+		if c, ok := customTypes[name]; ok && c.Codec == (pgtype.Codec)(nil) {
+			c.Codec = &pgtype.ArrayCodec{}
 			c.OID = oid
-			logs.DebugLog(c)
+			logs.StatusLog("(%s,%v, %T) ", name, c.OID, c.Codec)
 		} else if ok {
 			customTypes[name].OID = oid
+			logs.StatusLog("%s, %v. DB registered type (name, oid): %s %v",
+				conn.PgConn().PID(), conn.PgConn().CustomData(), c.Name, c.OID)
 		}
 	}
 
@@ -189,13 +195,9 @@ func afterConnect(ctx context.Context, conn *pgx.Conn) error {
 		initCustomTypes = true
 	}
 
-	mess := "DB registered type (name, oid): "
-	for name, val := range customTypes {
-		conn.ConnInfo().RegisterDataType(*val)
-		mess += fmt.Sprintf("\n(%s,%v, %T) ", name, val.OID, val.Value)
+	for _, val := range customTypes {
+		conn.TypeMap().RegisterType(val)
 	}
-
-	logs.StatusLog(conn.PgConn().Conn().LocalAddr().String(), mess)
 
 	return nil
 }
