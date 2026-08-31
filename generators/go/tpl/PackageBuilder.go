@@ -27,6 +27,7 @@ type PackageBuilder struct {
 	types      []string
 }
 
+// PrepareDatabase sort databases properties
 func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 	err := c.MakeDBUsersTypes()
 	if err != nil {
@@ -47,6 +48,7 @@ func (c *PackageBuilder) SortImports() []string {
 	return imports
 }
 
+// PrepareTable create defined for columns
 func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 	name := strcase.ToCamel(table.Name())
 	c.initValues = ""
@@ -207,9 +209,6 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 			if !yield(tName) {
 				return
 			}
-			if tName == "citext" {
-				c.addImport("fmt")
-			}
 		}
 	})
 
@@ -244,6 +243,10 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 			name, ok := c.ChkDataType(col.Type())
 			if ok {
 				typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", name.Codec), "*"), "Codec")
+				if b, ok := strings.CutSuffix(name.Name, "range"); ok {
+					typeCol += "[pgtype." + strcase.ToCamel(b) + "]"
+					logs.StatusLog(typeCol, col.Name(), name)
+				}
 			} else {
 				logs.StatusLog(typeCol, col.Type())
 				typeCol = "sql.RawBytes"
