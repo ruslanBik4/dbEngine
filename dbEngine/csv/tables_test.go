@@ -6,11 +6,10 @@ package csv
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"reflect"
 	"testing"
-
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )

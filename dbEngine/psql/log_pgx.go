@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -13,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 	"golang.org/x/xerrors"
 
 	"github.com/ruslanBik4/gotools"

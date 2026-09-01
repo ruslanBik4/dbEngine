@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"context"
 	"go/types"
 	"sync"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/gotools/typesExt"
 

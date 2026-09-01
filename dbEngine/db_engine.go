@@ -1,11 +1,11 @@
 package dbEngine
 
 import (
+	"context"
 	"encoding/json"
 	"go/types"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/gotools"
 	"github.com/ruslanBik4/logs"

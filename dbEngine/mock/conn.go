@@ -6,9 +6,10 @@ package mock
 
 import (
 	//"github.com/jackc/pgx/v5/pgtype"
+	"context"
+
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/logs"
 

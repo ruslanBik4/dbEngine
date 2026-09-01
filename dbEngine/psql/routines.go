@@ -5,12 +5,12 @@
 package psql
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/logs"
 

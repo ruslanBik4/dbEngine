@@ -5,10 +5,12 @@
 package mock
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
-	"github.com/ruslanBik4/dbEngine/dbEngine"
 	"github.com/stretchr/testify/assert"
-	"golang.org/x/net/context"
+
+	"github.com/ruslanBik4/dbEngine/dbEngine"
 )
 
 // Routine imitate routine functional

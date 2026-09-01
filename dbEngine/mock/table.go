@@ -5,7 +5,7 @@
 package mock
 
 import (
-	"golang.org/x/net/context"
+	"context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )

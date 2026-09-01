@@ -5,13 +5,13 @@
 package csv
 
 import (
+	"context"
 	"encoding/csv"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine"
 )

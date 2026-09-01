@@ -97,7 +97,7 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 
 		"github.com/jackc/pgx/v5/pgconn",
 		"github.com/jackc/pgx/v5/pgtype",
-		"golang.org/x/net/context",
+		"context",
 
 		//"github.com/ruslanBik4/gotools",
 		"github.com/ruslanBik4/logs",

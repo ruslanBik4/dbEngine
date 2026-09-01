@@ -5,12 +5,12 @@
 package generate_db
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"path"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/gotools/typesExt"
 	"github.com/ruslanBik4/logs"

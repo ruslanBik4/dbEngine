@@ -5,6 +5,7 @@
 package psql
 
 import (
+	"context"
 	"fmt"
 	"go/types"
 	"os"
@@ -19,7 +20,6 @@ import (
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 	"github.com/valyala/fasthttp"
-	"golang.org/x/net/context"
 
 	"github.com/ruslanBik4/dbEngine/dbEngine/csv"
 	"github.com/ruslanBik4/gotools/typesExt"
