@@ -202,7 +202,7 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 				tAttr.Type = typeCol
 				t.Attr[i] = tAttr
 				if len(t.Enumerates) == 0 {
-					c.addImport(moduloPgType, moduloGoTools, "fmt")
+					c.addImport(moduloPgType) //, moduloGoTools, "fmt")
 				}
 			}
 			c.DB.Types[tName] = t
@@ -240,12 +240,29 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 	case bTypeCol == types.UntypedNil || bTypeCol < 0:
 		typeCol = c.chkDefineType(col.Type())
 		if typeCol == "" {
-			name, ok := c.ChkDataType(col.Type())
+			colType, ok := c.ChkDataType(col.Type())
 			if ok {
-				typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", name.Codec), "*"), "Codec")
-				if b, ok := strings.CutSuffix(name.Name, "range"); ok {
-					typeCol += "[pgtype." + strcase.ToCamel(b) + "]"
-					logs.StatusLog(typeCol, col.Name(), name)
+				switch t := colType.Codec.(type) {
+				case *pgtype.RangeCodec:
+					typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", t.ElementType.Codec), "*"), "Codec")
+
+				case *pgtype.ArrayCodec:
+					typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", t.ElementType.Codec), "*"), "Codec")
+
+				default:
+					typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", colType.Codec), "*"), "Codec")
+					if b, ok := strings.CutSuffix(colType.Name, "range"); ok {
+						m := pgtype.NewMap()
+
+						value, err := colType.Codec.DecodeValue(m, colType.OID, pgtype.TextFormatCode, []byte("(0,0)"))
+						if err != nil {
+							logs.ErrorLog(err)
+							typeCol += "[pgtype." + strcase.ToCamel(b) + "]"
+						} else {
+							typeCol = fmt.Sprintf("%T", value)
+						}
+						logs.StatusLog(typeCol, b, col.Type(), colType)
+					}
 				}
 			} else {
 				logs.StatusLog(typeCol, col.Type())

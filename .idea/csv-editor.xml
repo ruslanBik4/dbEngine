@@ -17,13 +17,6 @@
             </Attribute>
           </value>
         </entry>
-        <entry key="$USER_HOME$/go/pkg/mod/cloud.google.com/go/pubsub@v1.27.1/testdata/publish.csv">
-          <value>
-            <Attribute>
-              <option name="separator" value="," />
-            </Attribute>
-          </value>
-        </entry>
       </map>
     </option>
   </component>
