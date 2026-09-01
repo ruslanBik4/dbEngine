@@ -217,6 +217,7 @@ func (c *PackageBuilder) MakeDBUsersTypes() error {
 	return nil
 }
 
+// ChkTypes decided type of column as Golang type
 func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string, any) {
 	bTypeCol := col.BasicType()
 	defValue := col.Default()
@@ -289,13 +290,13 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 func (c *PackageBuilder) getCodecType(col dbEngine.Column, colType *pgtype.Type) (typeCol string) {
 	switch t := colType.Codec.(type) {
 	case *pgtype.MultirangeCodec:
-		typeCol = c.getCodecType(col, t.ElementType)
+		return fmt.Sprintf("pgtype.Multirange[%s]", c.getCodecType(col, t.ElementType))
 
 	case *pgtype.RangeCodec:
-		typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", t.ElementType.Codec), "*"), "Codec")
+		return fmt.Sprintf("pgtype.Range[%s]", c.getCodecType(col, t.ElementType))
 
 	case *pgtype.ArrayCodec:
-		typeCol = c.getCodecType(col, t.ElementType)
+		return fmt.Sprintf("pgtype.Array[%s]", c.getCodecType(col, t.ElementType))
 
 	default:
 		typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", colType.Codec), "*"), "Codec")
@@ -311,8 +312,9 @@ func (c *PackageBuilder) getCodecType(col dbEngine.Column, colType *pgtype.Type)
 			}
 			logs.StatusLog(typeCol, b, col.Type(), colType)
 		}
+
+		return typeCol
 	}
-	return typeCol
 }
 
 func (c *PackageBuilder) ChkDataType(typeCol string) (*pgtype.Type, bool) {

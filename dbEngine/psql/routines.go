@@ -180,6 +180,7 @@ func (r *Routine) GetParams(ctx context.Context, types map[string]dbEngine.Types
 
 	return r.conn.SelectAndScanEach(ctx,
 		func() error {
+			r.tempParam.SetDefault(r.tempParam.colDefault)
 			r.tempParam.defineBasicType(types, tables)
 
 			if strings.HasPrefix(r.paramMode, "IN") {

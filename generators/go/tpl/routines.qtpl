@@ -206,15 +206,16 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 			maxLen = max(maxLen, len(param.Name()))
 		}
 	-%}
-	{% for _, param := range r.Params() %}
+	{% for _, col := range r.Params() %}
 	{%- code
-		s := strcase.ToLowerCamel(param.Name())
-		typeCol, _ := c.ChkTypes(param, s)
-		if param.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
+		s := strcase.ToLowerCamel(col.Name())
+		typeCol, _ := c.ChkTypes(col, s)
+
+		if col.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
 			typeCol = "*"+typeCol
 		}
 	-%}
-	{%s fmt.Sprintf("%-*s\t%s,\t//%s", maxLen, s, typeCol, param.Comment()) %} pg type: {%s param.Type() %} {%- if param.Default() != nil -%}, def: {%v param.Default() %}{%- endif -%}
+	{%s fmt.Sprintf("%-*s\t%s,\t//%s", maxLen, s, typeCol, col.Comment()) %} pg type: {%s col.Type() %} {%- if col.Default() != nil -%}, def: {%v col.Default() %}{%- endif -%}
 	{%- endfor -%}
 {%- endfunc -%}
 
