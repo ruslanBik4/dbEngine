@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
@@ -50,27 +51,60 @@ func (l *pgxLog) Log(ctx context.Context, ll tracelog.LogLevel, msg string, data
 
 func (l *pgxLog) chkError(msg string, data map[string]any) {
 	sql, hasSQL := data["sql"].(string)
-	if !hasSQL && len(sql) > 255 {
+	if hasSQL {
 		sql = gotools.StartEndString(sql, 200)
+		logs.CustomLog(logs.DEBUG, "[PGX]", "sgl", 0, sql, logs.FgErr)
+		logs.StatusLog(msg, data)
 	}
 
 	switch err := data["err"].(type) {
 	case nil:
 		logs.DebugLog(msg, data)
+
 	case *pgconn.PgError:
-		sql = l.printPgError(msg, data, sql, err)
-		return
+		l.printPgError(msg, data, sql, err)
+
+	case *pgx.ScanArgError:
+		field := err.FieldName
+		if field == "" {
+			field = fmt.Sprintf("#%d", err.ColumnIndex)
+		}
+		logs.ErrorLog(err.Err, "ScanArgError: field '%s', args: %v", field, data["args"])
+
+	case pgx.ScanArgError:
+		field := err.FieldName
+		if field == "" {
+			field = fmt.Sprintf("#%d", err.ColumnIndex)
+		}
+		logs.ErrorLog(err.Err, "ScanArgError: field '%s', args: %v", field, data["args"])
+
 	case xerrors.Wrapper:
-		logs.ErrorLog(err.Unwrap(), msg, data)
+		l.printError(err.Unwrap(), msg, data)
+
 	case error:
-		logs.ErrorLog(err, msg, data)
+		l.printError(err, msg, data)
 
 	default:
-		logs.DebugLog("%v, %s, %v, %[1]T", err, msg, data)
+		l.printError(fmt.Errorf("unknow error %#v", err), msg, data)
 	}
 
-	if hasSQL {
-		logs.CustomLog(logs.DEBUG, "[PGX]", "sgl", 0, sql, logs.FgErr)
+}
+
+func (l *pgxLog) printError(err error, msg string, data map[string]any) {
+	switch err {
+	case pgx.ErrNoRows:
+		logs.DebugLog("pgx: no rows in result set | %s", msg)
+
+	case pgx.ErrTooManyRows:
+		logs.ErrorLog(err, "Too many rows returned", data)
+
+	case pgx.ErrTxClosed:
+		logs.ErrorLog(err, "Transaction is closed: %s", msg)
+
+	case pgx.ErrTxCommitRollback:
+		logs.ErrorLog(err, "Transaction commit/rollback error: %s", msg)
+	default:
+		logs.ErrorLog(err, msg, data)
 	}
 }
 

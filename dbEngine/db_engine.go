@@ -2,8 +2,8 @@ package dbEngine
 
 import (
 	"context"
-	"encoding/json"
 	"go/types"
+	"slices"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -74,20 +74,34 @@ func (dst *TypesAttr) DecodeText(ci *pgtype.Map, src []byte) error {
 	return c.Err()
 }
 
-type TypesAttrs []TypesAttr
+type TypesAttrs pgtype.FlatArray[TypesAttr]
 
-func (dst *TypesAttrs) DecodeText(ci *pgtype.Map, src []byte) error {
-	if len(src) == 0 {
-		*dst = TypesAttrs{}
+func (dst *TypesAttr) ScanText(v pgtype.Text) error {
+	*dst = TypesAttr{}
+	if !v.Valid || len(v.String) == 0 {
 		return nil
 	}
-	err := json.Unmarshal(src, dst)
-	if err != nil {
-		logs.ErrorLog(err)
+
+	// Use pgx/v5 composite scanner
+	c := pgtype.NewCompositeTextScanner(nil, []byte(v.String))
+	if c.Next() {
+		dst.Name = gotools.BytesToString(c.Bytes())
+	}
+	if err := c.Err(); err != nil {
 		return err
 	}
 
-	return nil
+	if c.Next() {
+		dst.Type = gotools.BytesToString(c.Bytes())
+	}
+	if err := c.Err(); err != nil {
+		return err
+	}
+
+	if c.Next() {
+		dst.IsNotNull = gotools.BytesToString(c.Bytes()) == "true"
+	}
+	return c.Err()
 }
 
 // Types consists of parameters of DB types
@@ -105,7 +119,7 @@ func NewTypes() *Types {
 
 func (t *Types) GetFields(columns []Column) []any {
 	if len(columns) == 0 {
-		return []any{&t.Id, t.Type, &t.Type, &t.Enumerates}
+		return []any{&t.Id, &t.Name, &t.Type, &t.Attr, &t.Enumerates}
 	}
 
 	v := make([]any, len(columns))
@@ -203,10 +217,8 @@ type Index struct {
 }
 
 func (ind *Index) AddColumn(name string) bool {
-	for _, col := range ind.Columns {
-		if col == name {
-			return false
-		}
+	if slices.Contains(ind.Columns, name) {
+		return false
 	}
 
 	ind.Columns = append(ind.Columns, name)

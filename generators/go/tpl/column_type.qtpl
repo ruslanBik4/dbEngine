@@ -21,12 +21,18 @@ func NewColumnType(table dbEngine.Table) *ColumnType {
 } 
 %}
 {% func (c *ColumnType) ColumnType() %}
-// {%s c.name %}PsqlType interface for reading data from psql connection
+// {%s c.name %}PsqlType represents the implicit PostgreSQL composite (row) type
+// of table '{%s c.sName %}' - the type Postgres creates automatically for every
+// table, used when the whole row is selected as a single composite value
+// (e.g. `SELECT t FROM {%s c.sName %} t`).
+//
+// It implements the pgx v5 pgtype.Codec-related interfaces (PlanScan/ScanIndex/Scan)
+// so pgx can decode it directly. This replaces the old pgx v4 pgtype.Value/AssignTo/
+// DecodeBinary(ci *pgtype.ConnInfo, ...) approach, which no longer exists in pgx v5.
 type (
 	{%s c.name %}PsqlType struct {
 		{%s c.name %}Fields
-		Valid       bool
-		convertErrs []string
+		Valid bool
 	}
 )
 
@@ -34,7 +40,7 @@ type (
 func (r *{%s c.name %}PsqlType) GetFields(columns []dbEngine.Column) []any {
 	v := make([]any, len(columns))
 	for i, col := range columns {
-		switch name:= col.Name(); name {
+		switch name := col.Name(); name {
 		case "{%s c.sName %}":
 			v[i] = r
 		default:
@@ -44,114 +50,197 @@ func (r *{%s c.name %}PsqlType) GetFields(columns []dbEngine.Column) []any {
 
 	return v
 }
-// Scan implement [database/sql.Scanner] interface
-func (dst *{%s c.name %}PsqlType) Scan(src any) error {
-	switch value := src.(type) {
-	// untyped nil and typed nil interfaces are different
-	case nil:
-		*dst = {%s c.name %}PsqlType{}
-		return nil
-	case {%s c.name %}PsqlType:
-		*dst = {%s c.name %}PsqlType{
-			{%s c.name %}Fields: value.{%s c.name %}Fields,
-			Valid: true,
-		}
-		return nil
 
-	default:
+// New implement ValueDecoder[T any] interface
+func (dst *{%s c.name %}PsqlType) New() *{%s c.name %}PsqlType {
+	return &{%s c.name %}PsqlType{}
+}
+
+// FormatSupported implement pgtype.Codec interface: only binary composite decoding is supported
+func (dst *{%s c.name %}PsqlType) FormatSupported(format int16) bool {
+	return format == pgtype.BinaryFormatCode
+}
+
+func (dst *{%s c.name %}PsqlType) PreferredFormat() int16 {
+	return pgtype.BinaryFormatCode
+}
+
+// PlanEncode implement pgtype.Codec interface: lets this row type be used as a
+// query argument (e.g. `SELECT * FROM some_func($1::{%s c.sName %})`).
+func (dst *{%s c.name %}PsqlType) PlanEncode(m *pgtype.Map, oid uint32, format int16, value any) pgtype.EncodePlan {
+	if _, ok := value.(pgtype.CompositeIndexGetter); !ok {
+		return nil
+		}
+	if format != pgtype.BinaryFormatCode {
 		return nil
 	}
+
+	fieldOIDs := make([]uint32, {%d len(c.columns) %})
+	{% for i, col := range c.columns %}
+	if typ, ok := m.TypeForName("{%s col.Type() %}"); ok {
+		fieldOIDs[{%d i %}] = typ.OID
+	}
+	{% endfor %}
+
+	return &{%s c.name %}PsqlTypeEncodePlan{m: m, fieldOIDs: fieldOIDs}
 }
-// Value implements the [database/sql/driver.Valuer] interface.
-func (src *{%s c.name %}PsqlType) Value() (driver.Value, error)  {
-	if !src.Valid {
+
+// IsNull implement pgtype.CompositeIndexGetter interface
+func (dst *{%s c.name %}PsqlType) IsNull() bool {
+	return !dst.Valid
+}
+
+// Index implement pgtype.CompositeIndexGetter interface
+func (dst *{%s c.name %}PsqlType) Index(i int) any {
+	switch i {
+	{% for i, col := range c.columns %}case {%d i %}:
+		return dst.ColValue("{%s col.Name() %}")
+	{% endfor %}
+	default:
+		panic("invalid index")
+	}
+	}
+
+// {%s c.name %}PsqlTypeEncodePlan builds the composite wire format for
+// {%s c.name %}PsqlType, following the same builder pattern as pgtype.CompositeCodec's
+// own encode plans.
+type {%s c.name %}PsqlTypeEncodePlan struct {
+	m         *pgtype.Map
+	fieldOIDs []uint32
+}
+
+func (plan *{%s c.name %}PsqlTypeEncodePlan) Encode(value any, buf []byte) ([]byte, error) {
+	getter := value.(pgtype.CompositeIndexGetter)
+	if getter.IsNull() {
 		return nil, nil
 	}
 
-	return src, nil
+	b := pgtype.NewCompositeBinaryBuilder(plan.m, buf)
+	for i, oid := range plan.fieldOIDs {
+		b.AppendValue(oid, getter.Index(i))
+	}
+
+	return b.Finish()
 }
-/* AssignTo implement pgtype.Value interface
-func (src *{%s c.name %}PsqlType) AssignTo(dst any) error {
-	switch src.Status {
-	case pgtype.Present:
-		switch v := dst.(type) {
-		case *{%s c.name %}PsqlType:
-			(*v).{%s c.name %}Fields = src.{%s c.name %}Fields
-			return nil
+
+// PlanScan implement pgtype.Codec interface. dst here is only a stateless method
+// holder for Scan (below) - see the note on Scan for why it never reads its own
+// fields.
+func (dst *{%s c.name %}PsqlType) PlanScan(m *pgtype.Map, oid uint32, format int16, target any) pgtype.ScanPlan {
+	if _, ok := target.(*{%s c.name %}PsqlType); !ok {
+		return nil
+	}
+
+	return dst
+}
+
+func (dst *{%s c.name %}PsqlType) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
+	if src == nil {
+		return nil, nil
+	}
+
+	switch format {
+	case pgtype.TextFormatCode:
+		return string(src), nil
+
+	case pgtype.BinaryFormatCode:
+		buf := make([]byte, len(src))
+		copy(buf, src)
+		return buf, nil
 
 		default:
-			if nextDst, retry := pgtype.GetAssignToDstType(dst); retry {
-				return src.AssignTo(nextDst)
+		return nil, fmt.Errorf("unknown format code %d", format)
+	}
+}
+
+func (dst *{%s c.name %}PsqlType) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
+	if src == nil {
+		return nil, nil
+	}
+	if format != pgtype.BinaryFormatCode {
+		return nil, fmt.Errorf("DecodeValue: unsupported format code %d", format)
+	}
+
+	values := make(map[string]any, {%d len(c.columns) %})
+	scanner := pgtype.NewCompositeBinaryScanner(m, src)
+
+	{% for _, col := range c.columns %}
+	if !scanner.Next() {
+		return nil, scanner.Err()
 			}
+	{
+		var v any
+		fieldPlan := m.PlanScan(scanner.OID(), pgtype.BinaryFormatCode, &v)
+		if fieldPlan == nil {
+			return nil, fmt.Errorf("unable to scan OID %d in binary format into field %q", scanner.OID(), "{%s col.Name() %}")
 		}
-		return nil
+		if err := fieldPlan.Scan(scanner.Bytes(), &v); err != nil {
+			return nil, err
+		}
+		values["{%s col.Name() %}"] = v
+	}
+	{% endfor %}
 
-	case pgtype.Null:
-		return pgtype.NullAssignTo(dst)
+	return values, scanner.Err()
+}
 
+// ScanIndex implement pgtype.ScanPlan interface: maps each positional composite
+// field (Postgres sends them in table-column/attnum order) to the matching struct field.
+func (dst *{%s c.name %}PsqlType) ScanIndex(i int) any {
+	switch i {
+	{% for i, col := range c.columns %}case {%d i %}:
+		return dst.RefColValue("{%s col.Name() %}")
+	{% endfor %}
 	default:
-		return fmt.Errorf("cannot decode %v into %T", src, dst)
-	}
+		panic("invalid index")
 }
-// DecodeText implement pgtype.TextDecoder interface
-func (dst *{%s c.name %}PsqlType) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
+}
+
+// Scan implement pgtype.ScanPlan interface. PlanScan (above) hands back this same
+// method regardless of which *{%s c.name %}PsqlType it happens to be called on - a
+// registered Codec is a single shared instance reused for every row/column of this
+// OID, so the actual per-call destination is always the `target` argument, never
+// this method's own receiver.
+func (dst *{%s c.name %}PsqlType) Scan(src []byte, target any) error {
+	*dst = target.({%s c.name %}PsqlType)
+	dst.Valid = false
 	if len(src) == 0 {
 		return nil
 	}
 
-	c := pgtype.NewCompositeTextScanner(ci, src)
+	m := pgtype.NewMap()
+	c := pgtype.NewCompositeBinaryScanner(m, src)
 
-	return dst.scanAll(c)
-}
-// DecodeBinary implement pgtype.DecodeBinary interface
-func (dst *{%s c.name %}PsqlType) DecodeBinary(ci *pgtype.ConnInfo, src []byte) (err error) {
-	*dst = {%s c.name %}PsqlType{Status: pgtype.Null}
-	if len(src) == 0 {
+	for i := range c.FieldCount() {
+		//	    reach end of elements
+		if !c.Next() {
 		return nil
 	}
 
-	c := pgtype.NewCompositeBinaryScanner(ci, src)
+		field := dst.ScanIndex(i)
+		fieldPlan := m.PlanScan(c.OID(), pgtype.BinaryFormatCode, field)
+		if fieldPlan == nil {
+			return fmt.Errorf("unable to scan OID %d in binary format into field %d", c.OID(), i)
+		}
 
-	if err := dst.scanAll(c); err != nil {
-		dst.Status = pgtype.Undefined
+		if err := fieldPlan.Scan(c.Bytes(), field); err != nil {
 		return err
 	}
-	dst.Status = pgtype.Present
+	}
+
+	dst.Valid = true
 
 	return nil
 }
 
-func (dst *{%s c.name %}Fields) scanAll(c scanError) error {
-	{%- for _, col := range c.columns -%}
-	c.ScanValue(&dst.{%s strcase.ToCamel(col.Name()) %})
-	if err := c.Err(); err != nil {
-		logs.ErrorLog(err, "{%s col.Name() %}")
-		return err
-	}
-	{%- endfor -%}
-
-	return nil
+// Value implements the [database/sql/driver.Valuer] interface, kept only for
+// interop with plain database/sql code paths. Native pgx v5 query execution
+// goes through PlanEncode/PlanScan above instead.
+func (src *{%s c.name %}PsqlType) Value() (driver.Value, error) {
+	if !src.Valid {
+		return nil, nil
 }
 
-// New implement ValueDecoder[T any] interface
-func (dst *{%s c.name %}Fields) New() *{%s c.name %}Fields{
-	return &{%s c.name %}Fields{}
+	return src, nil
 }
-
-// DecodeText implement pgtype.TextDecoder interface
-func (dst *{%s c.name %}Fields) DecodeText(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = {%s c.name %}Fields{}
-	c := pgtype.NewCompositeTextScanner(ci, src)
-
-	return dst.scanAll(c)
-}
-
-// DecodeBinary implement pgtype.TextDecoder interface
-func (dst *{%s c.name %}Fields) DecodeBinary(ci *pgtype.ConnInfo, src []byte) error {
-	*dst = {%s c.name %}Fields{}
-	c := pgtype.NewCompositeBinaryScanner(ci, src)
-
-	return dst.scanAll(c)
-}*/
 {% endfunc %}

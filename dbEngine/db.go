@@ -312,7 +312,6 @@ func (db *DB) readAndReplaceTypes(path string, info os.DirEntry, err error) erro
 				Id:         0,
 				Name:       typeName,
 				Type:       0,
-				Attr:       nil,
 				Enumerates: nil,
 			}
 

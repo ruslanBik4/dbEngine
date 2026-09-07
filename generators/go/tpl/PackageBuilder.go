@@ -25,6 +25,13 @@ type PackageBuilder struct {
 	Imports    map[string]struct{}
 	initValues string
 	types      []string
+
+	// rawTypeAttrs preserves each user-defined type's attributes exactly as Postgres
+	// reports them (raw type names, e.g. "int4", "text", "numeric") keyed by type
+	// name, captured before MakeDBUsersTypes overwrites TypesAttr.Type in place with
+	// the resolved Go type. CreateTypeInterface needs the raw names to resolve each
+	// field's/range element's pgtype.Type (and so its OID) when building PlanEncode.
+	rawTypeAttrs map[string][]dbEngine.TypesAttr
 }
 
 // PrepareDatabase sort databases properties
@@ -33,6 +40,49 @@ func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 	if err != nil {
 		return err
 	}
+
+	// NOTE: c.SortImports() below is evaluated as an argument expression, i.e.
+	// *before* WriteCreateDatabase (and the CreateDatabase/CreateTypeInterface
+	// template bodies it runs) ever executes. Any c.addImport call made from
+	// inside those template bodies is too late to affect the emitted import block,
+	// so every import CreateDatabase's output unconditionally or conditionally
+	// needs must be added here first.
+
+	// ValueDecoder/WrapArray in the generated output reference pgtype.Codec
+	// unconditionally, so this import is always required.
+	c.addImport(moduloPgType)
+
+	// database/sql/driver.Value is only used by CreateTypeInterface's generated
+	// DecodeDatabaseSQLValue body, which only exists for types that actually
+	// produce a struct+codec - mirror the exact condition CreateTypeInterface
+	// itself gates on (composites and ranges, not citext, domains, or bare enums)
+	// so we don't add an import that ends up unused, which is a compile error in Go.
+	needsCompositeCodecImports := false
+	for _, name := range c.types {
+		if name == "citext" {
+			continue
+		}
+		t := c.DB.Types[name]
+		if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" {
+			needsCompositeCodecImports = true
+			break
+		}
+	}
+	if needsCompositeCodecImports {
+		c.addImport("database/sql/driver")
+	}
+
+	// registerDataTypes (emitted whenever there is at least one custom type,
+	// citext included) uses fmt.Errorf in its retry loop and needs *pgx.Conn from
+	// the base pgx package (not just pgtype/pgconn) for LoadType/TypeMap - and
+	// CreateTypeInterface's own Scan/DecodeDatabaseSQLValue/PlanEncode/DecodeValue
+	// bodies additionally use fmt.Errorf/fmt.Sprintf whenever needsCompositeCodecImports
+	// is true, so "fmt" covers both.
+	if len(c.types) > 0 {
+		c.addImport("fmt")
+		c.addImport(moduloPgx)
+	}
+
 	tables := slices.Collect(maps.Keys(c.Tables))
 	slices.Sort(tables)
 	routines := slices.Collect(maps.Keys(c.Routines))
@@ -54,7 +104,7 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 	c.initValues = ""
 	c.Imports = maps.Collect(func(yield func(string, struct{}) bool) {
 		for _, name := range []string{
-			//"fmt",
+			"fmt",
 			"slices",
 			"sync",
 			"time",
@@ -62,6 +112,7 @@ func (c *PackageBuilder) PrepareTable(table dbEngine.Table) *Table {
 			"context",
 			"github.com/ruslanBik4/logs",
 			"database/sql/driver",
+			moduloPgType,
 			"github.com/ruslanBik4/dbEngine/dbEngine",
 			"github.com/ruslanBik4/dbEngine/dbEngine/psql",
 		} {
@@ -180,8 +231,14 @@ func (c *PackageBuilder) udtToReturnType(udtName string) string {
 
 // MakeDBUsersTypes create interface of DB
 func (c *PackageBuilder) MakeDBUsersTypes() error {
+	c.rawTypeAttrs = make(map[string][]dbEngine.TypesAttr, len(c.DB.Types))
+
 	c.types = slices.AppendSeq(c.types, func(yield func(string) bool) {
 		for tName, t := range c.DB.Types {
+			// snapshot the raw (pre-ChkTypes) attributes before the loop below
+			// overwrites tAttr.Type with the resolved Go type
+			c.rawTypeAttrs[tName] = append([]dbEngine.TypesAttr(nil), t.Attr...)
+
 			for i, tAttr := range t.Attr {
 				name := tAttr.Name
 				ud := &t
@@ -332,7 +389,19 @@ func (c *PackageBuilder) chkDefineType(udtName string) string {
 	}
 
 	if _, ok := c.Tables[udtName]; ok {
-		return fmt.Sprintf("%s%sFields", prefix, strcase.ToCamel(udtName))
+		// PsqlType, not Fields: whenever a table's row type is used as a Postgres
+		// composite VALUE - a routine parameter/return of that table's type, or (via
+		// WrapArray[T ValueDecoder[T]] in database_tpl.qtpl) an array of it - the
+		// destination must implement the full pgtype.Codec interface (PlanEncode,
+		// PlanScan, DecodeValue, ...), which only {Table}PsqlType (column_type.qtpl)
+		// does. {Table}Fields is embedded inside {Table}PsqlType, so every existing
+		// per-column accessor (RefColValue/ColValue/GetFields) still works unchanged
+		// through that embedding - this only widens what's returned, it doesn't
+		// narrow it. Using Fields here directly used to compile-fail with e.g.
+		// "*ExecutionsFields does not satisfy ValueDecoder[*ExecutionsFields]
+		// (missing method DecodeDatabaseSQLValue)" for any routine returning an
+		// array of a table's row type.
+		return fmt.Sprintf("%s%sPsqlType", prefix, strcase.ToCamel(udtName))
 	}
 
 	if t, ok := c.DB.Types[udtName]; ok {

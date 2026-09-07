@@ -210,7 +210,6 @@ func (r *{%s camelName %}RowScanner) GetFields(columns []dbEngine.Column) []any 
 	{%- code
 		s := strcase.ToLowerCamel(col.Name())
 		typeCol, _ := c.ChkTypes(col, s)
-
 		if col.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
 			typeCol = "*"+typeCol
 		}

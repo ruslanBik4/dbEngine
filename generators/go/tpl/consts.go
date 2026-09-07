@@ -5,6 +5,7 @@
 package tpl
 
 const (
+	moduloPgx     = "github.com/jackc/pgx/v5"
 	moduloPgType  = "github.com/jackc/pgx/v5/pgtype"
 	moduloGoTools = "github.com/ruslanBik4/gotools"
 	moduloSql     = "database/sql"

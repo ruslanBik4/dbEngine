@@ -733,97 +733,95 @@ func (c *PackageBuilder) streamparamsTitle(qw422016 *qt422016.Writer, r *psql.Ro
 //line routines.qtpl:211
 		s := strcase.ToLowerCamel(col.Name())
 		typeCol, _ := c.ChkTypes(col, s)
-		d, _ := c.ChkDataType(col.Type())
-		fmt.Println(s, typeCol, d, c.getCodecType(col, d), col.BasicType())
 		if col.Default() != nil && !strings.HasPrefix(typeCol, "[]") {
 			typeCol = "*" + typeCol
 		}
 
-//line routines.qtpl:218
+//line routines.qtpl:216
 		qw422016.N().S(`	`)
-//line routines.qtpl:219
+//line routines.qtpl:217
 		qw422016.E().S(fmt.Sprintf("%-*s\t%s,\t//%s", maxLen, s, typeCol, col.Comment()))
-//line routines.qtpl:219
+//line routines.qtpl:217
 		qw422016.N().S(` pg type: `)
-//line routines.qtpl:219
+//line routines.qtpl:217
 		qw422016.E().S(col.Type())
-//line routines.qtpl:219
+//line routines.qtpl:217
 		if col.Default() != nil {
-//line routines.qtpl:219
+//line routines.qtpl:217
 			qw422016.N().S(`, def: `)
-//line routines.qtpl:219
+//line routines.qtpl:217
 			qw422016.E().V(col.Default())
-//line routines.qtpl:219
+//line routines.qtpl:217
 		}
-//line routines.qtpl:220
+//line routines.qtpl:218
 	}
-//line routines.qtpl:221
+//line routines.qtpl:219
 }
 
-//line routines.qtpl:221
+//line routines.qtpl:219
 func (c *PackageBuilder) writeparamsTitle(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line routines.qtpl:221
+//line routines.qtpl:219
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:221
+//line routines.qtpl:219
 	c.streamparamsTitle(qw422016, r)
-//line routines.qtpl:221
+//line routines.qtpl:219
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:221
+//line routines.qtpl:219
 }
 
-//line routines.qtpl:221
+//line routines.qtpl:219
 func (c *PackageBuilder) paramsTitle(r *psql.Routine) string {
-//line routines.qtpl:221
+//line routines.qtpl:219
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:221
+//line routines.qtpl:219
 	c.writeparamsTitle(qb422016, r)
-//line routines.qtpl:221
+//line routines.qtpl:219
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:221
+//line routines.qtpl:219
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:221
+//line routines.qtpl:219
 	return qs422016
-//line routines.qtpl:221
+//line routines.qtpl:219
 }
 
-//line routines.qtpl:223
+//line routines.qtpl:221
 func (c *PackageBuilder) streamparamsArgs(qw422016 *qt422016.Writer, r *psql.Routine) {
-//line routines.qtpl:224
+//line routines.qtpl:222
 	for _, param := range r.Params() {
-//line routines.qtpl:224
+//line routines.qtpl:222
 		qw422016.N().S(`	`)
-//line routines.qtpl:225
+//line routines.qtpl:223
 		qw422016.E().S(strcase.ToLowerCamel(param.Name()))
-//line routines.qtpl:225
+//line routines.qtpl:223
 		qw422016.N().S(`,
 `)
-//line routines.qtpl:226
+//line routines.qtpl:224
 	}
-//line routines.qtpl:227
+//line routines.qtpl:225
 }
 
-//line routines.qtpl:227
+//line routines.qtpl:225
 func (c *PackageBuilder) writeparamsArgs(qq422016 qtio422016.Writer, r *psql.Routine) {
-//line routines.qtpl:227
+//line routines.qtpl:225
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line routines.qtpl:227
+//line routines.qtpl:225
 	c.streamparamsArgs(qw422016, r)
-//line routines.qtpl:227
+//line routines.qtpl:225
 	qt422016.ReleaseWriter(qw422016)
-//line routines.qtpl:227
+//line routines.qtpl:225
 }
 
-//line routines.qtpl:227
+//line routines.qtpl:225
 func (c *PackageBuilder) paramsArgs(r *psql.Routine) string {
-//line routines.qtpl:227
+//line routines.qtpl:225
 	qb422016 := qt422016.AcquireByteBuffer()
-//line routines.qtpl:227
+//line routines.qtpl:225
 	c.writeparamsArgs(qb422016, r)
-//line routines.qtpl:227
+//line routines.qtpl:225
 	qs422016 := string(qb422016.B)
-//line routines.qtpl:227
+//line routines.qtpl:225
 	qt422016.ReleaseByteBuffer(qb422016)
-//line routines.qtpl:227
+//line routines.qtpl:225
 	return qs422016
-//line routines.qtpl:227
+//line routines.qtpl:225
 }
