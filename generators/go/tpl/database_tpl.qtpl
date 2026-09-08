@@ -145,7 +145,34 @@ func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 		{%- endfor -%}
 	}
 
-	for len(pending) > 0 {
+	for name, dataType := range  map[string]*pgtype.Type{
+		"citext": {
+			Codec: &pgtype.TextCodec{
+			},
+			Name:  "citext",
+		},
+		"_citext": {
+			Codec: &pgtype.ArrayCodec{
+				ElementType: &pgtype.Type{
+					Codec: pgtype.TextCodec{},
+					Name:  "citext",
+				},
+			},
+			Name:  "_citext",
+		},
+	} {
+		if dt, ok := conn.TypeMap().TypeForName(name); ok {
+			dataType = dt
+		} else {
+			err := conn.QueryRow(ctx, "select $1::text::regtype::oid;", name).Scan(&dataType.OID)
+			if err != nil {
+				logs.ErrorLog(err)
+			}
+		}
+		logs.StatusLog(name, dataType.Name, "registered data type", dataType)
+		conn.TypeMap().RegisterType(dataType)
+	}
+		for len(pending) > 0 {
 		var stillPending []string
 		var lastErr error
 		progressed := false

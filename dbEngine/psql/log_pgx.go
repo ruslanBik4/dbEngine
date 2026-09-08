@@ -91,6 +91,13 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 }
 
 func (l *pgxLog) printError(err error, msg string, data map[string]any) {
+	if e, ok := err.(xerrors.Wrapper); ok {
+		l.printError(e.Unwrap(), msg, data)
+		return
+	} else {
+		logs.StatusLog("[PGX] %#v", err, data)
+	}
+
 	switch err {
 	case pgx.ErrNoRows:
 		logs.DebugLog("pgx: no rows in result set | %s", msg)
@@ -105,6 +112,7 @@ func (l *pgxLog) printError(err error, msg string, data map[string]any) {
 		logs.ErrorLog(err, "Transaction commit/rollback error: %s", msg)
 	default:
 		logs.ErrorLog(err, msg, data)
+		logs.ErrorStack(err, "Transaction error: %s", msg)
 	}
 }
 
