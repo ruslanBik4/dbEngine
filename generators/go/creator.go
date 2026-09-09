@@ -114,9 +114,9 @@ func NewCreator(DB *dbEngine.DB, cfg *CfgCreator) (*Creator, error) {
 	})
 
 	if _, ok := DB.Types["citext"]; ok {
-		imports["bytes"] = struct{}{}
-		imports["strings"] = struct{}{}
-		imports["github.com/jackc/pgx/v5"] = struct{}{}
+		//imports["bytes"] = struct{}{}
+		//imports["strings"] = struct{}{}
+		//imports["github.com/jackc/pgx/v5"] = struct{}{}
 	}
 
 	return &Creator{
