@@ -105,16 +105,8 @@ type scanError interface {
 	Err() error
 }
 
-// ValueDecoder is a value that implements the text and binary encoding and decoding interfaces.
-type ValueDecoder[T any] interface {
-	pgtype.Codec
-	New() T
-}
-
-type WrapArray[T ValueDecoder[T]] []T
-
 `)
-//line database_tpl.qtpl:50
+//line database_tpl.qtpl:42
 	// NOTE: the imports this whole function needs (moduloPgType unconditionally;
 	// "fmt"/"database/sql/driver" when there's a real composite/range type; pgx
 	// itself when there's any custom type) are added in PackageBuilder.PrepareDatabase,
@@ -123,38 +115,38 @@ type WrapArray[T ValueDecoder[T]] []T
 	// above, so a c.addImport call at this point would be silently too late.
 	hasCitext := false
 
-//line database_tpl.qtpl:57
+//line database_tpl.qtpl:49
 	qw422016.N().S(`
 
 `)
-//line database_tpl.qtpl:59
+//line database_tpl.qtpl:51
 	for _, name := range c.types {
-//line database_tpl.qtpl:60
+//line database_tpl.qtpl:52
 		if name != "citext" {
-//line database_tpl.qtpl:61
+//line database_tpl.qtpl:53
 			c.StreamCreateTypeInterface(qw422016, c.DB.Types[name], strcase.ToCamel(name), name, c.Types[name], c.rawTypeAttrs[name])
-//line database_tpl.qtpl:61
+//line database_tpl.qtpl:53
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:62
+//line database_tpl.qtpl:54
 		} else {
-//line database_tpl.qtpl:62
+//line database_tpl.qtpl:54
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:63
+//line database_tpl.qtpl:55
 			hasCitext = true
 
-//line database_tpl.qtpl:63
+//line database_tpl.qtpl:55
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:64
+//line database_tpl.qtpl:56
 		}
-//line database_tpl.qtpl:64
+//line database_tpl.qtpl:56
 		qw422016.N().S(`
 `)
-//line database_tpl.qtpl:65
+//line database_tpl.qtpl:57
 	}
-//line database_tpl.qtpl:65
+//line database_tpl.qtpl:57
 	qw422016.N().S(`
 // Database is root interface for operation for tables and routines
 type Database struct {
@@ -167,15 +159,17 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 	if noticeHandler == nil {
 		noticeHandler = psql.PrintNotice
 	}
+
 	conn := psql.NewConnWithOptions(
 `)
-//line database_tpl.qtpl:79
-	if hasCitext || len(c.types) > 0 {
-//line database_tpl.qtpl:79
-		qw422016.N().S(`psql.AfterConnect(registerDataTypes),`)
-//line database_tpl.qtpl:79
+//line database_tpl.qtpl:72
+	if hasCitext || len(c.types) > 0 || len(listTables) > 0 {
+//line database_tpl.qtpl:72
+		qw422016.N().S(`psql.AfterConnect(registerDataTypes),
+`)
+//line database_tpl.qtpl:73
 	}
-//line database_tpl.qtpl:79
+//line database_tpl.qtpl:73
 	qw422016.N().S(`		psql.NoticeHandler(noticeHandler),
 		psql.ChannelHandler(channelHandler),
 		psql.Channels(channels...),
@@ -191,55 +185,144 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 }
 
 `)
-//line database_tpl.qtpl:94
-	if hasCitext || len(c.types) > 0 {
-//line database_tpl.qtpl:94
+//line database_tpl.qtpl:88
+	if hasCitext || len(c.types) > 0 || len(listTables) > 0 {
+//line database_tpl.qtpl:88
 		qw422016.N().S(`
-// registerDataTypes loads and registers this database's custom Postgres types
-// (composites, ranges, domains, enums - and citext, when present), plus each
-// one's own array type (e.g. "_foo" for "foo"), with the new connection's
-// pgtype.Map, so pgx can encode/decode values of these OIDs - and arrays of
-// them, as used by WrapArray[*T] below - using the Go types generated above.
-// It runs once per connection via psql.AfterConnect, before the connection is
-// handed back for use.
+// dataTypesMu/dataTypesCache/dataTypesLoaded cache the result of loadDataTypes
+// (below) so its introspection - several round trips per type - runs only
+// once per process, not once per connection. psql.AfterConnect fires on every
+// new connection (every pool connection, every reconnect), but the schema's
+// types don't change over the process lifetime, so there's no reason to
+// re-run it each time; only re-registering the already-resolved *pgtype.Type
+// values into the new connection's own pgtype.Map (a pure in-memory insert,
+// no round trip - every *pgx.Conn has its own Map) needs to happen per
+// connection, which registerDataTypes below does from the cache. This same
+// cached *pgtype.Type also carries the customCodecs override (see
+// loadDataTypes) that swaps pgx's own generic composite/range Codec for the
+// hand-written one generated above/in ColumnType, so replaying the cache is
+// what makes every connection use the generated Codec, not just the first.
+//
+// dataTypesLoaded is set true only on a SUCCESSFUL load. A sync.Once would
+// permanently cache a failure from a transient error on the very first
+// connection and break every later connection attempt for the life of the
+// process, so a plain mutex + bool is used instead, allowing the next
+// connection to retry a load that failed.
+var (
+	dataTypesMu     sync.Mutex
+	dataTypesCache  []*pgtype.Type
+	dataTypesLoaded bool
+)
+
+// registerDataTypes registers this database's custom Postgres types (see
+// loadDataTypes) with the new connection's pgtype.Map, so pgx can encode/
+// decode values of these OIDs - and arrays of them, as used by WrapArray[*T]
+// below - using the Go types generated above. It runs once per connection via
+// psql.AfterConnect, before the connection is handed back for use.
 //
 // ASSUMPTION - please verify: this assumes psql.AfterConnect accepts a hook of
 // exactly this signature (func(context.Context, *pgx.Conn) error), the same
-// convention pgx/pgxpool use for their own AfterConnect. If your psql.Conn wraps
-// connection setup differently, this function's signature (and NewDatabase's use
-// of psql.AfterConnect above) will need adjusting to match.
+// convention pgx/pgxpool use for their own AfterConnect. If your psql.Conn
+// wraps connection setup differently, this function's signature (and
+// NewDatabase's use of psql.AfterConnect above) will need adjusting to match.
 func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 	`)
-//line database_tpl.qtpl:109
+//line database_tpl.qtpl:126
 		if hasCitext {
-//line database_tpl.qtpl:109
+//line database_tpl.qtpl:126
 			qw422016.N().S(`
-	// preserves the pre-existing citext registration hook this generator already
-	// wired up via psql.AfterConnect(afterConnect) - afterConnect itself is not
-	// generated code, so it must still be defined somewhere in this package.
-	if err := afterConnect(ctx, conn); err != nil {
-		return err
-	}
+	// afterConnect is this generator's pre-existing, hand-written connection
+	// hook (not generated code - it must still be defined elsewhere in this
+	// package). It's kept here for whatever connection setup it does beyond
+	// type registration: citext's own pgtype registration is now handled
+	// directly below (see loadDataTypes) and no longer depends on it. If
+	// afterConnect's only job was registering citext, remove that part of it
+	// now - conn.LoadType(ctx, "citext") cannot do this correctly (see the
+	// comment in loadDataTypes below), which is presumably what you hit. If it
+	// also does other connection setup, leave the call as is.
+	//if err := afterConnect(ctx, conn); err != nil {
+	//	return err
+	//}
 	`)
-//line database_tpl.qtpl:116
+//line database_tpl.qtpl:139
 		}
-//line database_tpl.qtpl:116
+//line database_tpl.qtpl:139
 		qw422016.N().S(`
+
+	dataTypesMu.Lock()
+	defer dataTypesMu.Unlock()
+
+	if !dataTypesLoaded {
+		types, err := loadDataTypes(ctx, conn)
+		if err != nil {
+			return fmt.Errorf("registerDataTypes: %w", err)
+		}
+
+		dataTypesCache = types
+		dataTypesLoaded = true
+	}
+
+	typeMap := conn.TypeMap()
+	for _, dt := range dataTypesCache {
+		typeMap.RegisterType(dt)
+	}
+
+	return nil
+}
+
+// loadDataTypes introspects and resolves this database's custom types once,
+// on whichever connection first calls registerDataTypes above, and returns
+// them so registerDataTypes can cache and replay them on every later
+// connection without repeating the underlying round trips.
+func loadDataTypes(ctx context.Context, conn *pgx.Conn) ([]*pgtype.Type, error) {
+	var loaded []*pgtype.Type
+
 	`)
-//line database_tpl.qtpl:117
-		if len(c.types) > 0 || len(listTables) > 0 {
-//line database_tpl.qtpl:117
+//line database_tpl.qtpl:169
+		if hasCitext {
+//line database_tpl.qtpl:169
 			qw422016.N().S(`
-	// Every custom type and every table row type also gets its own auto-created
-	// PostgreSQL array type (conventionally named "_<type>"), which needs its own
-	// registration - this is the exact pattern pgx/pgtype's own doc.go recommends
-	// (see "New PostgreSQL Type Support", whose own example registers "foo" AND
-	// "_foo"). It matters here because routine invokers generated below
-	// (CreateFunctionInvoker/CreateRowScanner) use WrapArray[*T] for any routine
-	// parameter or return value that is an array of one of these types (e.g. a
-	// function returning "foo[]" or "executions[]") - without "_foo"/"_executions"
-	// registered, pgx has no Codec for that array OID and scanning such a value
-	// fails.
+	// citext (the citext contrib extension's type) is a genuine scalar base
+	// type, not an array - but conn.LoadType assumes every typtype='b' catalog
+	// entry is an array (Postgres marks BOTH plain base types like citext AND
+	// their auto-generated array counterparts as typtype='b', and LoadType's
+	// "b" case always tries to resolve an element via typelem), so
+	// conn.LoadType(ctx, "citext") fails: citext has no element (typelem=0),
+	// so pgx reports something like "array element OID not registered".
+	//
+	// The fix is to resolve citext's OID manually - the same regtype cast
+	// LoadType itself uses internally - and register it reusing pgtype's own
+	// TextCodec, since citext's wire format is identical to text. This must
+	// happen before anything else below: pgx's own composite-field lookup
+	// (used to load any composite/table type with a citext field/column)
+	// requires every field's OID already registered in the Map, and fails
+	// with "unknown composite type field OID" otherwise. Once citext's OID is
+	// registered here, "_citext" (its auto-generated array type) resolves
+	// normally through the retry loop below like any other array type.
+	var citextOID uint32
+	if err := conn.QueryRow(ctx, "select $1::text::regtype::oid;", "citext").Scan(&citextOID); err != nil {
+		return nil, fmt.Errorf("unable to resolve citext OID: %w", err)
+	}
+
+	citextType := &pgtype.Type{Name: "citext", OID: citextOID, Codec: pgtype.TextCodec{}}
+	conn.TypeMap().RegisterType(citextType)
+	loaded = append(loaded, citextType)
+	`)
+//line database_tpl.qtpl:195
+		}
+//line database_tpl.qtpl:195
+		qw422016.N().S(`
+
+	`)
+//line database_tpl.qtpl:197
+		if len(c.types) > 0 || len(listTables) > 0 {
+//line database_tpl.qtpl:197
+			qw422016.N().S(`
+	// pending is exactly the set PackageBuilder.PendingDataTypeNames computes -
+	// see its comment (PackageBuilder.go) for what's included/excluded and why
+	// (usage-based trimming, array variants, the citext exemption). That
+	// filtering lives in plain Go rather than here so it reads and tests like
+	// ordinary code; this just ranges over the result to build the literal.
 	//
 	// LoadType requires a type's dependencies (element/field/base types - and, for
 	// an array entry, the element type itself) to already be registered, and this
@@ -249,46 +332,63 @@ func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 	// further progress.
 	pending := []string{
 `)
-//line database_tpl.qtpl:136
-			for _, name := range c.types {
-//line database_tpl.qtpl:137
-				if name != "citext" {
-//line database_tpl.qtpl:137
-					qw422016.N().S(`		"`)
-//line database_tpl.qtpl:138
-					qw422016.E().S(name)
-//line database_tpl.qtpl:138
-					qw422016.N().S(`",
-		"_`)
-//line database_tpl.qtpl:139
-					qw422016.E().S(name)
-//line database_tpl.qtpl:139
-					qw422016.N().S(`",
-`)
-//line database_tpl.qtpl:140
-				}
-//line database_tpl.qtpl:141
-			}
-//line database_tpl.qtpl:142
-			for _, name := range listTables {
-//line database_tpl.qtpl:142
+//line database_tpl.qtpl:211
+			for _, name := range c.PendingDataTypeNames(listTables) {
+//line database_tpl.qtpl:211
 				qw422016.N().S(`		"`)
-//line database_tpl.qtpl:143
+//line database_tpl.qtpl:212
 				qw422016.E().S(name)
-//line database_tpl.qtpl:143
-				qw422016.N().S(`",
-		"_`)
-//line database_tpl.qtpl:144
-				qw422016.E().S(name)
-//line database_tpl.qtpl:144
+//line database_tpl.qtpl:212
 				qw422016.N().S(`",
 `)
-//line database_tpl.qtpl:145
+//line database_tpl.qtpl:213
 			}
-//line database_tpl.qtpl:145
+//line database_tpl.qtpl:213
 			qw422016.N().S(`	}
 
-	for len(pending) > 0 {
+	// customCodecs overrides pgx's own generic Codec - conn.LoadType always
+	// returns pgx's built-in *pgtype.CompositeCodec for a "c" (composite)
+	// typtype, or *pgtype.RangeCodec for "r" (range) - with the hand-written
+	// Codec generated above (CreateTypeInterface) or in ColumnType.qtpl
+	// ({Table}PsqlType), so PlanEncode/PlanScan/Scan/DecodeValue actually run
+	// the generated logic (including setting Valid) instead of pgx's generic
+	// reflection-based struct fallback, which happens to satisfy enough of
+	// pgx's interfaces to "work" silently without it - see the note on
+	// dataTypesCache above for why this must be applied via the cached
+	// *pgtype.Type, not just once.
+	//
+	// This must be assigned to each base type's *pgtype.Type *before* its own
+	// array variant ("_name") is loaded below, and before any domain over it:
+	// pgx's LoadType resolves an array's element type (and a domain's base
+	// type) by looking up whatever is already registered at that OID in the
+	// connection's TypeMap (see getArrayElementOID/getRangeElementOID's call
+	// sites in pgx's conn.go) rather than re-deriving its Codec - so as long as
+	// "name" is registered with its override before "_name" is loaded, the
+	// array (and any domain) picks up the same generated Codec automatically.
+	// PendingDataTypeNames already emits "name" immediately before "_name",
+	// and the loop below processes pending sequentially, so that ordering
+	// holds within a single pass.
+	customCodecs := map[string]pgtype.Codec{
+`)
+//line database_tpl.qtpl:239
+			for _, name := range c.CustomCodecNames(listTables) {
+//line database_tpl.qtpl:239
+				qw422016.N().S(`		"`)
+//line database_tpl.qtpl:240
+				qw422016.E().S(name)
+//line database_tpl.qtpl:240
+				qw422016.N().S(`": &`)
+//line database_tpl.qtpl:240
+				qw422016.E().S(c.chkDefineType(name))
+//line database_tpl.qtpl:240
+				qw422016.N().S(`{},
+`)
+//line database_tpl.qtpl:241
+			}
+//line database_tpl.qtpl:241
+			qw422016.N().S(`	}
+
+		for len(pending) > 0 {
 		var stillPending []string
 		var lastErr error
 		progressed := false
@@ -301,28 +401,33 @@ func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 				continue
 			}
 
+			if codec, ok := customCodecs[name]; ok {
+				dataType.Codec = codec
+			}
+
 			conn.TypeMap().RegisterType(dataType)
+			loaded = append(loaded, dataType)
 			progressed = true
 		}
 
 		if !progressed {
-			return fmt.Errorf("registerDataTypes: unable to register %v: %w", stillPending, lastErr)
+			return nil, fmt.Errorf("unable to register %v: %w", stillPending, lastErr)
 		}
 
 		pending = stillPending
 	}
 	`)
-//line database_tpl.qtpl:171
+//line database_tpl.qtpl:272
 		}
-//line database_tpl.qtpl:171
+//line database_tpl.qtpl:272
 		qw422016.N().S(`
 
-	return nil
+	return loaded, nil
 }
 `)
-//line database_tpl.qtpl:175
+//line database_tpl.qtpl:276
 	}
-//line database_tpl.qtpl:175
+//line database_tpl.qtpl:276
 	qw422016.N().S(`
 
 func (DB *Database) Notify(ctx context.Context, ch, mess string) string {
@@ -349,23 +454,23 @@ func (d *Database) PsqlConn() *psql.Conn {
 func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reader, columns ...string) (int64, error) {
 	switch table {
 `)
-//line database_tpl.qtpl:200
+//line database_tpl.qtpl:301
 	for _, name := range listTables {
-//line database_tpl.qtpl:200
+//line database_tpl.qtpl:301
 		qw422016.N().S(`	`)
-//line database_tpl.qtpl:201
+//line database_tpl.qtpl:302
 		if c.DB.Tables[name].(*psql.Table).Type == "BASE TABLE" {
-//line database_tpl.qtpl:201
+//line database_tpl.qtpl:302
 			qw422016.N().S(`
 	case "`)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:303
 			qw422016.E().S(name)
-//line database_tpl.qtpl:202
+//line database_tpl.qtpl:303
 			qw422016.N().S(`":
 		t, err := d.New`)
-//line database_tpl.qtpl:203
+//line database_tpl.qtpl:304
 			qw422016.E().S(strcase.ToCamel(name))
-//line database_tpl.qtpl:203
+//line database_tpl.qtpl:304
 			qw422016.N().S(`(ctx)
 		if err != nil {
 			return -1, err
@@ -381,63 +486,63 @@ func (d *Database) SaveDataToTable(ctx context.Context, table string, r io.Reade
 
 		return t.doCopy(ctx)
 	`)
-//line database_tpl.qtpl:217
+//line database_tpl.qtpl:318
 		}
-//line database_tpl.qtpl:217
+//line database_tpl.qtpl:318
 		qw422016.N().S(`
 `)
-//line database_tpl.qtpl:218
+//line database_tpl.qtpl:319
 	}
-//line database_tpl.qtpl:218
+//line database_tpl.qtpl:319
 	qw422016.N().S(`	default:
 		return -1, dbEngine.NewErrNotFoundTable(table)
 	}
 }
 `)
-//line database_tpl.qtpl:223
+//line database_tpl.qtpl:324
 	for _, name := range listTables {
-//line database_tpl.qtpl:223
+//line database_tpl.qtpl:324
 		StreamCreateTableConstructor(qw422016, strcase.ToCamel(name), name)
-//line database_tpl.qtpl:223
+//line database_tpl.qtpl:324
 	}
-//line database_tpl.qtpl:224
+//line database_tpl.qtpl:325
 	for _, name := range listRoutines {
-//line database_tpl.qtpl:224
+//line database_tpl.qtpl:325
 		c.StreamCreateRoutinesInvoker(qw422016, c.Routines[name].(*psql.Routine), name)
-//line database_tpl.qtpl:224
+//line database_tpl.qtpl:325
 	}
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 }
 
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 func (c *PackageBuilder) WriteCreateDatabase(qq422016 qtio422016.Writer, title string, imports, listTables, listRoutines []string) {
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	c.StreamCreateDatabase(qw422016, title, imports, listTables, listRoutines)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 }
 
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 func (c *PackageBuilder) CreateDatabase(title string, imports, listTables, listRoutines []string) string {
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	c.WriteCreateDatabase(qb422016, title, imports, listTables, listRoutines)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 	return qs422016
-//line database_tpl.qtpl:225
+//line database_tpl.qtpl:326
 }
 
-//line database_tpl.qtpl:227
+//line database_tpl.qtpl:328
 func (c *PackageBuilder) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t dbEngine.Types, typeName, name, typeCol string, rawAttr []dbEngine.TypesAttr) {
-//line database_tpl.qtpl:229
+//line database_tpl.qtpl:330
 	// NOTE: "fmt" and "database/sql/driver", both used literally in the Scan/
 	// DecodeDatabaseSQLValue/PlanEncode/DecodeValue bodies below, are added to the
 	// import list in PackageBuilder.PrepareDatabase, not here - see the NOTE at the
@@ -460,41 +565,41 @@ func (c *PackageBuilder) StreamCreateTypeInterface(qw422016 *qt422016.Writer, t 
 		elemPgName = rawAttr[0].Type
 	}
 
-//line database_tpl.qtpl:250
+//line database_tpl.qtpl:351
 	qw422016.N().S(`
 `)
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:353
 	if len(t.Enumerates) == 0 && len(t.Attr) > 0 && t.Attr[0].Name != "domain" {
-//line database_tpl.qtpl:252
+//line database_tpl.qtpl:353
 		qw422016.N().S(`// `)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:354
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:354
 		qw422016.N().S(` represents PostgreSQL composite type `)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:354
 		qw422016.E().S(name)
-//line database_tpl.qtpl:253
+//line database_tpl.qtpl:354
 		qw422016.N().S(`
 type `)
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:355
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:254
+//line database_tpl.qtpl:355
 		qw422016.N().S(` struct {
 `)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:356
 		if t.Type == 'r' {
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:356
 			qw422016.N().S(`pgtype.Range[`)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:356
 			qw422016.E().S(elemGoType)
-//line database_tpl.qtpl:255
+//line database_tpl.qtpl:356
 			qw422016.N().S(`]
 `)
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:357
 		}
-//line database_tpl.qtpl:256
+//line database_tpl.qtpl:357
 		qw422016.N().S(`    `)
-//line database_tpl.qtpl:258
+//line database_tpl.qtpl:359
 		maxName := len(slices.MaxFunc(t.Attr, func(a, b dbEngine.TypesAttr) int {
 			return len(a.Name) - len(b.Name)
 		}).Name)
@@ -502,91 +607,74 @@ type `)
 			return len(a.Type) - len(b.Type)
 		}).Type)
 
-//line database_tpl.qtpl:264
+//line database_tpl.qtpl:365
 		qw422016.N().S(`
 `)
-//line database_tpl.qtpl:265
+//line database_tpl.qtpl:366
 		for _, attr := range t.Attr {
-//line database_tpl.qtpl:265
+//line database_tpl.qtpl:366
 			qw422016.N().S(`	`)
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			qw422016.N().S(fmt.Sprintf("%-*s\t\t%-*s\t `json:\"%s", maxName, strcase.ToCamel(attr.Name), maxType, attr.Type, attr.Name))
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			if !attr.NotOmited() {
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 				qw422016.N().S(`,omitempty`)
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			}
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			qw422016.N().S(`"`)
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			qw422016.N().S("`")
-//line database_tpl.qtpl:266
+//line database_tpl.qtpl:367
 			qw422016.N().S(`
 `)
-//line database_tpl.qtpl:267
+//line database_tpl.qtpl:368
 		}
-//line database_tpl.qtpl:268
+//line database_tpl.qtpl:369
 		if t.Type == 'r' {
-//line database_tpl.qtpl:268
+//line database_tpl.qtpl:369
 			qw422016.N().S(`	LowerType pgtype.BoundType
 	UpperType pgtype.BoundType
 `)
-//line database_tpl.qtpl:271
+//line database_tpl.qtpl:372
 		}
-//line database_tpl.qtpl:271
+//line database_tpl.qtpl:372
 		qw422016.N().S(`
 	Valid bool
 
 }
 
-// New implements ValueDecoder[T any] interface
 func (dst *`)
-//line database_tpl.qtpl:278
+//line database_tpl.qtpl:378
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:278
-		qw422016.N().S(`) New() *`)
-//line database_tpl.qtpl:278
-		qw422016.E().S(typeName)
-//line database_tpl.qtpl:278
-		qw422016.N().S(`{
-	return &`)
-//line database_tpl.qtpl:279
-		qw422016.E().S(typeName)
-//line database_tpl.qtpl:279
-		qw422016.N().S(`{}
-}
-
-func (dst *`)
-//line database_tpl.qtpl:282
-		qw422016.E().S(typeName)
-//line database_tpl.qtpl:282
+//line database_tpl.qtpl:378
 		qw422016.N().S(`) FormatSupported(format int16) bool {
 	return format == pgtype.BinaryFormatCode
 }
 
 func (dst *`)
-//line database_tpl.qtpl:286
+//line database_tpl.qtpl:382
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:286
+//line database_tpl.qtpl:382
 		qw422016.N().S(`) PreferredFormat() int16 {
 	return pgtype.BinaryFormatCode
 }
 
 // PlanEncode implement pgtype.Codec interface
 func (dst *`)
-//line database_tpl.qtpl:291
+//line database_tpl.qtpl:387
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:291
+//line database_tpl.qtpl:387
 		qw422016.N().S(`) PlanEncode(m *pgtype.Map, oid uint32, format int16, value any) pgtype.EncodePlan {
 	`)
-//line database_tpl.qtpl:292
+//line database_tpl.qtpl:388
 		if t.Type == 'r' {
-//line database_tpl.qtpl:292
+//line database_tpl.qtpl:388
 			qw422016.N().S(`	typ, ok := m.TypeForName("`)
-//line database_tpl.qtpl:293
+//line database_tpl.qtpl:389
 			qw422016.E().S(elemPgName)
-//line database_tpl.qtpl:293
+//line database_tpl.qtpl:389
 			qw422016.N().S(`")
 	if !ok {
 		return nil
@@ -594,24 +682,24 @@ func (dst *`)
 
 	switch v := value.(type) {
 	case `)
-//line database_tpl.qtpl:299
+//line database_tpl.qtpl:395
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:299
+//line database_tpl.qtpl:395
 			qw422016.N().S(`:
 		return (&pgtype.RangeCodec{ElementType: typ}).PlanEncode(m, typ.OID, format, v.Range)
 	case *`)
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:397
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:301
+//line database_tpl.qtpl:397
 			qw422016.N().S(`:
 		return (&pgtype.RangeCodec{ElementType: typ}).PlanEncode(m, typ.OID, format, v.Range)
 	default:
 		return nil
 	}
 	`)
-//line database_tpl.qtpl:306
+//line database_tpl.qtpl:402
 		} else {
-//line database_tpl.qtpl:306
+//line database_tpl.qtpl:402
 			qw422016.N().S(`	if _, ok := value.(pgtype.CompositeIndexGetter); !ok {
 		return nil
 	}
@@ -620,82 +708,82 @@ func (dst *`)
 	}
 
 	fieldOIDs := make([]uint32, `)
-//line database_tpl.qtpl:314
+//line database_tpl.qtpl:410
 			qw422016.N().D(len(rawAttr))
-//line database_tpl.qtpl:314
+//line database_tpl.qtpl:410
 			qw422016.N().S(`)
 	`)
-//line database_tpl.qtpl:315
+//line database_tpl.qtpl:411
 			for i, attr := range rawAttr {
-//line database_tpl.qtpl:315
+//line database_tpl.qtpl:411
 				qw422016.N().S(`
 	if typ, ok := m.TypeForName("`)
-//line database_tpl.qtpl:316
+//line database_tpl.qtpl:412
 				qw422016.E().S(attr.Type)
-//line database_tpl.qtpl:316
+//line database_tpl.qtpl:412
 				qw422016.N().S(`"); ok {
 		fieldOIDs[`)
-//line database_tpl.qtpl:317
+//line database_tpl.qtpl:413
 				qw422016.N().D(i)
-//line database_tpl.qtpl:317
+//line database_tpl.qtpl:413
 				qw422016.N().S(`] = typ.OID
 	}
 	`)
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:415
 			}
-//line database_tpl.qtpl:319
+//line database_tpl.qtpl:415
 			qw422016.N().S(`
 
 	return &`)
-//line database_tpl.qtpl:321
+//line database_tpl.qtpl:417
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:321
+//line database_tpl.qtpl:417
 			qw422016.N().S(`EncodePlan{m: m, fieldOIDs: fieldOIDs}
 	`)
-//line database_tpl.qtpl:322
+//line database_tpl.qtpl:418
 		}
-//line database_tpl.qtpl:322
+//line database_tpl.qtpl:418
 		qw422016.N().S(`}
 
 `)
-//line database_tpl.qtpl:325
+//line database_tpl.qtpl:421
 		if t.Type != 'r' {
-//line database_tpl.qtpl:325
+//line database_tpl.qtpl:421
 			qw422016.N().S(`
 // IsNull implement pgtype.CompositeIndexGetter interface
 func (dst *`)
-//line database_tpl.qtpl:327
+//line database_tpl.qtpl:423
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:327
+//line database_tpl.qtpl:423
 			qw422016.N().S(`) IsNull() bool {
 	return !dst.Valid
 }
 
 // Index implement pgtype.CompositeIndexGetter interface
 func (dst *`)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:428
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:332
+//line database_tpl.qtpl:428
 			qw422016.N().S(`) Index(i int) any {
 	switch i {
 	`)
-//line database_tpl.qtpl:334
+//line database_tpl.qtpl:430
 			for i, attr := range t.Attr {
-//line database_tpl.qtpl:334
+//line database_tpl.qtpl:430
 				qw422016.N().S(`case `)
-//line database_tpl.qtpl:334
+//line database_tpl.qtpl:430
 				qw422016.N().D(i)
-//line database_tpl.qtpl:334
+//line database_tpl.qtpl:430
 				qw422016.N().S(`:
 		return dst.`)
-//line database_tpl.qtpl:335
+//line database_tpl.qtpl:431
 				qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:335
+//line database_tpl.qtpl:431
 				qw422016.N().S(`
 	`)
-//line database_tpl.qtpl:336
+//line database_tpl.qtpl:432
 			}
-//line database_tpl.qtpl:336
+//line database_tpl.qtpl:432
 			qw422016.N().S(`
 	default:
 		panic("invalid index")
@@ -703,28 +791,28 @@ func (dst *`)
 }
 
 // `)
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:438
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:438
 			qw422016.N().S(`EncodePlan builds the composite wire format for `)
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:438
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:342
+//line database_tpl.qtpl:438
 			qw422016.N().S(`,
 // following the same builder pattern as pgtype.CompositeCodec's own encode plans.
 type `)
-//line database_tpl.qtpl:344
+//line database_tpl.qtpl:440
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:344
+//line database_tpl.qtpl:440
 			qw422016.N().S(`EncodePlan struct {
 	m         *pgtype.Map
 	fieldOIDs []uint32
 }
 
 func (plan *`)
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:445
 			qw422016.E().S(typeName)
-//line database_tpl.qtpl:349
+//line database_tpl.qtpl:445
 			qw422016.N().S(`EncodePlan) Encode(value any, buf []byte) ([]byte, error) {
 	getter := value.(pgtype.CompositeIndexGetter)
 	if getter.IsNull() {
@@ -739,23 +827,23 @@ func (plan *`)
 	return b.Finish()
 }
 `)
-//line database_tpl.qtpl:362
+//line database_tpl.qtpl:458
 		}
-//line database_tpl.qtpl:362
+//line database_tpl.qtpl:458
 		qw422016.N().S(`
 
 // PlanScan implement pgtype.Codec interface. dst here is only a stateless method
 // holder for Scan (below) - see the note on Scan for why it never reads its own
 // fields.
 func (dst *`)
-//line database_tpl.qtpl:367
+//line database_tpl.qtpl:463
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:367
+//line database_tpl.qtpl:463
 		qw422016.N().S(`) PlanScan(m *pgtype.Map, oid uint32, format int16, target any) pgtype.ScanPlan {
 	if _, ok := target.(*`)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:464
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:368
+//line database_tpl.qtpl:464
 		qw422016.N().S(`); !ok {
 		return nil
 	}
@@ -764,9 +852,9 @@ func (dst *`)
 }
 
 func (dst *`)
-//line database_tpl.qtpl:375
+//line database_tpl.qtpl:471
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:375
+//line database_tpl.qtpl:471
 		qw422016.N().S(`) DecodeDatabaseSQLValue(m *pgtype.Map, oid uint32, format int16, src []byte) (driver.Value, error) {
 	if src == nil {
 		return nil, nil
@@ -787,50 +875,50 @@ func (dst *`)
 }
 
 func (dst *`)
-//line database_tpl.qtpl:394
+//line database_tpl.qtpl:490
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:394
+//line database_tpl.qtpl:490
 		qw422016.N().S(`) DecodeValue(m *pgtype.Map, oid uint32, format int16, src []byte) (any, error) {
 	if src == nil {
 		return nil, nil
 	}
 	`)
-//line database_tpl.qtpl:398
+//line database_tpl.qtpl:494
 		if t.Type == 'r' {
-//line database_tpl.qtpl:398
+//line database_tpl.qtpl:494
 			qw422016.N().S(`	typ, ok := m.TypeForName("`)
-//line database_tpl.qtpl:399
+//line database_tpl.qtpl:495
 			qw422016.E().S(elemPgName)
-//line database_tpl.qtpl:399
+//line database_tpl.qtpl:495
 			qw422016.N().S(`")
 	if !ok {
 		return nil, fmt.Errorf("unable to find pgtype for range element %q", "`)
-//line database_tpl.qtpl:401
+//line database_tpl.qtpl:497
 			qw422016.E().S(elemPgName)
-//line database_tpl.qtpl:401
+//line database_tpl.qtpl:497
 			qw422016.N().S(`")
 	}
 
 	return (&pgtype.RangeCodec{ElementType: typ}).DecodeValue(m, typ.OID, format, src)
 	`)
-//line database_tpl.qtpl:405
+//line database_tpl.qtpl:501
 		} else {
-//line database_tpl.qtpl:405
+//line database_tpl.qtpl:501
 			qw422016.N().S(`	if format != pgtype.BinaryFormatCode {
 		return nil, fmt.Errorf("DecodeValue: unsupported format code %d", format)
 	}
 
 	values := make(map[string]any, `)
-//line database_tpl.qtpl:410
+//line database_tpl.qtpl:506
 			qw422016.N().D(len(t.Attr))
-//line database_tpl.qtpl:410
+//line database_tpl.qtpl:506
 			qw422016.N().S(`)
 	c := pgtype.NewCompositeBinaryScanner(m, src)
 
 	`)
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:509
 			for _, attr := range t.Attr {
-//line database_tpl.qtpl:413
+//line database_tpl.qtpl:509
 				qw422016.N().S(`	if !c.Next() {
 		return nil, c.Err()
 	}
@@ -839,57 +927,57 @@ func (dst *`)
 		fieldPlan := m.PlanScan(c.OID(), pgtype.BinaryFormatCode, &v)
 		if fieldPlan == nil {
 			return nil, fmt.Errorf("unable to scan OID %d in binary format into field %q", c.OID(), "`)
-//line database_tpl.qtpl:421
+//line database_tpl.qtpl:517
 				qw422016.E().S(attr.Name)
-//line database_tpl.qtpl:421
+//line database_tpl.qtpl:517
 				qw422016.N().S(`")
 		}
 		if err := fieldPlan.Scan(c.Bytes(), &v); err != nil {
 			return nil, err
 		}
 		values["`)
-//line database_tpl.qtpl:426
+//line database_tpl.qtpl:522
 				qw422016.E().S(attr.Name)
-//line database_tpl.qtpl:426
+//line database_tpl.qtpl:522
 				qw422016.N().S(`"] = v
 	}
 	`)
-//line database_tpl.qtpl:428
+//line database_tpl.qtpl:524
 			}
-//line database_tpl.qtpl:428
+//line database_tpl.qtpl:524
 			qw422016.N().S(`
 
 	return values, c.Err()
 	`)
-//line database_tpl.qtpl:431
+//line database_tpl.qtpl:527
 		}
-//line database_tpl.qtpl:431
+//line database_tpl.qtpl:527
 		qw422016.N().S(`}
 // Scan implement pgtype.ScanPlan interface
 func (dst *`)
-//line database_tpl.qtpl:434
+//line database_tpl.qtpl:530
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:434
+//line database_tpl.qtpl:530
 		qw422016.N().S(`) ScanIndex(i int) any {
 	switch i {
 	`)
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:532
 		for i, attr := range t.Attr {
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:532
 			qw422016.N().S(`case `)
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:532
 			qw422016.N().D(i)
-//line database_tpl.qtpl:436
+//line database_tpl.qtpl:532
 			qw422016.N().S(`:
         return &dst.`)
-//line database_tpl.qtpl:437
+//line database_tpl.qtpl:533
 			qw422016.E().S(strcase.ToCamel(attr.Name))
-//line database_tpl.qtpl:437
+//line database_tpl.qtpl:533
 			qw422016.N().S(`
     `)
-//line database_tpl.qtpl:438
+//line database_tpl.qtpl:534
 		}
-//line database_tpl.qtpl:438
+//line database_tpl.qtpl:534
 		qw422016.N().S(`
    	default:
 		panic("invalid index")
@@ -897,61 +985,66 @@ func (dst *`)
 }
 // Scan implement pgtype.ScanPlan interface. PlanScan (below) hands back this same
 // method regardless of which *`)
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.N().S(` it happens to be called on - a
 // registered Codec is a single shared instance reused for every row/column of this
 // OID, so the actual per-call destination is always the `)
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.N().S("`")
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.N().S(`target`)
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.N().S("`")
-//line database_tpl.qtpl:444
+//line database_tpl.qtpl:540
 		qw422016.N().S(` argument, never
 // this method's own receiver.
 func (dst *`)
-//line database_tpl.qtpl:448
+//line database_tpl.qtpl:544
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:448
+//line database_tpl.qtpl:544
 		qw422016.N().S(`) Scan(src []byte, target any) error {
-	*dst = target.(`)
-//line database_tpl.qtpl:449
+	dest, ok := target.(*`)
+//line database_tpl.qtpl:545
 		qw422016.E().S(typeName)
-//line database_tpl.qtpl:449
+//line database_tpl.qtpl:545
 		qw422016.N().S(`)
+	if !ok {
+		return fmt.Errorf("Scan: unsupported target type %T", target)
+	}
+
+	dest.Valid = false
 	if len(src) == 0 {
 		return nil
 	}
 	m := pgtype.NewMap()
 	`)
-//line database_tpl.qtpl:454
+//line database_tpl.qtpl:555
 		if t.Type == 'r' {
-//line database_tpl.qtpl:454
+//line database_tpl.qtpl:555
 			qw422016.N().S(`
 	typ, ok := m.TypeForName("`)
-//line database_tpl.qtpl:455
+//line database_tpl.qtpl:556
 			qw422016.E().S(elemPgName)
-//line database_tpl.qtpl:455
+//line database_tpl.qtpl:556
 			qw422016.N().S(`")
 	if !ok {
 		return fmt.Errorf("unable to find pgtype for range element %q", "`)
-//line database_tpl.qtpl:457
+//line database_tpl.qtpl:558
 			qw422016.E().S(elemPgName)
-//line database_tpl.qtpl:457
+//line database_tpl.qtpl:558
 			qw422016.N().S(`")
 	}
 
-	err := new(pgtype.RangeCodec{ElementType: typ}).PlanScan(m, typ.OID, pgtype.BinaryFormatCode, target).Scan(src, &dst)
+	err := (&pgtype.RangeCodec{ElementType: typ}).PlanScan(m, typ.OID, pgtype.BinaryFormatCode, &dest.Range).Scan(src, &dest.Range)
 	if err != nil {
 		return err
 	}
 	`)
-//line database_tpl.qtpl:464
+//line database_tpl.qtpl:565
 		} else {
-//line database_tpl.qtpl:464
+//line database_tpl.qtpl:565
 			qw422016.N().S(`
 
 	c := pgtype.NewCompositeBinaryScanner(m, src)
@@ -962,7 +1055,7 @@ func (dst *`)
             return nil
         }
 
-        field := dst.ScanIndex(i)
+        field := dest.ScanIndex(i)
         fieldPlan := m.PlanScan(c.OID(), pgtype.BinaryFormatCode, field)
         if fieldPlan == nil {
             return fmt.Errorf("unable to scan OID %d in text format into '%d'", c.OID(), i)
@@ -973,73 +1066,140 @@ func (dst *`)
 		}
 	}
 `)
-//line database_tpl.qtpl:484
+//line database_tpl.qtpl:585
 		}
-//line database_tpl.qtpl:484
+//line database_tpl.qtpl:585
 		qw422016.N().S(`
+	dest.Valid = true
+
 	return nil
 }
 
 `)
-//line database_tpl.qtpl:489
+//line database_tpl.qtpl:592
+		if t.Type != 'r' {
+//line database_tpl.qtpl:592
+			qw422016.N().S(`
+`)
+//line database_tpl.qtpl:594
+			stringFmt := ""
+			for i, attr := range t.Attr {
+				if i > 0 {
+					stringFmt += ", "
+				}
+				stringFmt += attr.Name + ": %v"
+			}
+
+//line database_tpl.qtpl:601
+			qw422016.N().S(`
+// String implements fmt.Stringer by reading struct fields directly (not a
+// re-decode, no reflection - every field access below is resolved at compile
+// time). fmt.Sprintf("%v", ...) picks this up automatically for a single
+// value and for each element when formatting a []*`)
+//line database_tpl.qtpl:605
+			qw422016.E().S(typeName)
+//line database_tpl.qtpl:605
+			qw422016.N().S(` slice (see
+// routines.qtpl), so callers like ToStandardColumnValueType need no
+// type-specific or reflect-based handling of their own. Range types are
+// skipped here - they're displayed via pgtype.RangeValuer (already satisfied
+// through the embedded pgtype.Range[T]) instead, so this would just compete
+// with that existing, bound-aware formatting.
+func (dst *`)
+//line database_tpl.qtpl:611
+			qw422016.E().S(typeName)
+//line database_tpl.qtpl:611
+			qw422016.N().S(`) String() string {
+	if !dst.Valid {
+		return ""
 	}
-//line database_tpl.qtpl:490
+
+	return fmt.Sprintf("`)
+//line database_tpl.qtpl:616
+			qw422016.N().S(stringFmt)
+//line database_tpl.qtpl:616
+			qw422016.N().S(`",
+`)
+//line database_tpl.qtpl:617
+			for _, attr := range t.Attr {
+//line database_tpl.qtpl:617
+				qw422016.N().S(`		dst.`)
+//line database_tpl.qtpl:618
+				qw422016.E().S(strcase.ToCamel(attr.Name))
+//line database_tpl.qtpl:618
+				qw422016.N().S(`,
+`)
+//line database_tpl.qtpl:619
+			}
+//line database_tpl.qtpl:619
+			qw422016.N().S(`	)
+}
+`)
+//line database_tpl.qtpl:622
+		}
+//line database_tpl.qtpl:622
+		qw422016.N().S(`
+
+`)
+//line database_tpl.qtpl:624
+	}
+//line database_tpl.qtpl:625
 }
 
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 func (c *PackageBuilder) WriteCreateTypeInterface(qq422016 qtio422016.Writer, t dbEngine.Types, typeName, name, typeCol string, rawAttr []dbEngine.TypesAttr) {
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	c.StreamCreateTypeInterface(qw422016, t, typeName, name, typeCol, rawAttr)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 }
 
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 func (c *PackageBuilder) CreateTypeInterface(t dbEngine.Types, typeName, name, typeCol string, rawAttr []dbEngine.TypesAttr) string {
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	c.WriteCreateTypeInterface(qb422016, t, typeName, name, typeCol, rawAttr)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 	return qs422016
-//line database_tpl.qtpl:490
+//line database_tpl.qtpl:625
 }
 
 // end CreateTypeInterface
 //
 
-//line database_tpl.qtpl:493
+//line database_tpl.qtpl:628
 func StreamCreateTableConstructor(qw422016 *qt422016.Writer, goName, name string) {
-//line database_tpl.qtpl:493
+//line database_tpl.qtpl:628
 	qw422016.N().S(`// New`)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:629
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:629
 	qw422016.N().S(` create new instance of table `)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:629
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:494
+//line database_tpl.qtpl:629
 	qw422016.N().S(`
 func (d *Database) New`)
-//line database_tpl.qtpl:495
+//line database_tpl.qtpl:630
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:495
+//line database_tpl.qtpl:630
 	qw422016.N().S(`(ctx context.Context) (*`)
-//line database_tpl.qtpl:495
+//line database_tpl.qtpl:630
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:495
+//line database_tpl.qtpl:630
 	qw422016.N().S(`, error) {
 	switch table, err := New`)
-//line database_tpl.qtpl:496
+//line database_tpl.qtpl:631
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:496
+//line database_tpl.qtpl:631
 	qw422016.N().S(`(d.DB); err.(type) {
 	case nil:
 		return table, nil
@@ -1047,9 +1207,9 @@ func (d *Database) New`)
 	// no found on Database - get data of table from Conn
 	case dbEngine.ErrNotFoundTable:
 		table, err := New`)
-//line database_tpl.qtpl:502
+//line database_tpl.qtpl:637
 	qw422016.E().S(goName)
-//line database_tpl.qtpl:502
+//line database_tpl.qtpl:637
 	qw422016.N().S(`FromConn(ctx, d.PsqlConn())
 		if err != nil {
 			return nil, err
@@ -1062,31 +1222,31 @@ func (d *Database) New`)
 	}
 }
 `)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 }
 
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 func WriteCreateTableConstructor(qq422016 qtio422016.Writer, goName, name string) {
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	qw422016 := qt422016.AcquireWriter(qq422016)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	StreamCreateTableConstructor(qw422016, goName, name)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	qt422016.ReleaseWriter(qw422016)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 }
 
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 func CreateTableConstructor(goName, name string) string {
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	qb422016 := qt422016.AcquireByteBuffer()
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	WriteCreateTableConstructor(qb422016, goName, name)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	qs422016 := string(qb422016.B)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	qt422016.ReleaseByteBuffer(qb422016)
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 	return qs422016
-//line database_tpl.qtpl:513
+//line database_tpl.qtpl:648
 }

@@ -51,11 +51,6 @@ func (r *{%s c.name %}PsqlType) GetFields(columns []dbEngine.Column) []any {
 	return v
 }
 
-// New implement ValueDecoder[T any] interface
-func (dst *{%s c.name %}PsqlType) New() *{%s c.name %}PsqlType {
-	return &{%s c.name %}PsqlType{}
-}
-
 // FormatSupported implement pgtype.Codec interface: only binary composite decoding is supported
 func (dst *{%s c.name %}PsqlType) FormatSupported(format int16) bool {
 	return format == pgtype.BinaryFormatCode
@@ -202,8 +197,12 @@ func (dst *{%s c.name %}PsqlType) ScanIndex(i int) any {
 // OID, so the actual per-call destination is always the `target` argument, never
 // this method's own receiver.
 func (dst *{%s c.name %}PsqlType) Scan(src []byte, target any) error {
-	*dst = target.({%s c.name %}PsqlType)
-	dst.Valid = false
+	dest, ok := target.(*{%s c.name %}PsqlType)
+	if !ok {
+		return fmt.Errorf("Scan: unsupported target type %T", target)
+	}
+
+	dest.Valid = false
 	if len(src) == 0 {
 		return nil
 	}
@@ -217,7 +216,7 @@ func (dst *{%s c.name %}PsqlType) Scan(src []byte, target any) error {
 		return nil
 	}
 
-		field := dst.ScanIndex(i)
+		field := dest.ScanIndex(i)
 		fieldPlan := m.PlanScan(c.OID(), pgtype.BinaryFormatCode, field)
 		if fieldPlan == nil {
 			return fmt.Errorf("unable to scan OID %d in binary format into field %d", c.OID(), i)
@@ -228,7 +227,7 @@ func (dst *{%s c.name %}PsqlType) Scan(src []byte, target any) error {
 	}
 	}
 
-	dst.Valid = true
+	dest.Valid = true
 
 	return nil
 }
@@ -242,5 +241,34 @@ func (src *{%s c.name %}PsqlType) Value() (driver.Value, error) {
 }
 
 	return src, nil
+}
+
+{% code
+	stringFmt := ""
+	for i, col := range c.columns {
+		if i > 0 {
+			stringFmt += ", "
+		}
+		stringFmt += col.Name() + ": %v"
+	}
+%}
+// String implements fmt.Stringer by reading struct fields directly (not
+// ColValue's name-switch, not a re-decode) - fmt.Sprintf("%v", ...) picks
+// this up automatically both for a single value (see Value() above, which
+// hands fmt this same *{%s c.name %}PsqlType back) and for each element when
+// formatting a []*{%s c.name %}PsqlType slice, so callers like
+// ToStandardColumnValueType need no type-specific or reflect-based handling
+// of their own - and this itself never reflects, since every field access
+// below is resolved at compile time.
+func (dst *{%s c.name %}PsqlType) String() string {
+	if !dst.Valid {
+		return ""
+	}
+
+	return fmt.Sprintf("{%s= stringFmt %}",
+		{%- for _, col := range c.columns -%}
+		dst.{%s strcase.ToCamel(col.Name()) %},
+		{%- endfor -%}
+	)
 }
 {% endfunc %}

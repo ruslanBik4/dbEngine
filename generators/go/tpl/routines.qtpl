@@ -46,7 +46,11 @@ func (d *Database) {%s camelName %}(
 		param := r.Columns()[0]
 		typeReturn, _ = c.ChkTypes(param, strcase.ToCamel(param.Name()))
 		if a, ok := strings.CutPrefix(typeReturn, "[]"); param.BasicType()  < 0 && ok {
-		   typeReturn = "WrapArray[*" + a + "]"
+		   // an array of a composite/range type: pgx v5's own generic
+		   // reflection-based array scanning (ArrayCodec -> TryWrapPtrSliceScanPlan)
+		   // handles a plain []*T identically to a named wrapper type, so no
+		   // WrapArray[T ValueDecoder[T]] indirection is needed here.
+		   typeReturn = "[]*" + a
 		}
 	-%}
 {%- default -%}
@@ -176,7 +180,9 @@ type {%s camelName %}RowScanner struct {
 			s := strcase.ToCamel(param.Name())
 			typeCol, _ := c.ChkTypes(param, s)
 			if a, ok := strings.CutPrefix(typeCol, "[]"); param.BasicType()  < 0 && ok {
-			   typeCol = "WrapArray[*" + a + "]"
+			   // see CreateFunctionInvoker's identical case for why a plain
+			   // []*T replaces WrapArray[*T] here.
+			   typeCol = "[]*" + a
 			}
 		-%}
 	{%s fmt.Sprintf("%-[2]*[1]s ", s, maxLen) %}{%s typeCol %}{%s "\t\t"%}`json:"{%s param.Name()%}"`

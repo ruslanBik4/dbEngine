@@ -32,6 +32,212 @@ type PackageBuilder struct {
 	// the resolved Go type. CreateTypeInterface needs the raw names to resolve each
 	// field's/range element's pgtype.Type (and so its OID) when building PlanEncode.
 	rawTypeAttrs map[string][]dbEngine.TypesAttr
+
+	// usedCompositeTypes records which table names and c.types composite/range
+	// names are actually resolved to a Postgres composite VALUE somewhere in the
+	// generated output ([]*T, or a scalar *T composite routine param/return) -
+	// populated by computeUsedCompositeTypes before generation starts.
+	// registerDataTypes (database_tpl.qtpl) only loads and registers entries in
+	// this set, not every declared type/table, since the rest are never
+	// scanned/encoded as a whole composite value at all and would just be
+	// wasted LoadType round trips at connection time. citext is exempt - it's
+	// commonly used as a plain per-column string, never through this composite
+	// path, so it's always registered regardless of this set. This same set
+	// also drives CustomCodecNames below, since only a type that's actually
+	// used as a composite value needs its generated Codec registered.
+	usedCompositeTypes map[string]bool
+}
+
+// markCompositeTypeUsed records name (a table or c.types composite/range name)
+// as needing its own pgtype registration, then walks its fields/columns to mark
+// any OTHER custom composite/range type or table it references, transitively -
+// conn.LoadType(ctx, name) requires every such dependency already registered
+// (see getCompositeFields in pgx's own source), so a dependency missing from
+// this set would make LoadType fail at connection time with no way to recover.
+// The recursion terminates because an already-marked name returns immediately,
+// which also protects against a cycle (e.g. two composite types referencing
+// each other).
+func (c *PackageBuilder) markCompositeTypeUsed(name string) {
+	if c.usedCompositeTypes == nil {
+		c.usedCompositeTypes = make(map[string]bool)
+	}
+	if c.usedCompositeTypes[name] {
+		return
+	}
+	c.usedCompositeTypes[name] = true
+
+	markFieldTypeIfCustom := func(rawType string) {
+		fieldTypeName := strings.TrimPrefix(rawType, "_")
+		fieldTypeName = strings.TrimSuffix(fieldTypeName, "[]")
+		if _, ok := c.DB.Types[fieldTypeName]; ok {
+			c.markCompositeTypeUsed(fieldTypeName)
+		} else if _, ok := c.Tables[fieldTypeName]; ok {
+			c.markCompositeTypeUsed(fieldTypeName)
+		}
+	}
+
+	// rawTypeAttrs (not t.Attr, which MakeDBUsersTypes has already overwritten
+	// with the resolved Go type) has the original Postgres field type names for
+	// a c.types entry - empty/absent for a table name, which is fine, tables are
+	// walked via their Columns() below instead.
+	for _, rawAttr := range c.rawTypeAttrs[name] {
+		if rawAttr.Name == "domain" {
+			continue
+		}
+		markFieldTypeIfCustom(rawAttr.Type)
+	}
+
+	if table, ok := c.Tables[name]; ok {
+		for _, col := range table.Columns() {
+			markFieldTypeIfCustom(col.Type())
+		}
+	}
+}
+
+// computeUsedCompositeTypes scans every routine's parameters and result
+// columns and records, via markCompositeTypeUsed, which table and c.types
+// composite/range names are actually referenced as a composite Postgres VALUE
+// - the same condition ChkTypes/chkDefineType use to decide a column needs
+// []*T or a dedicated *T composite type rather than a plain Go type.
+//
+// It must run before WriteCreateDatabase/CreateDatabase, since
+// CreateDatabase's own registerDataTypes output is textually emitted before
+// the routine invokers that reference these types - by the time that
+// generation would otherwise populate this set as a side effect, the pending
+// list has already been built. It deliberately does NOT call
+// ChkTypes/chkDefineType directly to determine this: those have other side
+// effects (c.initValues, c.addImport) that must fire exactly once, during the
+// real generation pass - calling them again here would duplicate them in the
+// output. This instead re-derives just the "does this column resolve to a
+// table or composite/range type" check.
+func (c *PackageBuilder) computeUsedCompositeTypes() {
+	scan := func(col dbEngine.Column) {
+		bTypeCol := col.BasicType()
+		if !(bTypeCol == types.UntypedNil || bTypeCol < 0) {
+			return
+		}
+
+		udtName := strings.TrimPrefix(col.Type(), "_")
+		udtName = strings.TrimSuffix(udtName, "[]")
+
+		if _, ok := c.Tables[udtName]; ok {
+			c.markCompositeTypeUsed(udtName)
+			return
+		}
+
+		t, ok := c.DB.Types[udtName]
+		if !ok || len(t.Enumerates) > 0 {
+			return
+		}
+
+		for _, tAttr := range t.Attr {
+			if tAttr.Name == "domain" {
+				return // domains reuse their base type's codec - no registration of their own
+			}
+		}
+
+		c.markCompositeTypeUsed(udtName)
+	}
+
+	for _, r := range c.Routines {
+		routine, ok := r.(*psql.Routine)
+		if !ok {
+			continue
+		}
+
+		for _, param := range routine.Params() {
+			scan(param)
+		}
+		for _, col := range routine.Columns() {
+			scan(col)
+		}
+	}
+}
+
+// PendingDataTypeNames returns the Postgres type/table names
+// registerDataTypes (database_tpl.qtpl's loadDataTypes) should load and
+// register via conn.LoadType: each c.types composite/range/domain/enum name
+// and each name in listTables that's actually in c.usedCompositeTypes (see
+// computeUsedCompositeTypes for why anything else is skipped - it's declared
+// but never scanned/encoded as a whole composite value anywhere in the
+// generated code, so loading it would just be a wasted round trip), plus each
+// included name's own array variant ("_<name>" - Postgres auto-creates one
+// per type, and it needs its own registration the same way the base type
+// does; see database_tpl.qtpl's comment on this for the pgtype doc.go
+// reference). citext is never included here: it can't go through
+// conn.LoadType at all (see loadDataTypes' own comment), so it's registered
+// separately via a dedicated regtype-cast+TextCodec query - only its array
+// variant "_citext" belongs in this list, unconditionally, since citext is
+// typically used as a plain per-column string rather than through the
+// composite-value path this trimming is based on.
+//
+// This filtering is plain Go rather than inline {% if %}/{% for %} logic in
+// the template so it reads and tests like ordinary code; database_tpl.qtpl
+// just ranges over the result to emit the pending slice literal.
+func (c *PackageBuilder) PendingDataTypeNames(listTables []string) []string {
+	var names []string
+
+	for _, name := range c.types {
+		if name == "citext" {
+			names = append(names, "_citext")
+			continue
+		}
+		if c.usedCompositeTypes[name] {
+			names = append(names, name, "_"+name)
+		}
+	}
+
+	for _, name := range listTables {
+		if c.usedCompositeTypes[name] {
+			names = append(names, name, "_"+name)
+		}
+	}
+
+	return names
+}
+
+// CustomCodecNames returns the base Postgres type/table names (no array
+// variants, no citext) that PendingDataTypeNames also selects for loading -
+// i.e. every composite/range type or table actually used as a composite
+// value - and that therefore has a hand-written pgtype.Codec struct generated
+// for it (CreateTypeInterface in database_tpl.qtpl, or {Table}PsqlType in
+// ColumnType.qtpl). database_tpl.qtpl's loadDataTypes uses this to build
+// customCodecs, overriding conn.LoadType's own generic
+// *pgtype.CompositeCodec/*pgtype.RangeCodec with the generated one so
+// PlanEncode/PlanScan/Scan/DecodeValue actually run instead of pgx's generic
+// reflection-based struct fallback.
+//
+// citext is excluded because it has no generated struct at all - it reuses
+// pgtype.TextCodec directly and is registered separately in loadDataTypes.
+// Enums and domains are excluded implicitly: computeUsedCompositeTypes never
+// marks them in usedCompositeTypes (they have no composite Codec of their
+// own - enums resolve to a plain "string", domains reuse their base type's
+// Codec), so this naturally only lists tables and genuine composite/range
+// types just like PendingDataTypeNames' base (non "_"-prefixed) entries.
+//
+// For each returned name, c.chkDefineType(name) gives the exact generated Go
+// struct name to instantiate (e.g. "UsersPsqlType", "AccountsGroup") - this
+// mirrors PendingDataTypeNames' own base-name selection so the two stay in
+// lockstep by construction rather than by convention.
+func (c *PackageBuilder) CustomCodecNames(listTables []string) []string {
+	var names []string
+
+	for _, name := range c.types {
+		if name == "citext" || !c.usedCompositeTypes[name] {
+			continue
+		}
+		names = append(names, name)
+	}
+
+	for _, name := range listTables {
+		if c.usedCompositeTypes[name] {
+			names = append(names, name)
+		}
+	}
+
+	slices.Sort(names)
+
+	return names
 }
 
 // PrepareDatabase sort databases properties
@@ -41,6 +247,12 @@ func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 		return err
 	}
 
+	// Must run after MakeDBUsersTypes (needs rawTypeAttrs/DB.Types resolved) and
+	// before WriteCreateDatabase below - see computeUsedCompositeTypes' own
+	// comment for why. database_tpl.qtpl's registerDataTypes reads
+	// c.usedCompositeTypes to trim what it loads/registers.
+	c.computeUsedCompositeTypes()
+
 	// NOTE: c.SortImports() below is evaluated as an argument expression, i.e.
 	// *before* WriteCreateDatabase (and the CreateDatabase/CreateTypeInterface
 	// template bodies it runs) ever executes. Any c.addImport call made from
@@ -48,8 +260,14 @@ func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 	// so every import CreateDatabase's output unconditionally or conditionally
 	// needs must be added here first.
 
-	// ValueDecoder/WrapArray in the generated output reference pgtype.Codec
-	// unconditionally, so this import is always required.
+	// Kept unconditional rather than gated on len(c.types)/len(c.Tables): besides
+	// the generated Codec structs and loadDataTypes' customCodecs map (which are
+	// gated), routine columns/params can independently need pgtype types
+	// (pgtype.Timestamptz, pgtype.Date, ...) regardless of whether this database
+	// has any composite type/table, and that's determined per-column at
+	// CreateRoutinesInvoker generation time (too late for c.addImport - see the
+	// NOTE at the top of CreateDatabase), so this stays a conservative always-add
+	// rather than trying to predict every case precisely.
 	c.addImport(moduloPgType)
 
 	// database/sql/driver.Value is only used by CreateTypeInterface's generated
@@ -72,15 +290,19 @@ func (c *PackageBuilder) PrepareDatabase(f io.Writer) error {
 		c.addImport("database/sql/driver")
 	}
 
-	// registerDataTypes (emitted whenever there is at least one custom type,
-	// citext included) uses fmt.Errorf in its retry loop and needs *pgx.Conn from
-	// the base pgx package (not just pgtype/pgconn) for LoadType/TypeMap - and
+	// registerDataTypes/loadDataTypes are emitted whenever there is at least one
+	// custom type (citext included) OR at least one table - mirror that exact
+	// condition here, not just len(c.types) > 0, since a table-only database (no
+	// CREATE TYPE'd types at all) still gets registerDataTypes for its table row
+	// types (see database_tpl.qtpl). They use fmt.Errorf/fmt.Sprintf, *pgx.Conn
+	// from the base pgx package (not just pgtype/pgconn) for LoadType/TypeMap,
+	// and a sync.Mutex to cache the loaded types across connections instead of
+	// re-running LoadType's introspection queries on every new connection - and
 	// CreateTypeInterface's own Scan/DecodeDatabaseSQLValue/PlanEncode/DecodeValue
 	// bodies additionally use fmt.Errorf/fmt.Sprintf whenever needsCompositeCodecImports
 	// is true, so "fmt" covers both.
-	if len(c.types) > 0 {
-		c.addImport("fmt")
-		c.addImport(moduloPgx)
+	if len(c.types) > 0 || len(c.Tables) > 0 {
+		c.addImport("fmt", moduloPgx, "sync")
 	}
 
 	tables := slices.Collect(maps.Keys(c.Tables))
@@ -212,7 +434,9 @@ func (c *PackageBuilder) udtToReturnType(udtName string) string {
 			}
 		}
 		if a, ok := strings.CutPrefix(typeReturn, "[]"); toType < 0 && ok {
-			typeReturn = "WrapArray[*" + a + "]"
+			// see routines.qtpl's CreateFunctionInvoker for why a plain []*T
+			// (not WrapArray[*T]) is used for an array of a composite/range type.
+			typeReturn = "[]*" + a
 		}
 
 		return typeReturn
@@ -390,8 +614,8 @@ func (c *PackageBuilder) chkDefineType(udtName string) string {
 
 	if _, ok := c.Tables[udtName]; ok {
 		// PsqlType, not Fields: whenever a table's row type is used as a Postgres
-		// composite VALUE - a routine parameter/return of that table's type, or (via
-		// WrapArray[T ValueDecoder[T]] in database_tpl.qtpl) an array of it - the
+		// composite VALUE - a routine parameter/return of that table's type, or (as
+		// a plain []*T in routines.qtpl) an array of it - the
 		// destination must implement the full pgtype.Codec interface (PlanEncode,
 		// PlanScan, DecodeValue, ...), which only {Table}PsqlType (column_type.qtpl)
 		// does. {Table}Fields is embedded inside {Table}PsqlType, so every existing

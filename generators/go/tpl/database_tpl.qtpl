@@ -5,7 +5,7 @@
 
 	"github.com/iancoleman/strcase"
 	"github.com/ruslanBik4/dbEngine/dbEngine"
-    "github.com/ruslanBik4/dbEngine/dbEngine/psql"
+	"github.com/ruslanBik4/dbEngine/dbEngine/psql"
 ) %}
 
 {%- func Header(imports []string, title string) -%}
@@ -38,14 +38,6 @@ type scanError interface {
 	Err() error
 }
 
-// ValueDecoder is a value that implements the text and binary encoding and decoding interfaces.
-type ValueDecoder[T any] interface {
-	pgtype.Codec
-	New() T
-}
-
-type WrapArray[T ValueDecoder[T]] []T
-
 {% code
 	// NOTE: the imports this whole function needs (moduloPgType unconditionally;
 	// "fmt"/"database/sql/driver" when there's a real composite/range type; pgx
@@ -75,8 +67,10 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 	if noticeHandler == nil {
 		noticeHandler = psql.PrintNotice
 	}
+
 	conn := psql.NewConnWithOptions(
-		{%- if hasCitext || len(c.types) > 0 -%}psql.AfterConnect(registerDataTypes),{%- endif -%}
+		{%- if hasCitext || len(c.types) > 0 || len(listTables) > 0 -%}psql.AfterConnect(registerDataTypes),
+		{%- endif -%}
 		psql.NoticeHandler(noticeHandler),
 		psql.ChannelHandler(channelHandler),
 		psql.Channels(channels...),
@@ -91,40 +85,121 @@ func NewDatabase(ctx context.Context, noticeHandler pgconn.NoticeHandler, channe
 	return &Database{DB, time.Now()}, nil
 }
 
-{% if hasCitext || len(c.types) > 0 %}
-// registerDataTypes loads and registers this database's custom Postgres types
-// (composites, ranges, domains, enums - and citext, when present), plus each
-// one's own array type (e.g. "_foo" for "foo"), with the new connection's
-// pgtype.Map, so pgx can encode/decode values of these OIDs - and arrays of
-// them, as used by WrapArray[*T] below - using the Go types generated above.
-// It runs once per connection via psql.AfterConnect, before the connection is
-// handed back for use.
+{% if hasCitext || len(c.types) > 0 || len(listTables) > 0 %}
+// dataTypesMu/dataTypesCache/dataTypesLoaded cache the result of loadDataTypes
+// (below) so its introspection - several round trips per type - runs only
+// once per process, not once per connection. psql.AfterConnect fires on every
+// new connection (every pool connection, every reconnect), but the schema's
+// types don't change over the process lifetime, so there's no reason to
+// re-run it each time; only re-registering the already-resolved *pgtype.Type
+// values into the new connection's own pgtype.Map (a pure in-memory insert,
+// no round trip - every *pgx.Conn has its own Map) needs to happen per
+// connection, which registerDataTypes below does from the cache. This same
+// cached *pgtype.Type also carries the customCodecs override (see
+// loadDataTypes) that swaps pgx's own generic composite/range Codec for the
+// hand-written one generated above/in ColumnType, so replaying the cache is
+// what makes every connection use the generated Codec, not just the first.
+//
+// dataTypesLoaded is set true only on a SUCCESSFUL load. A sync.Once would
+// permanently cache a failure from a transient error on the very first
+// connection and break every later connection attempt for the life of the
+// process, so a plain mutex + bool is used instead, allowing the next
+// connection to retry a load that failed.
+var (
+	dataTypesMu     sync.Mutex
+	dataTypesCache  []*pgtype.Type
+	dataTypesLoaded bool
+)
+
+// registerDataTypes registers this database's custom Postgres types (see
+// loadDataTypes) with the new connection's pgtype.Map, so pgx can encode/
+// decode values of these OIDs - and arrays of them, as used by WrapArray[*T]
+// below - using the Go types generated above. It runs once per connection via
+// psql.AfterConnect, before the connection is handed back for use.
 //
 // ASSUMPTION - please verify: this assumes psql.AfterConnect accepts a hook of
 // exactly this signature (func(context.Context, *pgx.Conn) error), the same
-// convention pgx/pgxpool use for their own AfterConnect. If your psql.Conn wraps
-// connection setup differently, this function's signature (and NewDatabase's use
-// of psql.AfterConnect above) will need adjusting to match.
+// convention pgx/pgxpool use for their own AfterConnect. If your psql.Conn
+// wraps connection setup differently, this function's signature (and
+// NewDatabase's use of psql.AfterConnect above) will need adjusting to match.
 func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 	{% if hasCitext %}
-	// preserves the pre-existing citext registration hook this generator already
-	// wired up via psql.AfterConnect(afterConnect) - afterConnect itself is not
-	// generated code, so it must still be defined somewhere in this package.
-	if err := afterConnect(ctx, conn); err != nil {
-		return err
-	}
+	// afterConnect is this generator's pre-existing, hand-written connection
+	// hook (not generated code - it must still be defined elsewhere in this
+	// package). It's kept here for whatever connection setup it does beyond
+	// type registration: citext's own pgtype registration is now handled
+	// directly below (see loadDataTypes) and no longer depends on it. If
+	// afterConnect's only job was registering citext, remove that part of it
+	// now - conn.LoadType(ctx, "citext") cannot do this correctly (see the
+	// comment in loadDataTypes below), which is presumably what you hit. If it
+	// also does other connection setup, leave the call as is.
+	//if err := afterConnect(ctx, conn); err != nil {
+	//	return err
+	//}
 	{% endif %}
+
+	dataTypesMu.Lock()
+	defer dataTypesMu.Unlock()
+
+	if !dataTypesLoaded {
+		types, err := loadDataTypes(ctx, conn)
+		if err != nil {
+			return fmt.Errorf("registerDataTypes: %w", err)
+		}
+
+		dataTypesCache = types
+		dataTypesLoaded = true
+	}
+
+	typeMap := conn.TypeMap()
+	for _, dt := range dataTypesCache {
+		typeMap.RegisterType(dt)
+	}
+
+	return nil
+}
+
+// loadDataTypes introspects and resolves this database's custom types once,
+// on whichever connection first calls registerDataTypes above, and returns
+// them so registerDataTypes can cache and replay them on every later
+// connection without repeating the underlying round trips.
+func loadDataTypes(ctx context.Context, conn *pgx.Conn) ([]*pgtype.Type, error) {
+	var loaded []*pgtype.Type
+
+	{% if hasCitext %}
+	// citext (the citext contrib extension's type) is a genuine scalar base
+	// type, not an array - but conn.LoadType assumes every typtype='b' catalog
+	// entry is an array (Postgres marks BOTH plain base types like citext AND
+	// their auto-generated array counterparts as typtype='b', and LoadType's
+	// "b" case always tries to resolve an element via typelem), so
+	// conn.LoadType(ctx, "citext") fails: citext has no element (typelem=0),
+	// so pgx reports something like "array element OID not registered".
+	//
+	// The fix is to resolve citext's OID manually - the same regtype cast
+	// LoadType itself uses internally - and register it reusing pgtype's own
+	// TextCodec, since citext's wire format is identical to text. This must
+	// happen before anything else below: pgx's own composite-field lookup
+	// (used to load any composite/table type with a citext field/column)
+	// requires every field's OID already registered in the Map, and fails
+	// with "unknown composite type field OID" otherwise. Once citext's OID is
+	// registered here, "_citext" (its auto-generated array type) resolves
+	// normally through the retry loop below like any other array type.
+	var citextOID uint32
+	if err := conn.QueryRow(ctx, "select $1::text::regtype::oid;", "citext").Scan(&citextOID); err != nil {
+		return nil, fmt.Errorf("unable to resolve citext OID: %w", err)
+	}
+
+	citextType := &pgtype.Type{Name: "citext", OID: citextOID, Codec: pgtype.TextCodec{}}
+	conn.TypeMap().RegisterType(citextType)
+	loaded = append(loaded, citextType)
+	{% endif %}
+
 	{% if len(c.types) > 0 || len(listTables) > 0 %}
-	// Every custom type and every table row type also gets its own auto-created
-	// PostgreSQL array type (conventionally named "_<type>"), which needs its own
-	// registration - this is the exact pattern pgx/pgtype's own doc.go recommends
-	// (see "New PostgreSQL Type Support", whose own example registers "foo" AND
-	// "_foo"). It matters here because routine invokers generated below
-	// (CreateFunctionInvoker/CreateRowScanner) use WrapArray[*T] for any routine
-	// parameter or return value that is an array of one of these types (e.g. a
-	// function returning "foo[]" or "executions[]") - without "_foo"/"_executions"
-	// registered, pgx has no Codec for that array OID and scanning such a value
-	// fails.
+	// pending is exactly the set PackageBuilder.PendingDataTypeNames computes -
+	// see its comment (PackageBuilder.go) for what's included/excluded and why
+	// (usage-based trimming, array variants, the citext exemption). That
+	// filtering lives in plain Go rather than here so it reads and tests like
+	// ordinary code; this just ranges over the result to build the literal.
 	//
 	// LoadType requires a type's dependencies (element/field/base types - and, for
 	// an array entry, the element type itself) to already be registered, and this
@@ -133,45 +208,39 @@ func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 	// retries whatever didn't load yet, in passes, until a full pass makes no
 	// further progress.
 	pending := []string{
-		{%- for _, name := range c.types -%}
-		{%- if name != "citext" -%}
+		{%- for _, name := range c.PendingDataTypeNames(listTables) -%}
 		"{%s name %}",
-		"_{%s name %}",
-		{%- endif -%}
-		{%- endfor -%}
-		{%- for _, name := range listTables -%}
-		"{%s name %}",
-		"_{%s name %}",
 		{%- endfor -%}
 	}
 
-	for name, dataType := range  map[string]*pgtype.Type{
-		"citext": {
-			Codec: &pgtype.TextCodec{
-			},
-			Name:  "citext",
-		},
-		"_citext": {
-			Codec: &pgtype.ArrayCodec{
-				ElementType: &pgtype.Type{
-					Codec: pgtype.TextCodec{},
-					Name:  "citext",
-				},
-			},
-			Name:  "_citext",
-		},
-	} {
-		if dt, ok := conn.TypeMap().TypeForName(name); ok {
-			dataType = dt
-		} else {
-			err := conn.QueryRow(ctx, "select $1::text::regtype::oid;", name).Scan(&dataType.OID)
-			if err != nil {
-				logs.ErrorLog(err)
-			}
-		}
-		logs.StatusLog(name, dataType.Name, "registered data type", dataType)
-		conn.TypeMap().RegisterType(dataType)
+	// customCodecs overrides pgx's own generic Codec - conn.LoadType always
+	// returns pgx's built-in *pgtype.CompositeCodec for a "c" (composite)
+	// typtype, or *pgtype.RangeCodec for "r" (range) - with the hand-written
+	// Codec generated above (CreateTypeInterface) or in ColumnType.qtpl
+	// ({Table}PsqlType), so PlanEncode/PlanScan/Scan/DecodeValue actually run
+	// the generated logic (including setting Valid) instead of pgx's generic
+	// reflection-based struct fallback, which happens to satisfy enough of
+	// pgx's interfaces to "work" silently without it - see the note on
+	// dataTypesCache above for why this must be applied via the cached
+	// *pgtype.Type, not just once.
+	//
+	// This must be assigned to each base type's *pgtype.Type *before* its own
+	// array variant ("_name") is loaded below, and before any domain over it:
+	// pgx's LoadType resolves an array's element type (and a domain's base
+	// type) by looking up whatever is already registered at that OID in the
+	// connection's TypeMap (see getArrayElementOID/getRangeElementOID's call
+	// sites in pgx's conn.go) rather than re-deriving its Codec - so as long as
+	// "name" is registered with its override before "_name" is loaded, the
+	// array (and any domain) picks up the same generated Codec automatically.
+	// PendingDataTypeNames already emits "name" immediately before "_name",
+	// and the loop below processes pending sequentially, so that ordering
+	// holds within a single pass.
+	customCodecs := map[string]pgtype.Codec{
+		{%- for _, name := range c.CustomCodecNames(listTables) -%}
+		"{%s name %}": &{%s c.chkDefineType(name) %}{},
+		{%- endfor -%}
 	}
+
 		for len(pending) > 0 {
 		var stillPending []string
 		var lastErr error
@@ -185,19 +254,24 @@ func registerDataTypes(ctx context.Context, conn *pgx.Conn) error {
 				continue
 			}
 
+			if codec, ok := customCodecs[name]; ok {
+				dataType.Codec = codec
+			}
+
 			conn.TypeMap().RegisterType(dataType)
+			loaded = append(loaded, dataType)
 			progressed = true
 		}
 
 		if !progressed {
-			return fmt.Errorf("registerDataTypes: unable to register %v: %w", stillPending, lastErr)
+			return nil, fmt.Errorf("unable to register %v: %w", stillPending, lastErr)
 		}
 
 		pending = stillPending
 	}
 	{% endif %}
 
-	return nil
+	return loaded, nil
 }
 {% endif %}
 
@@ -299,11 +373,6 @@ type {%s typeName %} struct {
 
 	Valid bool
 
-}
-
-// New implements ValueDecoder[T any] interface
-func (dst *{%s typeName %}) New() *{%s typeName %}{
-	return &{%s typeName %}{}
 }
 
 func (dst *{%s typeName %}) FormatSupported(format int16) bool {
@@ -473,7 +542,12 @@ func (dst *{%s typeName %}) ScanIndex(i int) any {
 // OID, so the actual per-call destination is always the `target` argument, never
 // this method's own receiver.
 func (dst *{%s typeName %}) Scan(src []byte, target any) error {
-	*dst = target.({%s typeName %})
+	dest, ok := target.(*{%s typeName %})
+	if !ok {
+		return fmt.Errorf("Scan: unsupported target type %T", target)
+	}
+
+	dest.Valid = false
 	if len(src) == 0 {
 		return nil
 	}
@@ -484,7 +558,7 @@ func (dst *{%s typeName %}) Scan(src []byte, target any) error {
 		return fmt.Errorf("unable to find pgtype for range element %q", "{%s elemPgName %}")
 	}
 
-	err := new(pgtype.RangeCodec{ElementType: typ}).PlanScan(m, typ.OID, pgtype.BinaryFormatCode, target).Scan(src, &dst)
+	err := (&pgtype.RangeCodec{ElementType: typ}).PlanScan(m, typ.OID, pgtype.BinaryFormatCode, &dest.Range).Scan(src, &dest.Range)
 	if err != nil {
 		return err
 	}
@@ -498,7 +572,7 @@ func (dst *{%s typeName %}) Scan(src []byte, target any) error {
             return nil
         }
 
-        field := dst.ScanIndex(i)
+        field := dest.ScanIndex(i)
         fieldPlan := m.PlanScan(c.OID(), pgtype.BinaryFormatCode, field)
         if fieldPlan == nil {
             return fmt.Errorf("unable to scan OID %d in text format into '%d'", c.OID(), i)
@@ -510,8 +584,42 @@ func (dst *{%s typeName %}) Scan(src []byte, target any) error {
 	}
 	{%- endif -%}
 
+	dest.Valid = true
+
 	return nil
 }
+
+{% if t.Type != 'r' %}
+{% code
+	stringFmt := ""
+	for i, attr := range t.Attr {
+		if i > 0 {
+			stringFmt += ", "
+		}
+		stringFmt += attr.Name + ": %v"
+	}
+%}
+// String implements fmt.Stringer by reading struct fields directly (not a
+// re-decode, no reflection - every field access below is resolved at compile
+// time). fmt.Sprintf("%v", ...) picks this up automatically for a single
+// value and for each element when formatting a []*{%s typeName %} slice (see
+// routines.qtpl), so callers like ToStandardColumnValueType need no
+// type-specific or reflect-based handling of their own. Range types are
+// skipped here - they're displayed via pgtype.RangeValuer (already satisfied
+// through the embedded pgtype.Range[T]) instead, so this would just compete
+// with that existing, bound-aware formatting.
+func (dst *{%s typeName %}) String() string {
+	if !dst.Valid {
+		return ""
+	}
+
+	return fmt.Sprintf("{%s= stringFmt %}",
+		{%- for _, attr := range t.Attr -%}
+		dst.{%s strcase.ToCamel(attr.Name) %},
+		{%- endfor -%}
+	)
+}
+{% endif %}
 
 {%- endif -%}
 {%- endfunc -%}
