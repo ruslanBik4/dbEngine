@@ -509,6 +509,7 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 			}
 		}
 	}
+
 	typeCol := strings.TrimSpace(typesExt.Basic(bTypeCol).String())
 	isArray := strings.HasPrefix(col.Type(), "_") || strings.HasSuffix(col.Type(), "[]")
 
