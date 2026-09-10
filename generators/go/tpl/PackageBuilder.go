@@ -514,7 +514,18 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 
 	switch {
 	case bTypeCol == types.UnsafePointer:
-		typeCol = "[]byte"
+		// UdtNameToType maps both "bytea" and its array variant "_bytea" to
+		// the same types.UnsafePointer kind (json/jsonb land here too, but
+		// have no "_json"/"_jsonb" case in UdtNameToType, so they never
+		// reach this branch as arrays). Since this case is checked before
+		// `case isArray` below, a bytea[] column used to fall straight into
+		// the scalar "[]byte" branch and silently lose its array-ness -
+		// isArray was computed above but never consulted here.
+		if isArray {
+			typeCol = "[][]byte"
+		} else {
+			typeCol = "[]byte"
+		}
 
 	case (bTypeCol == types.UntypedNil || bTypeCol < 0) && strings.HasPrefix(col.Type(), "any"):
 		typeCol = "any"
@@ -536,6 +547,19 @@ func (c *PackageBuilder) ChkTypes(col dbEngine.Column, propName string) (string,
 			defValue = nil
 		}
 
+	// NOTE (not fixed here, needs your call): this case looks unreachable
+	// today. UdtNameToType (dbEngine/psql/column.go) maps "numeric" /
+	// "decimal" (and their array/float8/money siblings) to types.Float64,
+	// never to types.UntypedFloat - matching the "// todo add check field
+	// length UntypedFloat" comment right on that line, i.e. it reads like
+	// planned-but-not-wired-up work. As written, a numeric/decimal column's
+	// bTypeCol is types.Float64, which skips this whole branch (including
+	// its psql.Numeric routing and default-value init) and falls through to
+	// plain "float64" via `case isArray`/the default typeCol computed above
+	// - silently losing the precision psql.Numeric exists for. If
+	// psql.Numeric is still wanted here, UdtNameToType needs to actually
+	// return types.UntypedFloat for numeric/decimal (or this switch needs
+	// to key off col.Type() instead of bTypeCol).
 	case bTypeCol == types.UntypedFloat:
 		switch col.Type() {
 		case "numeric", "decimal":
@@ -577,7 +601,7 @@ func (c *PackageBuilder) getCodecType(col dbEngine.Column, colType *pgtype.Type)
 		return fmt.Sprintf("pgtype.Range[%s]", c.getCodecType(col, t.ElementType))
 
 	case *pgtype.ArrayCodec:
-		return fmt.Sprintf("pgtype.Array[%s]", c.getCodecType(col, t.ElementType))
+		return fmt.Sprintf("[]%s", c.getCodecType(col, t.ElementType))
 
 	default:
 		typeCol = strings.TrimSuffix(strings.TrimPrefix(fmt.Sprintf("%T", colType.Codec), "*"), "Codec")
