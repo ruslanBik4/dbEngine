@@ -429,13 +429,45 @@ func (col *Column) SetDefault(d any) {
 		return
 	}
 
-	if !(strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")")) {
-		str = (strings.Split(str, "::"))[0]
+	isParenthesized := strings.HasPrefix(str, "(") && strings.HasSuffix(str, ")")
 
-		if str == "NULL" {
-			col.colDefault = nil
-			return
-		}
+	// Check whether the raw catalog text means NULL - a bare "NULL",
+	// optionally cast ("NULL::type") and/or wrapped in one layer of parens
+	// ("(NULL::type)"). A table column with no default (or an explicit
+	// DEFAULT NULL) reports the first shape; a routine parameter's
+	// DEFAULT NULL, or a column's DEFAULT (NULL::type) expression form,
+	// reports the second - both mean exactly the same thing: no default.
+	// This used to only check the first shape (and only case-sensitively),
+	// so a parenthesized NULL fell through to the generic trimming below
+	// and came out as leftover text like "(NULL::text)" instead of a real
+	// nil - which is also why isNullDefault had to defensively re-detect
+	// this same shape downstream in apis' in_params.go.
+	//
+	// check is a throwaway view of str for this test only - str itself
+	// (the value actually stored below) is untouched until after this
+	// check passes or fails. Every step here is a plain subslice, never a
+	// copy: index-slicing costs nothing, and strings.Cut - unlike
+	// strings.SplitN(...)[0] - returns a subslice too instead of
+	// allocating a []string, so this whole check is zero-allocation.
+	check := str
+	if isParenthesized {
+		check = check[1 : len(check)-1] // strip exactly the one confirmed "(" / ")" pair
+	}
+	check, _, _ = strings.Cut(check, "::")
+	if strings.EqualFold(strings.TrimSpace(check), "NULL") {
+		col.colDefault = nil
+		return
+	}
+
+	// Cut the "::" cast off str itself only for the non-parenthesized
+	// shape. A parenthesized value is an arbitrary SQL expression - e.g.
+	// "(now() + '1 day'::interval)" - that can contain a "::" cast anywhere
+	// inside it; cutting at the first one the way a plain literal's trailing
+	// cast is stripped would truncate the expression mid-string
+	// ("(now() + '1 day'") instead. So str for that shape stays exactly as
+	// scanned - only the disposable check copy above was ever unwrapped.
+	if !isParenthesized {
+		str, _, _ = strings.Cut(str, "::")
 	}
 
 	const DEFAULT_SERIAL = "nextval("
