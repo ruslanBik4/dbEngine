@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -78,6 +79,14 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 		}
 		logs.ErrorLog(err.Err, "ScanArgError: field '%s', args: %v", field, data["args"])
 
+	case *pgconn.ConnectError:
+		var t int
+		duration, ok := data["time"].(time.Duration)
+		if ok {
+			t = (int)(duration)
+		}
+		logs.CustomLog(logs.ERROR, "[PGX]", msg+".time", t, err.Error(), logs.FgErr)
+
 	case xerrors.Wrapper:
 		l.printError(err.Unwrap(), msg, data)
 
@@ -110,9 +119,10 @@ func (l *pgxLog) printError(err error, msg string, data map[string]any) {
 
 	case pgx.ErrTxCommitRollback:
 		logs.ErrorLog(err, "Transaction commit/rollback error: %s", msg)
+
 	default:
 		logs.ErrorLog(err, msg, data)
-		logs.ErrorStack(err, "Transaction error: %s", msg)
+		logs.ErrorStack(err, "Unhandled error: %s", msg)
 	}
 }
 
