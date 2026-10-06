@@ -250,34 +250,39 @@ func (c *Conn) GetTablesProp(ctx context.Context, dbTypes map[string]dbEngine.Ty
 		sql += `'`
 	}
 
+	// first collect list of tables & release connection,
+	// otherwise every nested query acquires a second connection from pool while first is held
+	// (with small MaxConns & parallel calls it exhausts/deadlocks the pool)
+	list := make([]*Table, 0)
 	err := c.SelectAndScanEach(
 		ctx,
 		func() error {
-
-			t := &Table{
+			list = append(list, &Table{
 				conn:    c,
 				name:    table.Name(),
 				Type:    table.Type,
 				comment: table.comment,
-			}
-
-			err := t.GetColumns(ctx, dbTypes)
-			if err != nil {
-				return errors.Wrapf(err, "during get columns of table '%s'", table.Name())
-			}
-
-			err = t.GetIndexes(ctx)
-			if err != nil {
-				return errors.Wrap(err, "during get indexes")
-			}
-
-			tables[t.Name()] = t
+			})
 
 			return nil
 		},
 		table, sql)
 	if err != nil {
 		return nil, err
+	}
+
+	for _, t := range list {
+		err := t.GetColumns(ctx, dbTypes)
+		if err != nil {
+			return nil, errors.Wrapf(err, "during get columns of table '%s'", t.Name())
+		}
+
+		err = t.GetIndexes(ctx)
+		if err != nil {
+			return nil, errors.Wrapf(err, "during get indexes of table '%s'", t.Name())
+		}
+
+		tables[t.Name()] = t
 	}
 
 	for _, table := range tables {
@@ -333,6 +338,8 @@ func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Type
 		sql += `'`
 	}
 
+	// routines whose params must be read after the main query is finished (see GetTablesProp)
+	list := make([]*Routine, 0)
 	err = c.selectAndRunEach(ctx,
 		func(values []any, columns []dbEngine.Column) error {
 
@@ -381,10 +388,21 @@ func (c *Conn) GetRoutines(ctx context.Context, dbTypes map[string]dbEngine.Type
 				routines[name] = row
 			}
 
-			return row.GetParams(ctx, dbTypes, tables)
-		}, sql)
+			list = append(list, row)
 
-	return
+			return nil
+		}, sql)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range list {
+		if err := row.GetParams(ctx, dbTypes, tables); err != nil {
+			return nil, errors.Wrapf(err, "during get params of routine '%s'", row.sName)
+		}
+	}
+
+	return routines, nil
 }
 
 // NewTable create new empty Table with name & type
@@ -428,9 +446,23 @@ func (c *Conn) NewTableWithCheck(ctx context.Context, name string) (*Table, erro
 	return table, nil
 }
 
-// SelectAndPerformRaw  run sql with args & run each every row
-func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...any) error {
-	conn, err := c.Acquire(ctx)
+// rowsHandler receives an open result set; the caller of withRows closes rows,
+// checks rows.Err() and releases the connection.
+type rowsHandler func(conn *pgxpool.Conn, rows pgx.Rows) error
+
+// withRows is the single place where a pool connection is acquired and a query is run.
+// It guarantees: conn is released, rows are closed, rows.Err() is checked,
+// and an error returned by fn (or by pgx) is never lost.
+// acquireTimeout == 0 means "no extra timeout for Acquire".
+func (c *Conn) withRows(ctx context.Context, acquireTimeout time.Duration, sql string, args []any, fn rowsHandler) error {
+	acqCtx := ctx
+	if acquireTimeout > 0 {
+		var cancel context.CancelFunc
+		acqCtx, cancel = context.WithTimeout(ctx, acquireTimeout)
+		defer cancel()
+	}
+
+	conn, err := c.Acquire(acqCtx)
 	if err != nil {
 		return errors.Wrap(err, "c.Acquire")
 	}
@@ -442,81 +474,75 @@ func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow,
 		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
-
+	// safety net: Close is idempotent
 	defer rows.Close()
 
-	var columns []dbEngine.Column
-
-	for rows.Next() {
-		if each != nil {
-			if len(columns) == 0 {
-				columns = c.getColumns(rows, conn)
-			}
-			err = each(rows.RawValues(), columns)
-		}
-	}
-
-	if rows.Err() != nil {
+	err = fn(conn, rows)
+	if err == nil {
+		// Close drains the result & finalizes it; only after that rows.Err() is reliable
+		rows.Close()
 		err = rows.Err()
 	}
 
 	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
+		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
 		return err
 	}
 
 	return nil
+}
+
+// SelectAndPerformRaw  run sql with args & run each every row
+// NOTE: raw values are valid only during each call - pgx reuses the buffer on next row.
+func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...any) error {
+	return c.withRows(ctx, 0, sql, args, func(conn *pgxpool.Conn, rows pgx.Rows) error {
+		if each == nil {
+			return nil
+		}
+
+		var columns []dbEngine.Column
+		for rows.Next() {
+			if columns == nil {
+				columns = c.getColumns(rows, conn)
+			}
+			if err := each(rows.RawValues(), columns); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }
 
 // SelectAndScanEach run sql with args return every row into rowValues & run each
 func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner,
 	sql string, args ...any) error {
 
-	conn, err := c.Acquire(ctx)
-	if err != nil {
-		return errors.Wrap(err, "c.Acquire")
-	}
+	return c.withRows(ctx, 0, sql, args, func(conn *pgxpool.Conn, rows pgx.Rows) error {
+		var columns []dbEngine.Column
+		for rows.Next() {
+			if columns == nil {
+				columns = c.getColumns(rows, conn)
+			}
 
-	defer conn.Release()
+			// GetFields is called per row on purpose: Table/Routine create a new buffer each time
+			if err := rows.Scan(rowValue.GetFields(columns)...); err != nil {
+				return errors.Wrap(err, "rows.Scan")
+			}
 
-	rows, err := conn.Query(ctx, sql, args...)
-	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
-		return err
-	}
-
-	defer rows.Close()
-
-	var columns []dbEngine.Column
-	for rows.Next() && (err == nil) {
-		if len(columns) == 0 {
-			columns = c.getColumns(rows, conn)
+			if each != nil {
+				if err := each(); err != nil {
+					return err
+				}
+			}
 		}
 
-		err = rows.Scan(rowValue.GetFields(columns)...)
-		if err != nil {
-			break
-		}
-
-		if each != nil {
-			err = each()
-		}
-	}
-
-	if rows.Err() != nil {
-		err = rows.Err()
-	}
-
-	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, "%+v", sql, rows.FieldDescriptions())...)
-		return err
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // SelectOneAndScan run sql with args return rows into rowValues
-func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, args ...any) (err error) {
+func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, args ...any) error {
 	if rowValues == nil {
 		return dbEngine.ErrWrongType{
 			Name:     "rowValues",
@@ -525,41 +551,40 @@ func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, 
 		}
 	}
 
-	timeoutCtx, _ := context.WithTimeout(ctx, time.Second*5)
-	conn, err := c.Acquire(timeoutCtx)
-	if err != nil {
-		return errors.Wrap(err, "c.Acquire")
-	}
-
-	defer conn.Release()
-
-	row, err := conn.Query(ctx, sql, args...)
-	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
-		return err
-	}
-
-	defer func() {
-		n, ok := c.GetNotice(conn)
-		if ok {
-			if n.Code > "00000" && n.Code != "42P07" {
-				err = (*pgconn.PgError)(n)
+	return c.withRows(ctx, 5*time.Second, sql, args, func(conn *pgxpool.Conn, rows pgx.Rows) error {
+		if !rows.Next() {
+			// distinguish "no rows" from a query error
+			if err := rows.Err(); err != nil {
+				return err
 			}
+			return pgx.ErrNoRows
 		}
-		row.Close()
-	}()
 
-	if !row.Next() {
-		return pgx.ErrNoRows
-	}
+		columns := c.getColumns(rows, conn)
+		dest, afterScan := c.getFieldForScan(rowValues, columns)
+		if dest == nil {
+			dest = []any{rowValues}
+		}
 
-	columns := c.getColumns(row, conn)
-	dest := c.getFieldForScan(rowValues, columns)
-	if dest == nil {
-		return row.Scan(rowValues)
-	}
+		if err := rows.Scan(dest...); err != nil {
+			return errors.Wrap(err, "rows.Scan")
+		}
+		if afterScan != nil {
+			afterScan()
+		}
 
-	return row.Scan(dest...)
+		// finish the result before reading notices - they may arrive with the tail of the result
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+
+		if n, ok := c.GetNotice(conn); ok && n.Code > "00000" && n.Code != "42P07" {
+			return (*pgconn.PgError)(n)
+		}
+
+		return nil
+	})
 }
 
 func (c *Conn) CopyCSV(ctx *fasthttp.RequestCtx, csv *csv.CsvReader) (string, error) {
@@ -590,37 +615,47 @@ func (c *Conn) CopyCSV(ctx *fasthttp.RequestCtx, csv *csv.CsvReader) (string, er
 	return ct.String(), nil
 }
 
-func mapForScan[T any](r map[string]T, columns []dbEngine.Column) []any {
-	v := make([]any, len(r))
-	for i, col := range columns {
-		v[i] = r[col.Name()]
+// mapForScan scans into temp buffer and copies values into map after Scan
+// (map values aren't addressable, so we can't pass &r[name] to Scan)
+func mapForScan[T any](r map[string]T, columns []dbEngine.Column) ([]any, func()) {
+	buf := make([]T, len(columns))
+	dest := make([]any, len(columns))
+	for i := range buf {
+		dest[i] = &buf[i]
 	}
-	logs.StatusLog(v)
-	return v
+
+	return dest, func() {
+		for i, col := range columns {
+			r[col.Name()] = buf[i]
+		}
+	}
 }
 
 func mapPointersForScan[T any](r map[string]*T, columns []dbEngine.Column) []any {
-	isEmpty := len(r) == 0
 	v := make([]any, len(columns))
 	for i, col := range columns {
-		if isEmpty {
-			r[col.Name()] = new(T)
+		p, ok := r[col.Name()]
+		if !ok || p == nil {
+			p = new(T)
+			r[col.Name()] = p
 		}
-		v[i] = r[col.Name()]
+		v[i] = p
 	}
+
 	return v
 }
 
-func (c *Conn) getFieldForScan(rowValues any, columns []dbEngine.Column) []any {
+// getFieldForScan returns destinations for rows.Scan and optional func, which must be called after successful Scan
+func (c *Conn) getFieldForScan(rowValues any, columns []dbEngine.Column) ([]any, func()) {
 	switch r := rowValues.(type) {
 	case []any:
-		return r
+		return r, nil
 
 	case dbEngine.RowScanner:
-		return r.GetFields(columns)
+		return r.GetFields(columns), nil
 
 	case map[string]*string:
-		return mapPointersForScan(r, columns)
+		return mapPointersForScan(r, columns), nil
 
 	case map[string]string:
 		return mapForScan(r, columns)
@@ -644,37 +679,37 @@ func (c *Conn) getFieldForScan(rowValues any, columns []dbEngine.Column) []any {
 		return mapForScan(r, columns)
 
 	case []string:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []int:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []int8:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []int16:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []int32:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []int64:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []float32:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []float64:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []time.Time:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	case []*time.Time:
-		return sliceForScan(r)
+		return sliceForScan(r), nil
 
 	default:
-		return nil
+		return nil, nil
 	}
 }
 
@@ -688,47 +723,32 @@ func sliceForScan[T any](arr []T) []any {
 }
 
 // SelectToMap run sql with args return rows as map[{name_column}]
-// case of executed - gets one record
+// case of executed - gets one record (first); returns empty map if there are no rows
 func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error) {
-
-	rows := make(map[string]any)
-	// todo: chande on selectScan with map
-	err := c.selectAndRunEach(ctx,
-		func(values []any, columns []dbEngine.Column) error {
-			for i, val := range values {
-				rows[columns[i].Name()] = val
-			}
-
-			return nil
-		},
-		sql, args...)
+	var res map[string]any
+	err := c.withRows(ctx, 0, sql, args, func(_ *pgxpool.Conn, rows pgx.Rows) (err error) {
+		res, err = pgx.CollectOneRow(rows, pgx.RowToMap)
+		return err
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return make(map[string]any), nil
+	}
 	if err != nil {
-		return nil, errors.Wrap(err, "selectAndRunEach")
+		return nil, errors.Wrap(err, "SelectToMap")
 	}
 
-	return rows, nil
+	return res, nil
 }
 
 // SelectToMaps run sql with args return rows as slice of map[{name_column}]
 func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...any) ([]map[string]any, error) {
-
-	maps := make([]map[string]any, 0)
-
-	err := c.selectAndRunEach(ctx,
-		func(values []any, columns []dbEngine.Column) error {
-			row := make(map[string]any, len(columns))
-
-			for i, val := range values {
-				row[columns[i].Name()] = val
-			}
-
-			maps = append(maps, row)
-
-			return nil
-		},
-		sql, args...)
+	var maps []map[string]any
+	err := c.withRows(ctx, 0, sql, args, func(_ *pgxpool.Conn, rows pgx.Rows) (err error) {
+		maps, err = pgx.CollectRows(rows, pgx.RowToMap)
+		return err
+	})
 	if err != nil {
-		return nil, errors.Wrap(err, "selectAndRunEach")
+		return nil, errors.Wrap(err, "SelectToMaps")
 	}
 
 	return maps, nil
@@ -738,16 +758,13 @@ func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...any) ([]map
 func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...any) (
 	rows [][]any, cols []dbEngine.Column, err error) {
 
-	err = c.selectAndRunEach(ctx,
-		func(values []any, columns []dbEngine.Column) error {
-			rows = append(rows, values)
-			if len(cols) == 0 {
-				cols = columns
-			}
-
-			return nil
-		},
-		sql, args...)
+	err = c.withRows(ctx, 0, sql, args, func(conn *pgxpool.Conn, r pgx.Rows) (err error) {
+		cols = c.getColumns(r, conn)
+		rows, err = pgx.CollectRows(r, func(row pgx.CollectableRow) ([]any, error) {
+			return row.Values()
+		})
+		return err
+	})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -764,51 +781,30 @@ func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, s
 func (c *Conn) selectAndRunEach(ctx context.Context, each dbEngine.FncEachRow,
 	sql string, args ...any) error {
 
-	conn, err := c.Acquire(ctx)
-	if err != nil {
-		return errors.Wrap(err, "c.Acquire")
-	}
+	return c.withRows(ctx, 0, sql, args, func(conn *pgxpool.Conn, rows pgx.Rows) error {
+		var columns []dbEngine.Column
+		for rows.Next() {
+			// rows.Values() returns a new slice every row - safe to keep it in each
+			values, err := rows.Values()
+			if err != nil {
+				return errors.Wrap(err, "rows.Values")
+			}
 
-	defer conn.Release()
+			if each == nil {
+				continue
+			}
 
-	rows, err := conn.Query(ctx, sql, args...)
-	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, sql, args)...)
-		return err
-	}
-
-	defer rows.Close()
-
-	var columns []dbEngine.Column
-
-	for rows.Next() {
-		values, err := rows.Values()
-		if err != nil {
-			break
-		}
-
-		if each != nil {
-			if len(columns) == 0 {
+			if columns == nil {
 				columns = c.getColumns(rows, conn)
 			}
-			err = each(values, columns)
-			if err != nil {
-				break
+
+			if err := each(values, columns); err != nil {
+				return err
 			}
-
 		}
-	}
 
-	if rows.Err() != nil {
-		err = rows.Err()
-	}
-
-	if err != nil {
-		logs.DebugLog(c.addNoticeToErrLog(conn, sql, rows.FieldDescriptions())...)
-		return err
-	}
-
-	return nil
+		return nil
+	})
 }
 
 func (c *Conn) getColumns(rows pgx.Rows, conn *pgxpool.Conn) []dbEngine.Column {

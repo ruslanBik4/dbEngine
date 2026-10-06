@@ -87,6 +87,9 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 		}
 		logs.CustomLog(logs.ERROR, "[PGX]", msg+".time", t, err.Error(), logs.FgErr)
 
+	case pgx.ErrPreprocessingBatch:
+		logs.ErrorLog(err, "Error preprocessing batch: %s", err.SQL())
+
 	case xerrors.Wrapper:
 		l.printError(err.Unwrap(), msg, data)
 
@@ -121,8 +124,8 @@ func (l *pgxLog) printError(err error, msg string, data map[string]any) {
 		logs.ErrorLog(err, "Transaction commit/rollback error: %s", msg)
 
 	default:
-		logs.ErrorLog(err, msg, data)
-		logs.ErrorStack(err, "Unhandled error: %s", msg)
+		logs.ErrorLog(err, "Unhandled error:%s %[1]T %v", msg, data)
+		logs.ErrorStack(err)
 	}
 }
 

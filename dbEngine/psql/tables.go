@@ -193,9 +193,14 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 		return err
 	}
 
-	_, err = t.conn.Query(ctx, sql, b.Args...)
+	// rows MUST be closed - otherwise the pool connection is never returned (connection leak)
+	rows, err := t.conn.Query(ctx, sql, b.Args...)
+	if err != nil {
+		return err
+	}
+	rows.Close()
 
-	return err
+	return rows.Err()
 }
 
 // SelectOneAndScan run sql of table  with Options & return rows into rowValues
