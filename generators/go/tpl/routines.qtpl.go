@@ -37,7 +37,7 @@ func (c *PackageBuilder) StreamCreateRoutinesInvoker(qw422016 *qt422016.Writer, 
 //line routines.qtpl:18
 	if r.Type == psql.ROUTINE_TYPE_PROC {
 //line routines.qtpl:18
-		qw422016.N().S(`// `)
+		qw422016.N().S(`/* `)
 //line routines.qtpl:19
 		qw422016.E().S(camelName)
 //line routines.qtpl:19
@@ -59,7 +59,7 @@ func (c *PackageBuilder) StreamCreateRoutinesInvoker(qw422016 *qt422016.Writer, 
 //line routines.qtpl:21
 		}
 //line routines.qtpl:21
-		qw422016.N().S(`
+		qw422016.N().S(` */
 func (d *Database) `)
 //line routines.qtpl:22
 		qw422016.E().S(camelName)
@@ -172,7 +172,7 @@ func (c *PackageBuilder) StreamCreateFunctionInvoker(qw422016 *qt422016.Writer, 
 //line routines.qtpl:63
 	}
 //line routines.qtpl:63
-	qw422016.N().S(`// `)
+	qw422016.N().S(`/* `)
 //line routines.qtpl:64
 	qw422016.E().S(camelName)
 //line routines.qtpl:64
@@ -198,7 +198,8 @@ func (c *PackageBuilder) StreamCreateFunctionInvoker(qw422016 *qt422016.Writer, 
 //line routines.qtpl:66
 	}
 //line routines.qtpl:66
-	qw422016.N().S(`// ATTENTION! It returns only 1 row `)
+	qw422016.N().S(`*/
+// ATTENTION! It returns only 1 row `)
 //line routines.qtpl:67
 	qw422016.E().S(typeReturn)
 //line routines.qtpl:67
@@ -262,7 +263,7 @@ func (d *Database) `)
 //line routines.qtpl:81
 	if r.ReturnType() == "json" || r.ReturnType() == "jsonb" {
 //line routines.qtpl:81
-		qw422016.N().S(`// `)
+		qw422016.N().S(`/* `)
 //line routines.qtpl:82
 		qw422016.E().S(camelName)
 //line routines.qtpl:82
@@ -288,7 +289,8 @@ func (d *Database) `)
 //line routines.qtpl:84
 		}
 //line routines.qtpl:84
-		qw422016.N().S(`// ATTENTION! It returns only 1 row `)
+		qw422016.N().S(`*/
+// ATTENTION! It returns only 1 row `)
 //line routines.qtpl:85
 		qw422016.E().S(typeReturn)
 //line routines.qtpl:85
@@ -331,7 +333,7 @@ func (d *Database) `)
 //line routines.qtpl:97
 	if r.ReturnType() == "record" {
 //line routines.qtpl:97
-		qw422016.N().S(`// `)
+		qw422016.N().S(`/* `)
 //line routines.qtpl:98
 		qw422016.E().S(camelName)
 //line routines.qtpl:98
@@ -353,7 +355,8 @@ func (d *Database) `)
 //line routines.qtpl:100
 		}
 //line routines.qtpl:100
-		qw422016.N().S(`// each will get every row from &`)
+		qw422016.N().S(`*/
+// each will get every row from &`)
 //line routines.qtpl:101
 		qw422016.E().S(camelName)
 //line routines.qtpl:101
@@ -397,7 +400,7 @@ func (d *Database) `)
 		typeReturn = fmt.Sprintf("%sRowScanner", camelName)
 
 //line routines.qtpl:114
-		qw422016.N().S(`// `)
+		qw422016.N().S(`/* `)
 //line routines.qtpl:115
 		qw422016.E().S(camelName)
 //line routines.qtpl:115
@@ -419,7 +422,8 @@ func (d *Database) `)
 //line routines.qtpl:117
 		}
 //line routines.qtpl:117
-		qw422016.N().S(`// each will get every row from &`)
+		qw422016.N().S(`*/
+// each will get every row from &`)
 //line routines.qtpl:118
 		qw422016.E().S(camelName)
 //line routines.qtpl:118
@@ -482,7 +486,7 @@ func (d *Database) `)
 	return err
 }
 
-// `)
+/* `)
 //line routines.qtpl:143
 		qw422016.E().S(camelName)
 //line routines.qtpl:143
@@ -504,7 +508,8 @@ func (d *Database) `)
 //line routines.qtpl:145
 		}
 //line routines.qtpl:145
-		qw422016.N().S(`// WARNING! It return ALL rows as Slice of &`)
+		qw422016.N().S(`*/
+// WARNING! It return ALL rows as Slice of &`)
 //line routines.qtpl:146
 		qw422016.E().S(camelName)
 //line routines.qtpl:146

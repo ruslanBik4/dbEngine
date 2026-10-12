@@ -35,16 +35,16 @@ func (t *Table) StreamTable(qw422016 *qt422016.Writer, title string) {
 	StreamHeader(qw422016, t.imports, title)
 //line table.qtpl:10
 	qw422016.N().S(`
-// %s implement operations for `)
+/* %s implement operations for `)
 //line table.qtpl:11
 	qw422016.E().S(t.typ)
 //line table.qtpl:11
 	qw422016.N().S(`
-// DB comment: '`)
+ DB comment: '`)
 //line table.qtpl:12
 	qw422016.E().S(t.comment)
 //line table.qtpl:12
-	qw422016.N().S(`'
+	qw422016.N().S(`' */
 type `)
 //line table.qtpl:13
 	qw422016.E().S(t.name)

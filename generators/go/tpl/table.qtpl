@@ -8,8 +8,8 @@
 table structures generator
 {% func (t *Table) Table(title string) %}
 {%= Header(t.imports, title) %}
-// %s implement operations for {%s t.typ %}
-// DB comment: '{%s t.comment %}'
+/* %s implement operations for {%s t.typ %}
+ DB comment: '{%s t.comment %}' */
 type {%s t.name %} struct {
 	*psql.Table
 	Record 				*{%s t.name %}Fields
