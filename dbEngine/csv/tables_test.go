@@ -261,7 +261,7 @@ func TestTable_InitConn(t1 *testing.T) {
 			},
 			args{
 				ctx:      context.Background(),
-				filePath: "/Users/ruslan/GolandProjects/gozaurus/examples/e-commerce/products.csv",
+				filePath: "/Users/ruslan/GolandProjects/gozaurus/examples/e_commerce/products.csv",
 			},
 			false,
 		},
