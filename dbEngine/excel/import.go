@@ -487,13 +487,9 @@ func (p *plan) collectRows() {
 		if im.Row < reg.dataStart || im.Row > reg.dataEnd || !inCols[im.Col] {
 			continue
 		}
-		p.imgAt[[2]int{im.Row, im.Col}] = append(p.imgAt[[2]int{im.Row, im.Col}], i)
-		for _, m := range sh.Merges { // one photo for a vertically merged group
-			if m.R1 == im.Row && m.C1 == im.Col && m.R2 > m.R1 {
-				for r := m.R1 + 1; r <= m.R2 && r <= reg.dataEnd; r++ {
-					p.imgAt[[2]int{r, im.Col}] = append(p.imgAt[[2]int{r, im.Col}], i)
-				}
-			}
+		// one photo for several rows (package sizes of one product)
+		for _, r := range pictureRows(sh, i, reg.dataStart, reg.dataEnd, inCols) {
+			p.imgAt[[2]int{r, im.Col}] = append(p.imgAt[[2]int{r, im.Col}], i)
 		}
 	}
 	var all []int
@@ -953,3 +949,76 @@ func convert(c Cell, udt string) (string, bool) {
 
 // qi quotes an identifier.
 func qi(s string) string { return `"` + strings.ReplaceAll(s, `"`, `""`) + `"` }
+
+// pictureRows returns the data rows picture idx belongs to:
+//   - its anchor row;
+//   - every row of a vertical merge that contains the picture's cell (the
+//     picture may be anchored anywhere inside the merge, not only at its top);
+//   - empty cells of the picture's column in a product group marked by a
+//     vertical merge in another table column (e.g. a merged description):
+//     with one picture in the group it covers the whole group; with several,
+//     each covers the rows from its own down to the next picture (the first
+//     one also the rows above it).
+func pictureRows(sh *Sheet, idx, first, last int, inCols map[int]bool) []int {
+	im := sh.Images[idx]
+	set := map[int]bool{im.Row: true}
+	add := func(r1, r2 int) {
+		for r := max(r1, first); r <= min(r2, last); r++ {
+			set[r] = true
+		}
+	}
+	for _, m := range sh.Merges { // the picture's own merged cell
+		if m.R2 > m.R1 && m.C1 <= im.Col && im.Col <= m.C2 && m.R1 <= im.Row && im.Row <= m.R2 {
+			add(m.R1, m.R2)
+		}
+	}
+	for _, m := range sh.Merges { // product group merged in another column
+		if m.R2 == m.R1 || m.C1 != m.C2 || m.C1 == im.Col || !inCols[m.C1] || im.Row < m.R1 || im.Row > m.R2 {
+			continue
+		}
+		r1, r2 := m.R1, m.R2
+		for _, o := range sh.Images { // other pictures of the group split it
+			if o.Col != im.Col || o.Row < m.R1 || o.Row > m.R2 || o.Row == im.Row {
+				continue
+			}
+			if o.Row < im.Row && o.Row+1 > r1 {
+				r1 = im.Row // a picture above owns the rows before this one
+			}
+			if o.Row > im.Row && o.Row-1 < r2 {
+				r2 = o.Row - 1
+			}
+		}
+		for r := r1; r <= r2; r++ {
+			// only empty cells of the picture column take the picture (a column
+			// of names with an odd picture is not a photo column), and not
+			// cells with a picture of their own
+			if r != im.Row && (!origCell(sh, r, im.Col).IsEmpty() || cellHasPicture(sh, r, im.Col, idx)) {
+				continue
+			}
+			add(r, r)
+		}
+	}
+	rows := make([]int, 0, len(set))
+	for r := range set {
+		rows = append(rows, r)
+	}
+	slices.Sort(rows)
+	return rows
+}
+
+// cellHasPicture reports whether another picture is anchored in the merged
+// cell (or the cell) that covers row r of column col.
+func cellHasPicture(sh *Sheet, r, col, except int) bool {
+	r1, r2 := r, r
+	for _, m := range sh.Merges {
+		if m.C1 <= col && col <= m.C2 && m.R1 <= r && r <= m.R2 {
+			r1, r2 = m.R1, m.R2
+		}
+	}
+	for j, o := range sh.Images {
+		if j != except && o.Col == col && o.Row >= r1 && o.Row <= r2 {
+			return true
+		}
+	}
+	return false
+}
