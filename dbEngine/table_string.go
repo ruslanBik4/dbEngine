@@ -213,6 +213,6 @@ func (t TableString) SelectAndRunEach(ctx context.Context, each FncEachRow, Opti
 }
 
 // SelectOneAndScan run sqlof table  with Options & return rows into rowValues
-func (t TableString) SelectOneAndScan(ctx context.Context, row interface{}, Options ...BuildSqlOptions) error {
+func (t TableString) SelectOneAndScan(ctx context.Context, row any, Options ...BuildSqlOptions) error {
 	panic("implement me")
 }

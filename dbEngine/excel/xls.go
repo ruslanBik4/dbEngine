@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strings"
 	"unicode/utf16"
 
@@ -85,10 +86,7 @@ func splitRecords(b []byte) []biffRec {
 	for p := 0; p+4 <= len(b); {
 		id := binary.LittleEndian.Uint16(b[p:])
 		n := int(binary.LittleEndian.Uint16(b[p+2:]))
-		end := p + 4 + n
-		if end > len(b) {
-			end = len(b)
-		}
+		end := min(p+4+n, len(b))
 		out = append(out, biffRec{id: id, data: b[p+4 : end], pos: p})
 		p = end
 	}
@@ -439,10 +437,7 @@ func (r *sstReader) bytes(n int) []byte {
 	out := make([]byte, 0, n)
 	for n > 0 && r.ensure() {
 		seg := r.segs[r.si]
-		k := len(seg) - r.pos
-		if k > n {
-			k = n
-		}
+		k := min(len(seg)-r.pos, n)
 		out = append(out, seg[r.pos:r.pos+k]...)
 		r.pos += k
 		n -= k
@@ -574,10 +569,8 @@ func parseBlipStore(dgg []byte) []blipEntry {
 func decodeBlip(r escherRec) blipEntry {
 	b := r.body
 	uid := func(singles ...uint16) int {
-		for _, s := range singles {
-			if r.inst == s {
-				return 16
-			}
+		if slices.Contains(singles, r.inst) {
+			return 16
 		}
 		return 32 // rgbUid1 + rgbUid2
 	}

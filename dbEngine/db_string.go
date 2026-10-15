@@ -61,11 +61,11 @@ func (s *StringColumn) IsNullable() bool {
 	return s.isNullable
 }
 
-func (s *StringColumn) Default() interface{} {
+func (s *StringColumn) Default() any {
 	return ""
 }
 
-func (s *StringColumn) SetDefault(str interface{}) {
+func (s *StringColumn) SetDefault(str any) {
 	s.colDefault = str.(string)
 }
 

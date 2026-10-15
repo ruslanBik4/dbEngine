@@ -57,7 +57,7 @@ func filePassKey(fp []byte, password string) (rc4KeyFunc, error) {
 		salt, encVer, encHash := fp[6:22], fp[22:38], fp[38:54]
 		h0 := md5.Sum(pw)
 		var buf bytes.Buffer
-		for i := 0; i < 16; i++ {
+		for range 16 {
 			buf.Write(h0[:5])
 			buf.Write(salt)
 		}

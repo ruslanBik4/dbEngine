@@ -42,7 +42,7 @@ func (t *Table) SelectAndScanEach(ctx context.Context, each func() error, rowVal
 }
 
 // SelectOneAndScan run sqlof table  with Options & return rows into rowValues
-func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+func (t *Table) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	//TODO implement me
 	panic("implement me")
 }
@@ -79,7 +79,7 @@ func (t *Table) GetStat() string {
 }
 
 // ExecDDL execute sql
-func (t *Table) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
+func (t *Table) ExecDDL(ctx context.Context, sql string, args ...any) error {
 	panic("implement me")
 }
 
@@ -89,17 +89,17 @@ func (t *Table) NewTable(name, typ string) dbEngine.Table {
 }
 
 // SelectToMap run sql with args return rows as map[{name_column}]
-func (t *Table) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
+func (t *Table) SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error) {
 	panic("implement me")
 }
 
 // SelectToMaps run sql with args return rows as slice of map[{name_column}]
-func (t *Table) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
+func (t *Table) SelectToMaps(ctx context.Context, sql string, args ...any) ([]map[string]any, error) {
 	panic("implement me")
 }
 
 // SelectToMultiDimension run sql with args and return rows (slice of record) and columns
-func (t *Table) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
+func (t *Table) SelectToMultiDimension(ctx context.Context, sql string, args ...any) ([][]any, []dbEngine.Column, error) {
 	panic("implement me")
 }
 

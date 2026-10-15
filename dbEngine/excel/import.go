@@ -808,7 +808,7 @@ func (p *plan) value(r int, oc outCol) *string {
 		if len(paths) == 0 {
 			return p.empty(col)
 		}
-		return str(strings.Join(paths, ";"))
+		return new(strings.Join(paths, ";"))
 	case col.fk != nil:
 		if cell.IsEmpty() {
 			if c := p.catOf[r]; c != nil && col == p.catFK {

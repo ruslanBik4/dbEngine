@@ -127,7 +127,7 @@ func (src *Numeric) Float64() float64 {
 	dst := float64(src.Int.Int64())
 	exp := int(src.Exp)
 	if exp > 0 {
-		for i := 0; i < exp; i++ {
+		for range exp {
 			dst *= 10
 		}
 	} else {

@@ -9,6 +9,7 @@ import (
 	"flag"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -91,17 +92,19 @@ func printTables(db *dbEngine.DB) {
 func printRoutines(db *dbEngine.DB) {
 	logs.StatusLog("list routines:")
 	for key, r := range db.Routines {
-		params := "params: "
+		var params strings.Builder
+		params.WriteString("params: ")
 		for _, param := range r.Params() {
-			params += fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType()))
+			params.WriteString(fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType())))
 		}
-		logs.StatusLog(key, r.Name(), params)
+		logs.StatusLog(key, r.Name(), params.String())
 		if rr := r.Overlay(); rr != nil {
-			params := "columns:"
+			var params strings.Builder
+			params.WriteString("columns:")
 			for _, param := range rr.Params() {
-				params += fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType()))
+				params.WriteString(fmt.Sprintf("%s %s %s\n", param.Name(), param.Type(), typesExt.StringTypeKinds(param.BasicType())))
 			}
-			logs.StatusLog("Overlay", key, rr.Name(), params)
+			logs.StatusLog("Overlay", key, rr.Name(), params.String())
 		}
 	}
 }

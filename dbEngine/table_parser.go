@@ -160,13 +160,10 @@ func (p *ParserCfgDDL) addColumn(sAlter string) {
 }
 
 func (p *ParserCfgDDL) checkPrimary(col Column, colDefine string, flags []FlagColumn) {
-	for _, flag := range flags {
-		// change only type
-		if flag == ChgType {
-			p.chkAlterBuilder()
-			_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, col.Name(), colDefine)
-			return
-		}
+	if slices.Contains(flags, ChgType) {
+		p.chkAlterBuilder()
+		_, _ = fmt.Fprintf(p.updDLL, tplAlterColumnType, col.Name(), colDefine)
+		return
 	}
 }
 

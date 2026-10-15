@@ -10,7 +10,7 @@ import "go/types"
 type NumberColumn struct {
 	comment, name   string
 	req, isNullable bool
-	colDefault      interface{}
+	colDefault      any
 }
 
 // NewNumberColumn create new NumberColumn
@@ -67,12 +67,12 @@ func (c *NumberColumn) IsNullable() bool {
 }
 
 // Default return default value of column
-func (c *NumberColumn) Default() interface{} {
+func (c *NumberColumn) Default() any {
 	return "0"
 }
 
 // SetDefault set default value into column
-func (c *NumberColumn) SetDefault(str interface{}) {
+func (c *NumberColumn) SetDefault(str any) {
 	c.colDefault = str
 }
 

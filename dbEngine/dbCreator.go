@@ -147,7 +147,7 @@ func NewParserCfgDDL(db *DB, table Table) *ParserCfgDDL {
 // Parse perform queries from ddl text
 func (p *ParserCfgDDL) Parse(ddl string) error {
 	p.line = 1
-	for _, sql := range strings.Split(ddl, ";") {
+	for sql := range strings.SplitSeq(ddl, ";") {
 
 		next_line := p.line + strings.Count(sql, "\n")
 		sql = strings.TrimSpace(strings.TrimPrefix(sql, "\n"))

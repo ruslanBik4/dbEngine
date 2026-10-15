@@ -361,10 +361,8 @@ loopColumns:
 
 func (b *SQLBuilder) chkFilter(filter, name string) bool {
 	if parts := regColumn.FindAllString(filter, -1); len(parts) > 0 {
-		for _, part := range parts {
-			if name == part {
-				return true
-			}
+		if slices.Contains(parts, name) {
+			return true
 		}
 	}
 
@@ -679,7 +677,7 @@ func Where(columns ...string) BuildSqlOptions {
 		b.filter = make([]string, len(columns))
 		if b.Table != nil {
 			for _, column := range columns {
-				for _, token := range strings.Split(column, " ") {
+				for token := range strings.SplitSeq(column, " ") {
 					switch strings.ToUpper(token) {
 					case "IN", "IS", "OR", "AND", "CASE", "WHEN", "THEN", "ELSE", "END", "FROM", "WHERE", "=", "(", ")", "TRUE", "FALSE":
 						continue

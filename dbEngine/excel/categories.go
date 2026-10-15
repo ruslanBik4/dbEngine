@@ -1,6 +1,9 @@
 package excel
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // category is a "group" row inside the data area: one filled text cell
 // (usually merged across the table and/or painted with another colour) that
@@ -126,8 +129,8 @@ func detectCategories(sh *Sheet, reg region, rows []int, imgAt map[[2]int][]int)
 			c := cats[ci]
 			ci++
 			c.id = ci
-			for i := len(stack) - 1; i >= 0; i-- {
-				if stack[i].style == c.style {
+			for i, s := range slices.Backward(stack) {
+				if s.style == c.style {
 					stack = stack[:i]
 					break
 				}

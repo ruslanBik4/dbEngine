@@ -386,8 +386,8 @@ func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []s
 	ddlType := "alter type " + typeName
 	for i, name := range regTypeAttr.SubexpNames() {
 		if name == "builderOpts" && (i < len(fields)) {
-			nameFields := strings.Split(fields[i], ",")
-			for _, name := range nameFields {
+			nameFields := strings.SplitSeq(fields[i], ",")
+			for name := range nameFields {
 				p := strings.Split(strings.TrimSpace(name), " ")
 				//todo aad "Name of wrong" performing
 				attrName := strings.ToLower(strings.TrimSpace(p[0]))
@@ -418,29 +418,30 @@ func (db *DB) alterCompositeType(t *Types, fileName, typeName string, fields []s
 					continue
 				}
 
-				ddlAlter := ddlType + " alter attribute " + attrName
+				var ddlAlter strings.Builder
+				ddlAlter.WriteString(ddlType + " alter attribute " + attrName)
 				for i, flag := range chkAttr {
 					logs.StatusLog("%d. %s", i, flag)
 					switch flag {
 					case MustNotNull:
-						ddlAlter += " SET NOT NULL "
+						ddlAlter.WriteString(" SET NOT NULL ")
 					case Nullable:
-						ddlAlter += " DROP NOT NULL "
+						ddlAlter.WriteString(" DROP NOT NULL ")
 					case ChgType:
-						ddlAlter += " SET DATA TYPE " + newType
+						ddlAlter.WriteString(" SET DATA TYPE " + newType)
 					case ChgLength:
-						ddlAlter += " SET DATA TYPE " + newType
+						ddlAlter.WriteString(" SET DATA TYPE " + newType)
 					case ChgToArray:
 					default:
 						logs.ErrorLog(fmt.Errorf("unhandled default case: %v", flag), fileName)
 					}
 				}
-				err := db.Conn.ExecDDL(db.ctx, ddlAlter)
+				err := db.Conn.ExecDDL(db.ctx, ddlAlter.String())
 				if err != nil {
-					logs.ErrorLog(err, ddlAlter)
+					logs.ErrorLog(err, ddlAlter.String())
 					return err
 				}
-				logInfo(preDB_CONFIG, fileName, ddlAlter, 1)
+				logInfo(preDB_CONFIG, fileName, ddlAlter.String(), 1)
 
 				logs.StatusLog(t.Attr[i], t.Attr[i].Column.Type(), attrName, newType)
 

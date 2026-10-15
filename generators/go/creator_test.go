@@ -6,6 +6,8 @@ package _go
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -24,7 +26,10 @@ func TestCreator_MakeStruct(t *testing.T) {
 		table dbEngine.Table
 	}
 
-	table, err := csv.NewTable("/Users/ruslan/GolandProjects/gozaurus/examples/e-commerce/products.csv")
+	t.Log(os.Getwd())
+	const fileName = "../../../gozaurus/examples/e-commerce/products.csv"
+	t.Log(filepath.Abs(fileName))
+	table, err := csv.NewTable(fileName)
 	if !assert.Nil(t, err) {
 		t.FailNow()
 	}

@@ -76,7 +76,7 @@ func (t *Table) GetStat() string {
 }
 
 // ExecDDL execute sql
-func (t *Table) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
+func (t *Table) ExecDDL(ctx context.Context, sql string, args ...any) error {
 	panic("implement me")
 }
 
@@ -157,7 +157,7 @@ func (t *Table) Select(ctx context.Context, Options ...dbEngine.BuildSqlOptions)
 }
 
 // SelectOneAndScan run sqlof table  with Options & return rows into rowValues
-func (t *Table) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+func (t *Table) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	panic("implement me")
 }
 

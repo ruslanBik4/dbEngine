@@ -50,7 +50,7 @@ func TestTable_ExecDDL(t1 *testing.T) {
 	type args struct {
 		ctx  context.Context
 		sql  string
-		args []interface{}
+		args []any
 	}
 	tests := []struct {
 		name    string
@@ -245,6 +245,8 @@ func TestTable_InitConn(t1 *testing.T) {
 		ctx      context.Context
 		filePath string
 	}
+	const fileName = "../../../gozaurus/examples/e-commerce/products.csv"
+
 	tests := []struct {
 		name    string
 		fields  fields
@@ -261,7 +263,7 @@ func TestTable_InitConn(t1 *testing.T) {
 			},
 			args{
 				ctx:      context.Background(),
-				filePath: "/Users/ruslan/GolandProjects/gozaurus/examples/e_commerce/products.csv",
+				filePath: fileName,
 			},
 			false,
 		},
@@ -276,7 +278,7 @@ func TestTable_InitConn(t1 *testing.T) {
 			if err := t.InitConn(tt.args.ctx, tt.args.filePath); (err != nil) != tt.wantErr {
 				t1.Errorf("InitConn() error = %v, wantErr %v", err, tt.wantErr)
 			} else {
-				res := make([]interface{}, len(t.columns))
+				res := make([]any, len(t.columns))
 				for i, col := range t.columns {
 					res[i] = col.Name()
 				}

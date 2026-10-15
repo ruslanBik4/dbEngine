@@ -86,11 +86,11 @@ func (err ErrNotFoundType) Error() string {
 type ErrWrongArgsLen struct {
 	Table  string
 	Filter []string
-	Args   []interface{}
+	Args   []any
 }
 
 // NewErrWrongArgsLen create new error
-func NewErrWrongArgsLen(table string, column []string, args []interface{}) *ErrWrongArgsLen {
+func NewErrWrongArgsLen(table string, column []string, args []any) *ErrWrongArgsLen {
 	return &ErrWrongArgsLen{Table: table, Filter: column, Args: args}
 }
 

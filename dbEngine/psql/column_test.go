@@ -631,9 +631,9 @@ func TestConn_SelectAndRunEach(t *testing.T) {
 		Cancel        context.CancelFunc
 	}
 	type args struct {
-		each func(values []interface{}, columns []dbEngine.Column) error
+		each func(values []any, columns []dbEngine.Column) error
 		sql  string
-		args []interface{}
+		args []any
 	}
 	tests := []struct {
 		name    string
@@ -675,7 +675,7 @@ func TestConn_SelectAndScanEach(t *testing.T) {
 		each     func() error
 		rowValue dbEngine.RowScanner
 		sql      string
-		args     []interface{}
+		args     []any
 	}
 	tests := []struct {
 		name    string
@@ -746,13 +746,13 @@ func TestConn_addNoticeToErrLog(t *testing.T) {
 		Cancel        context.CancelFunc
 	}
 	type args struct {
-		args []interface{}
+		args []any
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		want   []interface{}
+		want   []any
 	}{
 		// TODO: Add test cases.
 	}
@@ -816,7 +816,7 @@ func TestNewColumn(t *testing.T) {
 		table                  *Table
 		name                   string
 		dataType               string
-		columnDefault          interface{}
+		columnDefault          any
 		isNullable             bool
 		characterSetName       string
 		comment                string
@@ -916,11 +916,9 @@ func TestRoutine_Call(t *testing.T) {
 				Type: "PROCEDURE",
 				params: []*PgxRoutineParams{
 					{
-						Column: Column{
-							name:     "id",
-							DataType: "int",
-							UdtName:  "integer",
-						},
+						name:     "id",
+						DataType: "int",
+						UdtName:  "integer",
 					},
 				},
 			},
@@ -1143,7 +1141,7 @@ func TestTable_GetFields(t1 *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   []interface{}
+		want   []any
 	}{
 		// TODO: Add test cases.
 	}
@@ -1285,7 +1283,7 @@ func TestTable_SelectAndRunEach(t1 *testing.T) {
 	}
 	type args struct {
 		ctx  context.Context
-		each func(values []interface{}, columns []dbEngine.Column) error
+		each func(values []any, columns []dbEngine.Column) error
 	}
 	tests := []struct {
 		name    string
@@ -1365,7 +1363,7 @@ func TestTable_readColumnRow(t1 *testing.T) {
 		PK      string
 	}
 	type args struct {
-		values  []interface{}
+		values  []any
 		columns []dbEngine.Column
 	}
 	tests := []struct {

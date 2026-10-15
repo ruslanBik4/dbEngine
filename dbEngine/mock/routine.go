@@ -15,8 +15,8 @@ import (
 
 // Routine imitate routine functional
 type Routine struct {
-	ParamsIsCallError interface{}
-	TypeParams        []interface{}
+	ParamsIsCallError any
+	TypeParams        []any
 	Test              assert.TestingT
 }
 
@@ -26,7 +26,7 @@ func (r Routine) Name() string {
 }
 
 // BuildSql create sql query & arg for call conn.Select...
-func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args []interface{}, err error) {
+func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args []any, err error) {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
 		_ = option(b)
@@ -36,16 +36,16 @@ func (r Routine) BuildSql(Options ...dbEngine.BuildSqlOptions) (sql string, args
 }
 
 // Select run sql with Options (deprecated)
-func (r Routine) Select(ctx context.Context, args ...interface{}) error {
+func (r Routine) Select(ctx context.Context, args ...any) error {
 	panic("implement me")
 }
 
 // Call procedure
-func (r Routine) Call(ctx context.Context, args ...interface{}) error {
+func (r Routine) Call(ctx context.Context, args ...any) error {
 	return r.checkParams(args)
 }
 
-func (r Routine) checkParams(args []interface{}) error {
+func (r Routine) checkParams(args []any) error {
 	for i, val := range args {
 		if !assert.IsType(r.Test, r.TypeParams[i], val) ||
 			assert.ObjectsAreEqualValues(val, r.ParamsIsCallError) {
@@ -81,7 +81,7 @@ func (r Routine) SelectAndScanEach(ctx context.Context, each func() error, rowVa
 }
 
 // SelectOneAndScan run sql with Options & return rows into rowValues
-func (r Routine) SelectOneAndScan(ctx context.Context, row interface{}, Options ...dbEngine.BuildSqlOptions) error {
+func (r Routine) SelectOneAndScan(ctx context.Context, row any, Options ...dbEngine.BuildSqlOptions) error {
 	b := &dbEngine.SQLBuilder{}
 	for _, option := range Options {
 		_ = option(b)

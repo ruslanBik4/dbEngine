@@ -23,12 +23,12 @@ type Conn struct {
 }
 
 // SelectAndPerformRaw  run sql with args & run each every row
-func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...interface{}) error {
+func (c *Conn) SelectAndPerformRaw(ctx context.Context, each dbEngine.FncRawRow, sql string, args ...any) error {
 
 	return c.chkSqlAndArgs(ctx, sql, args)
 }
 
-func (c *Conn) chkSqlAndArgs(ctx context.Context, sql string, args []interface{}) error {
+func (c *Conn) chkSqlAndArgs(ctx context.Context, sql string, args []any) error {
 	if !regSQl.MatchString(sql) {
 		return errors.New(sql)
 	}
@@ -66,7 +66,7 @@ func (c *Conn) GetStat() string {
 }
 
 // Exec mock exec command
-func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error {
+func (c *Conn) Exec(ctx context.Context, sql string, args ...any) error {
 	logs.StatusLog(sql)
 	if regSQl.MatchString(sql) {
 		return nil
@@ -76,7 +76,7 @@ func (c *Conn) Exec(ctx context.Context, sql string, args ...interface{}) error 
 }
 
 // ExecDDL execute sql
-func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...interface{}) error {
+func (c *Conn) ExecDDL(ctx context.Context, sql string, args ...any) error {
 	return c.chkSqlAndArgs(ctx, sql, args)
 }
 
@@ -91,32 +91,32 @@ func (c *Conn) LastRowAffected() int64 {
 }
 
 // SelectOneAndScan run sql with Options & return rows into rowValues
-func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues interface{}, sql string, args ...interface{}) error {
+func (c *Conn) SelectOneAndScan(ctx context.Context, rowValues any, sql string, args ...any) error {
 	return c.chkSqlAndArgs(ctx, sql, args)
 }
 
 // SelectAndScanEach run sql with Options & return every row into rowValues & run each
-func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, sql string, args ...interface{}) error {
+func (c *Conn) SelectAndScanEach(ctx context.Context, each func() error, rowValue dbEngine.RowScanner, sql string, args ...any) error {
 	return c.chkSqlAndArgs(ctx, sql, args)
 }
 
 // SelectAndRunEach run sql with Options & performs each every row of query results
-func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...interface{}) error {
+func (c *Conn) SelectAndRunEach(ctx context.Context, each dbEngine.FncEachRow, sql string, args ...any) error {
 	return c.chkSqlAndArgs(ctx, sql, args)
 }
 
 // SelectToMap run sql with args return rows as map[{name_column}]
 // case of executed - gets one record
-func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...interface{}) (map[string]interface{}, error) {
+func (c *Conn) SelectToMap(ctx context.Context, sql string, args ...any) (map[string]any, error) {
 	return nil, c.chkSqlAndArgs(ctx, sql, args)
 }
 
 // SelectToMaps run sql with args return rows as slice of map[{name_column}]
-func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...interface{}) ([]map[string]interface{}, error) {
+func (c *Conn) SelectToMaps(ctx context.Context, sql string, args ...any) ([]map[string]any, error) {
 	return nil, c.chkSqlAndArgs(ctx, sql, args)
 }
 
 // SelectToMultiDimension run sql with args and return rows (slice of record) and columns
-func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...interface{}) ([][]interface{}, []dbEngine.Column, error) {
+func (c *Conn) SelectToMultiDimension(ctx context.Context, sql string, args ...any) ([][]any, []dbEngine.Column, error) {
 	return nil, nil, c.chkSqlAndArgs(ctx, sql, args)
 }

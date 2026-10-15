@@ -136,10 +136,7 @@ func detectRegion(v *view, maxScan int) (region, bool) {
 	if v.lastRow < 0 {
 		return region{}, false
 	}
-	scanEnd := v.lastRow
-	if scanEnd > maxScan-1 {
-		scanEnd = maxScan - 1
-	}
+	scanEnd := min(v.lastRow, maxScan-1)
 
 	type cand struct {
 		row   int
@@ -312,7 +309,7 @@ func expandHeader(v *view, h int) (int, int) {
 		return true
 	}
 
-	for iter := 0; iter < 8; iter++ {
+	for range 8 {
 		changed := vertical()
 
 		// group row(s) above the block
