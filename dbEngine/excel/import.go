@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -44,6 +45,14 @@ type Options struct {
 	ImageViewURL string
 	// MaxHeaderScan is how many top rows may hold the header (default 50).
 	MaxHeaderScan int
+	// KeepImageFormat saves pictures exactly as stored in the workbook. By
+	// default those browsers can't show are converted to PNG: EMF/WMF (the
+	// bitmap inside; a vector-only metafile is rendered with LibreOffice when
+	// soffice is found, otherwise kept with a warning), BMP and TIFF.
+	KeepImageFormat bool
+	// SofficePath is the LibreOffice binary for vector-only EMF/WMF pictures
+	// (default: "soffice" / "libreoffice" from PATH, if any).
+	SofficePath string
 }
 
 // Match tells which worksheet column filled which table column.
@@ -712,12 +721,18 @@ func (p *plan) saveImages(idxs []int) []string {
 		if ext == "" || ext == ".bin" {
 			ext = sniffImageExt(im.Data)
 		}
+		// named by the content as stored: the same picture imported again
+		// gets the same file
 		sum := sha1.Sum(im.Data)
+		data := im.Data
+		if !p.opts.KeepImageFormat {
+			data, ext = p.webImage(im, ext)
+		}
 		name := hex.EncodeToString(sum[:])[:16] + ext
 		full := filepath.Join(p.opts.ImageDir, name)
 		if err := os.MkdirAll(p.opts.ImageDir, 0o755); err == nil {
 			if _, err := os.Stat(full); err != nil {
-				err = os.WriteFile(full, im.Data, 0o644)
+				err = os.WriteFile(full, data, 0o644)
 				if err != nil {
 					p.res.Warnings = append(p.res.Warnings, fmt.Sprintf("picture %s: %v", cellRef(im.Row, im.Col), err))
 					p.saved[i] = ""
@@ -734,6 +749,34 @@ func (p *plan) saveImages(idxs []int) []string {
 		paths = append(paths, path)
 	}
 	return slices.DeleteFunc(paths, func(s string) bool { return s == "" })
+}
+
+// webImage converts a picture browsers can't show to PNG (see webImage);
+// a failure is a warning, the picture is kept as is then.
+func (p *plan) webImage(im Image, ext string) ([]byte, string) {
+	data, newExt, err := webImage(im.Data, ext)
+	if errors.Is(err, errVectorMetafile) {
+		soffice := p.opts.SofficePath
+		if soffice == "" {
+			for _, n := range []string{"soffice", "libreoffice"} {
+				if path, e := exec.LookPath(n); e == nil {
+					soffice = path
+					break
+				}
+			}
+		}
+		if soffice != "" {
+			if png, e := sofficeToPNG(soffice, data, ext); e == nil {
+				return png, ".png"
+			} else {
+				err = fmt.Errorf("%w; LibreOffice: %v", err, e)
+			}
+		}
+	}
+	if err != nil {
+		p.res.Warnings = append(p.res.Warnings, fmt.Sprintf("picture %s: %v", cellRef(im.Row, im.Col), err))
+	}
+	return data, newExt
 }
 
 // ---------------- values + COPY ----------------
