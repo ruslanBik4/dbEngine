@@ -239,35 +239,49 @@ func UdtNameToType(udtName string, dbTypes map[string]dbEngine.Types, tables map
 	switch udtName {
 	case "bool":
 		return types.Bool
+
 	case "int2", "_int2":
 		return types.Int16
+
 	case "int4", "_int4":
 		return types.Int32
+
 	case "int8", "_int8":
 		return types.Int64
+
 	case "float4", "_float4":
 		return types.Float32
+
 	case "float8", "_float8", "money", "_money", "double precision":
 		return types.Float64
+
 	case "numeric", "decimal", "_numeric", "_decimal":
 		// todo add check field length UntypedFloat
 		return types.Float64
+
 	case "date", "timestamp", "timestamptz", "time", "_date", "_timestamp", "_timestamptz", "_time", "timerange", "tsrange", "daterange",
 		"numrange", "cube", "point":
 		return typesExt.TStruct
+
 	case "json", "jsonb":
 		return types.UnsafePointer
+
 	case "char", "_char", "varchar", "_varchar", "text", "_text", "citext", "_citext",
 		"character varying", "_character varying", "bpchar", "_bpchar":
 		return types.String
+
 	case "bytea", "_bytea":
 		return types.UnsafePointer
+
 	case "inet", "interval":
 		return typesExt.TMap
+
 	case "anyrange":
 		return typesExt.TStruct
+
 	case "anyarray":
 		return typesExt.TArray
+
 	case "anyelement":
 		return typesExt.TAny
 

@@ -58,7 +58,12 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 		logs.StatusLog(msg, data)
 	}
 
-	switch err := data["err"].(type) {
+	l.chkErrorType(msg, data, data["err"], sql)
+
+}
+
+func (l *pgxLog) chkErrorType(msg string, data map[string]any, err any, sql string) {
+	switch err := err.(type) {
 	case nil:
 		logs.DebugLog(msg, data)
 
@@ -99,12 +104,11 @@ func (l *pgxLog) chkError(msg string, data map[string]any) {
 	default:
 		l.printError(fmt.Errorf("unknow error %#v", err), msg, data)
 	}
-
 }
 
 func (l *pgxLog) printError(err error, msg string, data map[string]any) {
 	if e, ok := err.(xerrors.Wrapper); ok {
-		l.printError(e.Unwrap(), msg, data)
+		l.chkErrorType(msg, data, e.Unwrap(), "")
 		return
 	} else {
 		logs.StatusLog("[PGX] %#v", err, data)
